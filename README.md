@@ -5,7 +5,8 @@ A modular, agent-assisted medical document intelligence system for laboratory re
 ## Architecture
 
 - **Block 1 — Document Normalization & ROI Extraction:** Detects document quadrilateral, homography-warps to canonical canvas (`2048×1754` or `2048×1720`), fine-aligns landmarks and checkbox gutters, extracts normalized ROI crops for all checkboxes and handwriting regions.
-- **Block 2 — Clinical Knowledge Graph & Prior Validation Engine:** Frozen medical knowledge base covering 138+ tests and profiles, specimen tube rules (`EDTA`, `CB`, `Fl`, `Cit`, `Urine`, `Stool`, `pap`, `UBT`), alias/acronym normalization, messy handwriting fuzzy matching, Bayesian prior ranking (`assume()`), and cross-field clinical validation.
+- **Block 2 — Clinical Knowledge Graph & Prior Validation Engine:** Frozen medical knowledge base covering 138+ tests and profiles, specimen tube rules, alias/acronym normalization, messy handwriting fuzzy matching, Bayesian prior ranking (`assume()`), and cross-field clinical validation.
+- **Block 3 — Handwriting Recognition & Prior Fusion:** Checkbox mark classification, digit/date/optional-TrOCR handwriting reads, fusion against Block 2 priors, HiTL triage, and `block3_predictions_batch.zip` for Block 4 / LIS.
 
 ---
 
@@ -13,6 +14,7 @@ A modular, agent-assisted medical document intelligence system for laboratory re
 
 - **`block1/`**: Standalone Block 1 package with CLI demo and `Block_1_Document_Normalization.ipynb`
 - **`block2/`**: Standalone Block 2 package with CLI demo and `Block_2_Medical_Knowledge_Graph.ipynb`
+- **`block3/`**: Standalone Block 3 package with CLI demo and `Block_3_Handwriting_Recognition.ipynb`
 
 ---
 
@@ -45,6 +47,17 @@ report = kg.validate_request(
     observed_tubes={"EDTA": 1, "CB": 1, "Fl": 1}
 )
 print(f"Valid: {report.is_valid}, Confidence: {report.confidence}")
+```
+
+### Block 3: Marks, HTR, and Prior Fusion
+```python
+from med_doc.htr import process_batch_from_block2
+
+result = process_batch_from_block2(
+    "block2_validated_batch.zip",
+    output_zip="block3_predictions_batch.zip",
+)
+print(result["manifest"]["total_documents"], result["output_zip"])
 ```
 
 ---

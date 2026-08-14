@@ -1,5 +1,12 @@
-"""Medical document intelligence — Block 1 Normalization & Block 2 Knowledge Graph."""
+"""Medical document intelligence — Block 1 Normalization, Block 2 KG, Block 3 HTR."""
 
+from med_doc.htr import (
+    BatchPredictionManifest,
+    DocumentPrediction,
+    HandwritingPrediction,
+    MarkPrediction,
+    process_batch_from_block2,
+)
 from med_doc.kg import (
     CatalogueItem,
     KnowledgeGraph,
@@ -26,4 +33,9 @@ __all__ = [
     "RankedCandidate",
     "ValidationResult",
     "process_batch_from_block1",
+    "MarkPrediction",
+    "HandwritingPrediction",
+    "DocumentPrediction",
+    "BatchPredictionManifest",
+    "process_batch_from_block2",
 ]

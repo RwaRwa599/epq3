@@ -91,13 +91,14 @@ def process_batch_from_block1(
         if ov_in.exists():
             shutil.copy2(ov_in, doc_dir_out / "overlay.png")
 
-        # Copy handwriting crops (needed for downstream Block 3 HTR)
-        hw_in_dir = doc_dir_in / "crops" / "handwriting"
-        hw_out_dir = doc_dir_out / "crops" / "handwriting"
-        if hw_in_dir.exists():
-            hw_out_dir.mkdir(parents=True, exist_ok=True)
-            for hw_crop in hw_in_dir.glob("*.png"):
-                shutil.copy2(hw_crop, hw_out_dir / hw_crop.name)
+        # Copy checkbox + handwriting crops (needed for downstream Block 3 HTR)
+        for sub in ("checkboxes", "handwriting"):
+            src_dir = doc_dir_in / "crops" / sub
+            if src_dir.exists():
+                dst_dir = doc_dir_out / "crops" / sub
+                dst_dir.mkdir(parents=True, exist_ok=True)
+                for crop in src_dir.glob("*.png"):
+                    shutil.copy2(crop, dst_dir / crop.name)
 
         # 1. Expand Profiles & Calculate expected tubes
         implied = kg.implied_tests(ticked_ids)
@@ -146,6 +147,7 @@ def process_batch_from_block1(
             "canonical_path": f"docs/{doc_id}/canonical.png",
             "metadata_path": f"docs/{doc_id}/metadata.json",
             "handwriting_crops_dir": f"docs/{doc_id}/crops/handwriting",
+            "checkbox_crops_dir": f"docs/{doc_id}/crops/checkboxes",
         })
 
     b2_manifest = {

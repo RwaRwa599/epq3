@@ -13,9 +13,9 @@
 ## Project State
 
 - **project:** new2
-- **status:** Block 1 & Block 2 batch ZIP pipeline implemented and verified (19/19 tests passed); Colab interactive popups and Block 3 export ZIP ready
+- **status:** Block 3 HTR & prior fusion implemented; Block 1→2→3 ZIP pipeline verified (30/30 tests passed)
 - **last_enabled:** 2026-08-14
-- **last_session:** 2026-08-14 | agent: Cursor (2026-08-14-035451)
+- **last_session:** 2026-08-14 | agent: Cursor (2026-08-14-080522)
 - **last_review:** (none yet)
 - **last_invariant_check:** (none yet)
 - **repo:** ~/new2
@@ -27,8 +27,8 @@
 
 - Python >=3.10; package `med-doc` 0.1.0 (`pyproject.toml`)
 - Runtime: numpy, opencv-python-headless, Pillow, pydantic
-- Tests: pytest; Block 1 suite last recorded 11 passed
-<!-- id: stack-python-opencv | created: 2026-08-14 | last_used: 2026-08-14 | uses: 3 | tier: active | origin: 2026-08-14-025804 -->
+- Tests: pytest; Block 1+2+3 suite last recorded 30 passed
+<!-- id: stack-python-opencv | created: 2026-08-14 | last_used: 2026-08-14 | uses: 4 | tier: active | origin: 2026-08-14-025804 -->
 
 ## Key Decisions
 
@@ -41,11 +41,13 @@
 - Clinic photos automatically select `v1` template via `_pick_revision` and use 1-to-1 checkbox snapping within column boundaries (`snap_overlay`) with contrast-relative scoring.
   <!-- id: decision-photo-v1-snap-matching | created: 2026-08-14 | last_used: 2026-08-14 | uses: 1 | tier: working | origin: 2026-08-14-031206 -->
 - Block 2 Knowledge Graph is frozen and deterministic (`kg/lab_request_v1_kg.json`), providing profile expansions, tube requirements, acronym resolution, fuzzy matching for write-ins, and cross-field validation.
-  <!-- id: block2-clinical-kg | created: 2026-08-14 | last_used: 2026-08-14 | uses: 2 | tier: active | origin: 2026-08-14-034450 -->
+  <!-- id: block2-clinical-kg | created: 2026-08-14 | last_used: 2026-08-14 | uses: 3 | tier: active | origin: 2026-08-14-034450 -->
 - Prior engine `assume()` biases downstream HTR hypotheses using Bayesian priors from observed checkboxes and profile bundles.
-  <!-- id: decision-frozen-kg-priors | created: 2026-08-14 | last_used: 2026-08-14 | uses: 1 | tier: working | origin: 2026-08-14-034450 -->
-- Standardized ZIP contract links Block 1 (`block1_normalized_batch.zip`) -> Block 2 (Colab upload popup, Knowledge Graph batch validation) -> Block 3 (`block2_validated_batch.zip` for HTR).
-  <!-- id: block1-block2-batch-zip-pipeline | created: 2026-08-14 | last_used: 2026-08-14 | uses: 1 | tier: working | origin: 2026-08-14-035451 -->
+  <!-- id: decision-frozen-kg-priors | created: 2026-08-14 | last_used: 2026-08-14 | uses: 2 | tier: active | origin: 2026-08-14-034450 -->
+- Standardized ZIP contract links Block 1 (`block1_normalized_batch.zip`) → Block 2 (`block2_validated_batch.zip`) → Block 3 (`block3_predictions_batch.zip` for Block 4 / LIS).
+  <!-- id: block1-block2-batch-zip-pipeline | created: 2026-08-14 | last_used: 2026-08-14 | uses: 2 | tier: active | origin: 2026-08-14-035451 -->
+- Block 3 classifies checkbox marks, reads handwriting crops (digits/dates/optional TrOCR), fuses drafts with Block 2 priors, and flags HiTL fields.
+  <!-- id: block3-htr-prior-fusion | created: 2026-08-14 | last_used: 2026-08-14 | uses: 1 | tier: working | origin: 2026-08-14-080522 -->
 
 ## Conventions
 
