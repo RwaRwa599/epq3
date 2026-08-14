@@ -1,4 +1,4 @@
-"""Medical document intelligence — Block 1 Normalization & Block 2 Knowledge Graph."""
+"""Medical document intelligence — Block 2 Clinical Knowledge Graph & Prior Engine."""
 
 from med_doc.kg import (
     CatalogueItem,
@@ -7,20 +7,8 @@ from med_doc.kg import (
     ValidationResult,
     process_batch_from_block1,
 )
-from med_doc.normalization import (
-    normalize_batch,
-    normalize_document,
-    save_normalized_document,
-)
-from med_doc.schemas import FieldCrop, NormalizedDocumentResult, TemplateSpec
 
 __all__ = [
-    "FieldCrop",
-    "NormalizedDocumentResult",
-    "TemplateSpec",
-    "normalize_document",
-    "normalize_batch",
-    "save_normalized_document",
     "KnowledgeGraph",
     "CatalogueItem",
     "RankedCandidate",
