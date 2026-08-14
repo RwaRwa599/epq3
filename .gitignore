@@ -36,3 +36,27 @@ review-scratch/
 # it is a build artifact, never committed (the .py source under agent-skills/ stays tracked).
 __pycache__/
 *.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+.env
+.DS_Store
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
+
+# Model weights and run outputs
+weights/
+outputs/
+artifacts/
+*.pt
+*.bin
+*.safetensors
+
+# Real / redacted PHI — never commit
+data/samples/private/
+data/testbase/private/
+!data/samples/private/.gitkeep

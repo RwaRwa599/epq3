@@ -1,0 +1,1819 @@
+{
+  "template_id": "lab_request_canonical",
+  "canvas_size": [
+    2048,
+    1720
+  ],
+  "handwriting_order": [
+    "others",
+    "tube_edta",
+    "tube_cb",
+    "tube_fl",
+    "tube_cit",
+    "tube_urine",
+    "tube_stool",
+    "office_other",
+    "received_at"
+  ],
+  "landmarks": [
+    {
+      "id": "header_bar",
+      "kind": "header_bar",
+      "bbox": [
+        0.015,
+        0.0,
+        0.98,
+        0.08
+      ]
+    },
+    {
+      "id": "footer_rule",
+      "kind": "footer_rule",
+      "bbox": [
+        0.02,
+        0.9,
+        0.98,
+        0.96
+      ]
+    },
+    {
+      "id": "col1_gutter",
+      "kind": "column_gutter",
+      "bbox": [
+        0.0049,
+        0.1,
+        0.0449,
+        0.82
+      ]
+    },
+    {
+      "id": "col2_gutter",
+      "kind": "column_gutter",
+      "bbox": [
+        0.2632,
+        0.1,
+        0.3032,
+        0.82
+      ]
+    },
+    {
+      "id": "col3_gutter",
+      "kind": "column_gutter",
+      "bbox": [
+        0.5049,
+        0.1,
+        0.5449,
+        0.82
+      ]
+    },
+    {
+      "id": "col4_gutter",
+      "kind": "column_gutter",
+      "bbox": [
+        0.7608,
+        0.1,
+        0.8008,
+        0.82
+      ]
+    }
+  ],
+  "fields": [
+    {
+      "field_id": "body_check_plan_1",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.055814,
+        0.032227,
+        0.073256
+      ],
+      "label": "Body Check Plan-1",
+      "group": "health_check",
+      "pad": 0.002
+    },
+    {
+      "field_id": "body_check_plan_2",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.077907,
+        0.032227,
+        0.095349
+      ],
+      "label": "Body Check Plan-2",
+      "group": "health_check",
+      "pad": 0.002
+    },
+    {
+      "field_id": "body_check_plan_3",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.098837,
+        0.032227,
+        0.116279
+      ],
+      "label": "Body Check Plan-3",
+      "group": "health_check",
+      "pad": 0.002
+    },
+    {
+      "field_id": "body_check_plan_4",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.119767,
+        0.032227,
+        0.137209
+      ],
+      "label": "Body Check Plan-4",
+      "group": "health_check",
+      "pad": 0.002
+    },
+    {
+      "field_id": "body_check_plan_5",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.14186,
+        0.032227,
+        0.159302
+      ],
+      "label": "Body Check Plan-5",
+      "group": "health_check",
+      "pad": 0.002
+    },
+    {
+      "field_id": "body_check_plan_6",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.162791,
+        0.032227,
+        0.180233
+      ],
+      "label": "Body Check Plan-6",
+      "group": "health_check",
+      "pad": 0.002
+    },
+    {
+      "field_id": "body_check_plan_7",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.183721,
+        0.032227,
+        0.201163
+      ],
+      "label": "Body Check Plan-7",
+      "group": "health_check",
+      "pad": 0.002
+    },
+    {
+      "field_id": "profile_anemia",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.227907,
+        0.032227,
+        0.245349
+      ],
+      "label": "Anemia Profile",
+      "group": "specialty_profile",
+      "pad": 0.002
+    },
+    {
+      "field_id": "profile_antenatal",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.25,
+        0.032227,
+        0.267442
+      ],
+      "label": "Antenatal Profile",
+      "group": "specialty_profile",
+      "pad": 0.002
+    },
+    {
+      "field_id": "profile_cardiovascular",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.269767,
+        0.032227,
+        0.287209
+      ],
+      "label": "Cardiovascular Profile",
+      "group": "specialty_profile",
+      "pad": 0.002
+    },
+    {
+      "field_id": "profile_diabetes",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.290698,
+        0.032227,
+        0.30814
+      ],
+      "label": "Diabetes Profile",
+      "group": "specialty_profile",
+      "pad": 0.002
+    },
+    {
+      "field_id": "profile_hepatitis",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.311628,
+        0.032227,
+        0.32907
+      ],
+      "label": "Hepatitis Profile",
+      "group": "specialty_profile",
+      "pad": 0.002
+    },
+    {
+      "field_id": "profile_lipid",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.333721,
+        0.032227,
+        0.351163
+      ],
+      "label": "Lipid Profile",
+      "group": "specialty_profile",
+      "pad": 0.002
+    },
+    {
+      "field_id": "profile_liver",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.354651,
+        0.032227,
+        0.372093
+      ],
+      "label": "Liver Function Test",
+      "group": "specialty_profile",
+      "pad": 0.002
+    },
+    {
+      "field_id": "profile_ogtt",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.376744,
+        0.032227,
+        0.394186
+      ],
+      "label": "OGTT",
+      "group": "specialty_profile",
+      "pad": 0.002
+    },
+    {
+      "field_id": "profile_renal_function",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.401163,
+        0.032227,
+        0.418605
+      ],
+      "label": "Renal Function Test",
+      "group": "specialty_profile",
+      "pad": 0.002
+    },
+    {
+      "field_id": "profile_renal",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.423256,
+        0.032227,
+        0.440698
+      ],
+      "label": "Renal Profile",
+      "group": "specialty_profile",
+      "pad": 0.002
+    },
+    {
+      "field_id": "profile_std",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.444186,
+        0.032227,
+        0.461628
+      ],
+      "label": "STD Profile",
+      "group": "specialty_profile",
+      "pad": 0.002
+    },
+    {
+      "field_id": "profile_thyroid",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.466279,
+        0.032227,
+        0.483721
+      ],
+      "label": "Thyroid Function Test",
+      "group": "specialty_profile",
+      "pad": 0.002
+    },
+    {
+      "field_id": "profile_tumour_marker_f",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.488372,
+        0.032227,
+        0.505814
+      ],
+      "label": "Tumour Marker [F]",
+      "group": "specialty_profile",
+      "pad": 0.002
+    },
+    {
+      "field_id": "profile_tumour_marker_m",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.488372,
+        0.032227,
+        0.505814
+      ],
+      "label": "Tumour Marker [M]",
+      "group": "specialty_profile",
+      "pad": 0.002
+    },
+    {
+      "field_id": "cbc",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.534884,
+        0.032227,
+        0.552326
+      ],
+      "label": "CBC",
+      "group": "haematology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "esr",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.556977,
+        0.032227,
+        0.574419
+      ],
+      "label": "ESR",
+      "group": "haematology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "abo_rh",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.57907,
+        0.032227,
+        0.596512
+      ],
+      "label": "ABO Grouping & Rh (D)",
+      "group": "haematology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "hb_pattern",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.6,
+        0.032227,
+        0.617442
+      ],
+      "label": "Hb Pattern",
+      "group": "haematology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "ferritin",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.646512,
+        0.032227,
+        0.663953
+      ],
+      "label": "Ferritin",
+      "group": "bone_nutrition",
+      "pad": 0.002
+    },
+    {
+      "field_id": "folate",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.669767,
+        0.032227,
+        0.687209
+      ],
+      "label": "Folate (Serum / RBC)",
+      "group": "bone_nutrition",
+      "pad": 0.002
+    },
+    {
+      "field_id": "vitamin_b12",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.69186,
+        0.032227,
+        0.709302
+      ],
+      "label": "Vitamin B12 (Active B12)",
+      "group": "bone_nutrition",
+      "pad": 0.002
+    },
+    {
+      "field_id": "vitamin_d",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.713953,
+        0.032227,
+        0.731395
+      ],
+      "label": "Vitamin D 25-OH",
+      "group": "bone_nutrition",
+      "pad": 0.002
+    },
+    {
+      "field_id": "troponin_i",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.759302,
+        0.032227,
+        0.776744
+      ],
+      "label": "Troponin I (high sensitive)",
+      "group": "cardiovascular",
+      "pad": 0.002
+    },
+    {
+      "field_id": "ck_mb",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.780233,
+        0.032227,
+        0.797674
+      ],
+      "label": "CK-MB",
+      "group": "cardiovascular",
+      "pad": 0.002
+    },
+    {
+      "field_id": "hs_crp",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.802326,
+        0.032227,
+        0.819767
+      ],
+      "label": "hs-CRP",
+      "group": "cardiovascular",
+      "pad": 0.002
+    },
+    {
+      "field_id": "homocysteine",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.823256,
+        0.032227,
+        0.840698
+      ],
+      "label": "Homocysteine",
+      "group": "cardiovascular",
+      "pad": 0.002
+    },
+    {
+      "field_id": "nt_probnp",
+      "field_type": "checkbox",
+      "bbox": [
+        0.017578,
+        0.844186,
+        0.032227,
+        0.861628
+      ],
+      "label": "NT-proBNP",
+      "group": "cardiovascular",
+      "pad": 0.002
+    },
+    {
+      "field_id": "hba1c",
+      "field_type": "checkbox",
+      "bbox": [
+        0.276367,
+        0.055814,
+        0.290039,
+        0.072093
+      ],
+      "label": "HbA1c",
+      "group": "diabetes",
+      "pad": 0.002
+    },
+    {
+      "field_id": "glucose_fasting",
+      "field_type": "checkbox",
+      "bbox": [
+        0.276367,
+        0.077907,
+        0.291016,
+        0.095349
+      ],
+      "label": "Glucose (Fasting)",
+      "group": "diabetes",
+      "pad": 0.002
+    },
+    {
+      "field_id": "glucose_random",
+      "field_type": "checkbox",
+      "bbox": [
+        0.262695,
+        0.098837,
+        0.277344,
+        0.116279
+      ],
+      "label": "Glucose (Random / 2 hr pp)",
+      "group": "diabetes",
+      "pad": 0.002
+    },
+    {
+      "field_id": "creatinine",
+      "field_type": "checkbox",
+      "bbox": [
+        0.276367,
+        0.162791,
+        0.290039,
+        0.17907
+      ],
+      "label": "Creatinine",
+      "group": "renal",
+      "pad": 0.002
+    },
+    {
+      "field_id": "urea",
+      "field_type": "checkbox",
+      "bbox": [
+        0.276367,
+        0.184884,
+        0.290039,
+        0.201163
+      ],
+      "label": "Urea",
+      "group": "renal",
+      "pad": 0.002
+    },
+    {
+      "field_id": "na",
+      "field_type": "checkbox",
+      "bbox": [
+        0.276367,
+        0.205814,
+        0.291016,
+        0.223256
+      ],
+      "label": "Na",
+      "group": "renal",
+      "pad": 0.002
+    },
+    {
+      "field_id": "k",
+      "field_type": "checkbox",
+      "bbox": [
+        0.330078,
+        0.205814,
+        0.344727,
+        0.223256
+      ],
+      "label": "K",
+      "group": "renal",
+      "pad": 0.002
+    },
+    {
+      "field_id": "cl",
+      "field_type": "checkbox",
+      "bbox": [
+        0.375977,
+        0.205814,
+        0.390625,
+        0.223256
+      ],
+      "label": "Cl",
+      "group": "renal",
+      "pad": 0.002
+    },
+    {
+      "field_id": "co2",
+      "field_type": "checkbox",
+      "bbox": [
+        0.425781,
+        0.205814,
+        0.44043,
+        0.223256
+      ],
+      "label": "CO2",
+      "group": "renal",
+      "pad": 0.002
+    },
+    {
+      "field_id": "egfr",
+      "field_type": "checkbox",
+      "bbox": [
+        0.276367,
+        0.227907,
+        0.290039,
+        0.244186
+      ],
+      "label": "eGFR",
+      "group": "renal",
+      "pad": 0.002
+    },
+    {
+      "field_id": "alp",
+      "field_type": "checkbox",
+      "bbox": [
+        0.276367,
+        0.269767,
+        0.291016,
+        0.287209
+      ],
+      "label": "Alkaline Phosphatase (ALP)",
+      "group": "liver",
+      "pad": 0.002
+    },
+    {
+      "field_id": "alt",
+      "field_type": "checkbox",
+      "bbox": [
+        0.276367,
+        0.29186,
+        0.290039,
+        0.30814
+      ],
+      "label": "ALT / SGPT",
+      "group": "liver",
+      "pad": 0.002
+    },
+    {
+      "field_id": "ast",
+      "field_type": "checkbox",
+      "bbox": [
+        0.276367,
+        0.311628,
+        0.291016,
+        0.32907
+      ],
+      "label": "AST / SGOT",
+      "group": "liver",
+      "pad": 0.002
+    },
+    {
+      "field_id": "ggt",
+      "field_type": "checkbox",
+      "bbox": [
+        0.276367,
+        0.334884,
+        0.290039,
+        0.351163
+      ],
+      "label": "Gamma GT",
+      "group": "liver",
+      "pad": 0.002
+    },
+    {
+      "field_id": "bilirubin_total",
+      "field_type": "checkbox",
+      "bbox": [
+        0.276367,
+        0.354651,
+        0.291016,
+        0.372093
+      ],
+      "label": "Bilirubin (Total)",
+      "group": "liver",
+      "pad": 0.002
+    },
+    {
+      "field_id": "bilirubin_direct",
+      "field_type": "checkbox",
+      "bbox": [
+        0.276367,
+        0.376744,
+        0.291016,
+        0.394186
+      ],
+      "label": "Bilirubin (Direct)",
+      "group": "liver",
+      "pad": 0.002
+    },
+    {
+      "field_id": "total_protein",
+      "field_type": "checkbox",
+      "bbox": [
+        0.276367,
+        0.401163,
+        0.291016,
+        0.418605
+      ],
+      "label": "Total Protein",
+      "group": "liver",
+      "pad": 0.002
+    },
+    {
+      "field_id": "albumin",
+      "field_type": "checkbox",
+      "bbox": [
+        0.276367,
+        0.423256,
+        0.291016,
+        0.440698
+      ],
+      "label": "Albumin",
+      "group": "liver",
+      "pad": 0.002
+    },
+    {
+      "field_id": "globulin",
+      "field_type": "checkbox",
+      "bbox": [
+        0.276367,
+        0.444186,
+        0.291016,
+        0.461628
+      ],
+      "label": "Globulin",
+      "group": "liver",
+      "pad": 0.002
+    },
+    {
+      "field_id": "ag_ratio",
+      "field_type": "checkbox",
+      "bbox": [
+        0.276367,
+        0.466279,
+        0.291016,
+        0.483721
+      ],
+      "label": "A/G Ratio",
+      "group": "liver",
+      "pad": 0.002
+    },
+    {
+      "field_id": "chol_total",
+      "field_type": "checkbox",
+      "bbox": [
+        0.276367,
+        0.511628,
+        0.290039,
+        0.527907
+      ],
+      "label": "Total Cholesterol",
+      "group": "lipid",
+      "pad": 0.002
+    },
+    {
+      "field_id": "hdl",
+      "field_type": "checkbox",
+      "bbox": [
+        0.276367,
+        0.534884,
+        0.290039,
+        0.551163
+      ],
+      "label": "HDL Cholesterol",
+      "group": "lipid",
+      "pad": 0.002
+    },
+    {
+      "field_id": "ldl",
+      "field_type": "checkbox",
+      "bbox": [
+        0.276367,
+        0.556977,
+        0.291016,
+        0.574419
+      ],
+      "label": "LDL Cholesterol (Direct)",
+      "group": "lipid",
+      "pad": 0.002
+    },
+    {
+      "field_id": "triglycerides",
+      "field_type": "checkbox",
+      "bbox": [
+        0.276367,
+        0.57907,
+        0.291016,
+        0.596512
+      ],
+      "label": "Triglycerides",
+      "group": "lipid",
+      "pad": 0.002
+    },
+    {
+      "field_id": "uric_acid",
+      "field_type": "checkbox",
+      "bbox": [
+        0.262695,
+        0.6,
+        0.277344,
+        0.617442
+      ],
+      "label": "Uric Acid",
+      "group": "chemistry",
+      "pad": 0.002
+    },
+    {
+      "field_id": "calcium",
+      "field_type": "checkbox",
+      "bbox": [
+        0.262695,
+        0.622093,
+        0.277344,
+        0.639535
+      ],
+      "label": "Calcium",
+      "group": "chemistry",
+      "pad": 0.002
+    },
+    {
+      "field_id": "phosphorus",
+      "field_type": "checkbox",
+      "bbox": [
+        0.262695,
+        0.646512,
+        0.277344,
+        0.663953
+      ],
+      "label": "Phosphorus",
+      "group": "chemistry",
+      "pad": 0.002
+    },
+    {
+      "field_id": "ck_total",
+      "field_type": "checkbox",
+      "bbox": [
+        0.262695,
+        0.669767,
+        0.277344,
+        0.687209
+      ],
+      "label": "CK (Total)",
+      "group": "chemistry",
+      "pad": 0.002
+    },
+    {
+      "field_id": "ldh",
+      "field_type": "checkbox",
+      "bbox": [
+        0.262695,
+        0.69186,
+        0.277344,
+        0.709302
+      ],
+      "label": "LDH",
+      "group": "chemistry",
+      "pad": 0.002
+    },
+    {
+      "field_id": "iron",
+      "field_type": "checkbox",
+      "bbox": [
+        0.262695,
+        0.713953,
+        0.277344,
+        0.731395
+      ],
+      "label": "Iron",
+      "group": "chemistry",
+      "pad": 0.002
+    },
+    {
+      "field_id": "tibc",
+      "field_type": "checkbox",
+      "bbox": [
+        0.262695,
+        0.738372,
+        0.277344,
+        0.755814
+      ],
+      "label": "TIBC",
+      "group": "chemistry",
+      "pad": 0.002
+    },
+    {
+      "field_id": "amylase",
+      "field_type": "checkbox",
+      "bbox": [
+        0.262695,
+        0.759302,
+        0.277344,
+        0.776744
+      ],
+      "label": "Amylase",
+      "group": "chemistry",
+      "pad": 0.002
+    },
+    {
+      "field_id": "hav_ab_igg",
+      "field_type": "checkbox",
+      "bbox": [
+        0.518555,
+        0.036047,
+        0.532227,
+        0.052326
+      ],
+      "label": "HAV Ab IgG",
+      "group": "immunology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "hav_ab_igm",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.055814,
+        0.532227,
+        0.073256
+      ],
+      "label": "HAV Ab IgM",
+      "group": "immunology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "hbsab",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.077907,
+        0.532227,
+        0.095349
+      ],
+      "label": "HBsAb",
+      "group": "immunology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "hbsag",
+      "field_type": "checkbox",
+      "bbox": [
+        0.518555,
+        0.1,
+        0.532227,
+        0.116279
+      ],
+      "label": "HBsAg",
+      "group": "immunology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "hbe_ab",
+      "field_type": "checkbox",
+      "bbox": [
+        0.518555,
+        0.12093,
+        0.532227,
+        0.137209
+      ],
+      "label": "Hep Be Ab",
+      "group": "immunology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "hbe_ag",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.14186,
+        0.532227,
+        0.159302
+      ],
+      "label": "Hep Be Ag",
+      "group": "immunology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "hbcab_total",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.162791,
+        0.532227,
+        0.180233
+      ],
+      "label": "HBcAb Total",
+      "group": "immunology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "hcv_ab",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.183721,
+        0.532227,
+        0.201163
+      ],
+      "label": "HCV Ab",
+      "group": "immunology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "hiv_combo",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.205814,
+        0.532227,
+        0.223256
+      ],
+      "label": "HIV Combo (1 & 2 Abs & p24 Ag)",
+      "group": "immunology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "hsv_1_igg",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.22907,
+        0.53125,
+        0.245349
+      ],
+      "label": "HSV 1 Ab IgG",
+      "group": "immunology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "hsv_2_igg",
+      "field_type": "checkbox",
+      "bbox": [
+        0.518555,
+        0.25,
+        0.532227,
+        0.266279
+      ],
+      "label": "HSV 2 Ab IgG",
+      "group": "immunology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "syphilis_tp",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.269767,
+        0.532227,
+        0.287209
+      ],
+      "label": "Syphilis TP Ab",
+      "group": "immunology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "sars_cov2_igg",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.290698,
+        0.532227,
+        0.30814
+      ],
+      "label": "SARS-CoV-2 Ab IgG",
+      "group": "immunology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "rubella_igg",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.311628,
+        0.532227,
+        0.32907
+      ],
+      "label": "Rubella Ab IgG",
+      "group": "immunology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "rpr",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.333721,
+        0.532227,
+        0.351163
+      ],
+      "label": "RPR (VDRL)",
+      "group": "immunology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "asot",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.354651,
+        0.532227,
+        0.372093
+      ],
+      "label": "ASOT",
+      "group": "immunology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "ra_factor",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.376744,
+        0.532227,
+        0.394186
+      ],
+      "label": "RA factor (Quantitative)",
+      "group": "immunology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "tsh",
+      "field_type": "checkbox",
+      "bbox": [
+        0.518555,
+        0.423256,
+        0.533203,
+        0.440698
+      ],
+      "label": "TSH",
+      "group": "endocrinology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "ft3",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.444186,
+        0.532227,
+        0.461628
+      ],
+      "label": "FT3",
+      "group": "endocrinology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "ft4",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.466279,
+        0.532227,
+        0.483721
+      ],
+      "label": "FT4",
+      "group": "endocrinology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "t3_total",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.488372,
+        0.532227,
+        0.505814
+      ],
+      "label": "T3 Total",
+      "group": "endocrinology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "t4_total",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.511628,
+        0.532227,
+        0.52907
+      ],
+      "label": "T4 Total",
+      "group": "endocrinology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "thyroglobulin",
+      "field_type": "checkbox",
+      "bbox": [
+        0.518555,
+        0.534884,
+        0.532227,
+        0.551163
+      ],
+      "label": "Thyroglobulin (Tg)",
+      "group": "endocrinology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "pth",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.556977,
+        0.532227,
+        0.574419
+      ],
+      "label": "intact PTH",
+      "group": "endocrinology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "cortisol",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.57907,
+        0.532227,
+        0.596512
+      ],
+      "label": "Cortisol (AM / PM)",
+      "group": "endocrinology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "amh",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.6,
+        0.532227,
+        0.617442
+      ],
+      "label": "AMH",
+      "group": "endocrinology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "beta_hcg",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.622093,
+        0.532227,
+        0.639535
+      ],
+      "label": "\u03b2-hCG Total (Quantitative)",
+      "group": "endocrinology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "estradiol",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.646512,
+        0.532227,
+        0.663953
+      ],
+      "label": "Estradiol (E2)",
+      "group": "endocrinology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "fsh",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.669767,
+        0.532227,
+        0.687209
+      ],
+      "label": "FSH",
+      "group": "endocrinology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "lh",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.69186,
+        0.532227,
+        0.709302
+      ],
+      "label": "LH",
+      "group": "endocrinology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "prolactin",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.713953,
+        0.532227,
+        0.731395
+      ],
+      "label": "Prolactin",
+      "group": "endocrinology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "progesterone",
+      "field_type": "checkbox",
+      "bbox": [
+        0.518555,
+        0.738372,
+        0.532227,
+        0.754651
+      ],
+      "label": "Progesterone",
+      "group": "endocrinology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "testosterone",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.759302,
+        0.532227,
+        0.776744
+      ],
+      "label": "Testosterone Total",
+      "group": "endocrinology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "dheas",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.780233,
+        0.532227,
+        0.797674
+      ],
+      "label": "DHEA-S",
+      "group": "endocrinology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "growth_hormone",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.802326,
+        0.532227,
+        0.819767
+      ],
+      "label": "Growth Hormone",
+      "group": "endocrinology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "igf1",
+      "field_type": "checkbox",
+      "bbox": [
+        0.517578,
+        0.823256,
+        0.532227,
+        0.840698
+      ],
+      "label": "IGF-1",
+      "group": "endocrinology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "shbg",
+      "field_type": "checkbox",
+      "bbox": [
+        0.518555,
+        0.844186,
+        0.532227,
+        0.860465
+      ],
+      "label": "Sex Hormone Binding Protein (SHBG)",
+      "group": "endocrinology",
+      "pad": 0.002
+    },
+    {
+      "field_id": "afp",
+      "field_type": "checkbox",
+      "bbox": [
+        0.773438,
+        0.034884,
+        0.788086,
+        0.052326
+      ],
+      "label": "AFP (Liver)",
+      "group": "tumour_markers",
+      "pad": 0.002
+    },
+    {
+      "field_id": "ca125",
+      "field_type": "checkbox",
+      "bbox": [
+        0.773438,
+        0.055814,
+        0.788086,
+        0.073256
+      ],
+      "label": "CA 125 (Ovary)",
+      "group": "tumour_markers",
+      "pad": 0.002
+    },
+    {
+      "field_id": "ca15_3",
+      "field_type": "checkbox",
+      "bbox": [
+        0.773438,
+        0.077907,
+        0.788086,
+        0.095349
+      ],
+      "label": "CA 15-3 (Breast)",
+      "group": "tumour_markers",
+      "pad": 0.002
+    },
+    {
+      "field_id": "ca19_9",
+      "field_type": "checkbox",
+      "bbox": [
+        0.773438,
+        0.098837,
+        0.788086,
+        0.116279
+      ],
+      "label": "CA 19-9 (Pancreas)",
+      "group": "tumour_markers",
+      "pad": 0.002
+    },
+    {
+      "field_id": "ca72_4",
+      "field_type": "checkbox",
+      "bbox": [
+        0.773438,
+        0.119767,
+        0.788086,
+        0.137209
+      ],
+      "label": "CA 72-4 (Stomach)",
+      "group": "tumour_markers",
+      "pad": 0.002
+    },
+    {
+      "field_id": "cea",
+      "field_type": "checkbox",
+      "bbox": [
+        0.773438,
+        0.14186,
+        0.788086,
+        0.159302
+      ],
+      "label": "CEA (Colorectal)",
+      "group": "tumour_markers",
+      "pad": 0.002
+    },
+    {
+      "field_id": "ebv_iga",
+      "field_type": "checkbox",
+      "bbox": [
+        0.773438,
+        0.162791,
+        0.788086,
+        0.180233
+      ],
+      "label": "EBV Ab IgA (NPC)",
+      "group": "tumour_markers",
+      "pad": 0.002
+    },
+    {
+      "field_id": "psa_ratio",
+      "field_type": "checkbox",
+      "bbox": [
+        0.773438,
+        0.183721,
+        0.788086,
+        0.201163
+      ],
+      "label": "PSA Ratio",
+      "group": "tumour_markers",
+      "pad": 0.002
+    },
+    {
+      "field_id": "psa_total",
+      "field_type": "checkbox",
+      "bbox": [
+        0.773438,
+        0.205814,
+        0.788086,
+        0.223256
+      ],
+      "label": "PSA Total",
+      "group": "tumour_markers",
+      "pad": 0.002
+    },
+    {
+      "field_id": "psa_free",
+      "field_type": "checkbox",
+      "bbox": [
+        0.773438,
+        0.227907,
+        0.788086,
+        0.245349
+      ],
+      "label": "PSA Free",
+      "group": "tumour_markers",
+      "pad": 0.002
+    },
+    {
+      "field_id": "scc",
+      "field_type": "checkbox",
+      "bbox": [
+        0.773438,
+        0.25,
+        0.788086,
+        0.267442
+      ],
+      "label": "SCC Ag",
+      "group": "tumour_markers",
+      "pad": 0.002
+    },
+    {
+      "field_id": "he4",
+      "field_type": "checkbox",
+      "bbox": [
+        0.773438,
+        0.269767,
+        0.788086,
+        0.287209
+      ],
+      "label": "HE4",
+      "group": "tumour_markers",
+      "pad": 0.002
+    },
+    {
+      "field_id": "roma",
+      "field_type": "checkbox",
+      "bbox": [
+        0.773438,
+        0.290698,
+        0.788086,
+        0.30814
+      ],
+      "label": "ROMA",
+      "group": "tumour_markers",
+      "pad": 0.002
+    },
+    {
+      "field_id": "urinalysis",
+      "field_type": "checkbox",
+      "bbox": [
+        0.773438,
+        0.401163,
+        0.788086,
+        0.418605
+      ],
+      "label": "Urinalysis",
+      "group": "urine",
+      "pad": 0.002
+    },
+    {
+      "field_id": "pregnancy",
+      "field_type": "checkbox",
+      "bbox": [
+        0.773438,
+        0.423256,
+        0.788086,
+        0.440698
+      ],
+      "label": "Pregnancy Test",
+      "group": "urine",
+      "pad": 0.002
+    },
+    {
+      "field_id": "microalbumin",
+      "field_type": "checkbox",
+      "bbox": [
+        0.773438,
+        0.444186,
+        0.788086,
+        0.461628
+      ],
+      "label": "Microalbumin",
+      "group": "urine",
+      "pad": 0.002
+    },
+    {
+      "field_id": "microalbumin_creatinine",
+      "field_type": "checkbox",
+      "bbox": [
+        0.773438,
+        0.466279,
+        0.788086,
+        0.483721
+      ],
+      "label": "Microalbumin / Creatinine Ratio",
+      "group": "urine",
+      "pad": 0.002
+    },
+    {
+      "field_id": "occult_blood_fit",
+      "field_type": "checkbox",
+      "bbox": [
+        0.773438,
+        0.511628,
+        0.788086,
+        0.52907
+      ],
+      "label": "Occult Blood (FIT)",
+      "group": "stool",
+      "pad": 0.002
+    },
+    {
+      "field_id": "stool_op",
+      "field_type": "checkbox",
+      "bbox": [
+        0.773438,
+        0.534884,
+        0.788086,
+        0.552326
+      ],
+      "label": "Routine (Ova & Parasites)",
+      "group": "stool",
+      "pad": 0.002
+    },
+    {
+      "field_id": "semen_analysis",
+      "field_type": "checkbox",
+      "bbox": [
+        0.773438,
+        0.57907,
+        0.788086,
+        0.596512
+      ],
+      "label": "Semen Analysis",
+      "group": "miscellaneous",
+      "pad": 0.002
+    },
+    {
+      "field_id": "urea_breath_test",
+      "field_type": "checkbox",
+      "bbox": [
+        0.773438,
+        0.6,
+        0.788086,
+        0.617442
+      ],
+      "label": "Urea Breath Test for H. pylori",
+      "group": "miscellaneous",
+      "pad": 0.002
+    },
+    {
+      "field_id": "others",
+      "field_type": "handwriting_box",
+      "bbox": [
+        0.759766,
+        0.625581,
+        0.979492,
+        0.869767
+      ],
+      "label": "OTHERS",
+      "group": "write_in",
+      "pad": 0.004
+    },
+    {
+      "field_id": "tube_edta",
+      "field_type": "handwriting_line",
+      "bbox": [
+        0.05957,
+        0.966279,
+        0.077148,
+        0.989535
+      ],
+      "label": "EDTA x",
+      "group": "tube",
+      "pad": 0.004
+    },
+    {
+      "field_id": "tube_cb",
+      "field_type": "handwriting_line",
+      "bbox": [
+        0.110352,
+        0.966279,
+        0.128906,
+        0.989535
+      ],
+      "label": "CB x",
+      "group": "tube",
+      "pad": 0.004
+    },
+    {
+      "field_id": "tube_fl",
+      "field_type": "handwriting_line",
+      "bbox": [
+        0.155273,
+        0.966279,
+        0.172852,
+        0.989535
+      ],
+      "label": "Fl x",
+      "group": "tube",
+      "pad": 0.004
+    },
+    {
+      "field_id": "tube_cit",
+      "field_type": "handwriting_line",
+      "bbox": [
+        0.205078,
+        0.966279,
+        0.222656,
+        0.989535
+      ],
+      "label": "Cit x",
+      "group": "tube",
+      "pad": 0.004
+    },
+    {
+      "field_id": "tube_urine",
+      "field_type": "handwriting_line",
+      "bbox": [
+        0.266602,
+        0.966279,
+        0.285156,
+        0.989535
+      ],
+      "label": "Urine x",
+      "group": "tube",
+      "pad": 0.004
+    },
+    {
+      "field_id": "tube_stool",
+      "field_type": "handwriting_line",
+      "bbox": [
+        0.327148,
+        0.966279,
+        0.344727,
+        0.989535
+      ],
+      "label": "Stool x",
+      "group": "tube",
+      "pad": 0.004
+    },
+    {
+      "field_id": "office_other",
+      "field_type": "handwriting_box",
+      "bbox": [
+        0.383789,
+        0.966279,
+        0.500977,
+        0.989535
+      ],
+      "label": "Other",
+      "group": "office",
+      "pad": 0.004
+    },
+    {
+      "field_id": "received_at",
+      "field_type": "handwriting_box",
+      "bbox": [
+        0.857422,
+        0.966279,
+        0.981445,
+        0.989535
+      ],
+      "label": "Sample received Date/Time",
+      "group": "office",
+      "pad": 0.004
+    }
+  ],
+  "source": {
+    "origin_template": "lab_request_v0",
+    "origin_page_size": [
+      1024,
+      860
+    ],
+    "scale": 2
+  }
+}

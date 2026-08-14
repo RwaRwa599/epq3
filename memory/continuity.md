@@ -13,9 +13,9 @@
 ## Project State
 
 - **project:** new2
-- **status:** Greenfield initialization — ready for stack and feature definition
+- **status:** Block 1 photo normalization verified across 3 clinic samples (v1 template auto-picked, 138 checkboxes + 12 handwriting crops extracted per sample)
 - **last_enabled:** 2026-08-14
-- **last_session:** 2026-08-14 | agent: Cursor (2026-08-14-023004)
+- **last_session:** 2026-08-14 | agent: Cursor (2026-08-14-031206)
 - **last_review:** (none yet)
 - **last_invariant_check:** (none yet)
 - **repo:** ~/new2
@@ -25,12 +25,21 @@
 > Canonical live home for the current stack — language version, dependencies, tool
 > versions. `instructions.md` keeps only a high-level descriptor and points here.
 
-(none yet — greenfield)
+- Python >=3.10; package `med-doc` 0.1.0 (`pyproject.toml`)
+- Runtime: numpy, opencv-python-headless, Pillow, pydantic
+- Tests: pytest; Block 1 suite last recorded 11 passed
+<!-- id: stack-python-opencv | created: 2026-08-14 | last_used: 2026-08-14 | uses: 1 | tier: working | origin: 2026-08-14-025804 -->
 
 ## Key Decisions
 
 - Initialized with agent-memory v4.32.1 (Mode A, deep analysis)
-  <!-- id: init-agent-memory-v4321 | created: 2026-08-14 | last_used: 2026-08-14 | uses: 1 | tier: working | origin: 2026-08-14-023004 -->
+  <!-- id: init-agent-memory-v4321 | created: 2026-08-14 | last_used: 2026-08-14 | uses: 2 | tier: active | origin: 2026-08-14-023004 -->
+- Default Block 1 overlay is digital print **v0** (`templates/lab_request_canonical.json`, canvas 2048×1720). Clinic photos are a later **v1** print (`templates/lab_request_v1_canonical.json`).
+  <!-- id: decision-v0-default-v1-clinic | created: 2026-08-14 | last_used: 2026-08-14 | uses: 2 | tier: active | origin: 2026-08-14-025804 -->
+- Full-page scans use height letterbox to the canonical canvas, not an anisotropic stretch.
+  <!-- id: decision-letterbox-fullpage | created: 2026-08-14 | last_used: 2026-08-14 | uses: 1 | tier: working | origin: 2026-08-14-025804 -->
+- Clinic photos automatically select `v1` template via `_pick_revision` and use 1-to-1 checkbox snapping within column boundaries (`snap_overlay`) with contrast-relative scoring.
+  <!-- id: decision-photo-v1-snap-matching | created: 2026-08-14 | last_used: 2026-08-14 | uses: 1 | tier: working | origin: 2026-08-14-031206 -->
 
 ## Conventions
 
@@ -42,9 +51,11 @@
 > the archive once older than `archive_window` sessions. Don't archive them by hand.
 
 - [ ] (vision-bootstrap) Confirm the Vision in memory/vision.md — set the target / success criteria / non-goals; then derive the Blueprint.
-  <!-- id: vision-bootstrap | created: 2026-08-14 | last_used: 2026-08-14 | uses: 1 | tier: active | origin: 2026-08-14-023004 -->
-- [ ] Greenfield — no code yet: record the stack in ## Stack & Tools, coding conventions, Architectural Invariants, and seed the stack's build-output .gitignore entries when the stack lands.
-  <!-- id: greenfield-seed-stack | created: 2026-08-14 | last_used: 2026-08-14 | uses: 1 | tier: active | origin: 2026-08-14-023004 -->
+  <!-- id: vision-bootstrap | created: 2026-08-14 | last_used: 2026-08-14 | uses: 2 | tier: active | origin: 2026-08-14-023004 -->
+- [x] Greenfield — no code yet: record the stack in ## Stack & Tools, coding conventions, Architectural Invariants, and seed the stack's build-output .gitignore entries when the stack lands.
+  <!-- id: greenfield-seed-stack | created: 2026-08-14 | last_used: 2026-08-14 | uses: 2 | tier: active | origin: 2026-08-14-023004 -->
+- [x] Photographed clinic sheets use print v1 (extra rows: ANA, Molecular, Pap, extra tubes). Block 1 needs a v1 snap/warp before the v0 overlay will sit on those squares.
+  <!-- id: clinic-print-v1-drift | created: 2026-08-14 | last_used: 2026-08-14 | uses: 2 | tier: active | origin: 2026-08-14-025804 -->
 
 ## User Preferences
 
