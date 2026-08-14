@@ -1,19 +1,24 @@
-# Block 1 — Document Normalization & ROI Extraction
+# Medical Document Intelligence System (`new2`)
 
-`new2` is a modular medical lab-request document pipeline. This branch implements **Block 1 only**: take a raw photo or scan of a laboratory request sheet and emit a rectified canonical canvas plus illumination-normalized field crops.
+A modular, agent-assisted medical document intelligence system for laboratory request forms.
 
-## Pipeline
+## Architecture
 
-1. Detect the page quadrilateral and warp it to the canonical canvas (`2048×1754`).
-2. Correct 90/180/270 orientation so the printed header sits at the top.
-3. Fine-align using header/footer landmarks and column checkbox gutters.
-4. Crop every checkbox and handwriting ROI from relative `[0, 1]` template coordinates.
-5. Flatten illumination (background division + CLAHE) and attach a quality score.
+- **Block 1 — Document Normalization & ROI Extraction:** Detects document quadrilateral, homography-warps to canonical canvas (`2048×1754` or `2048×1720`), fine-aligns landmarks and checkbox gutters, extracts normalized ROI crops for all checkboxes and handwriting regions.
+- **Block 2 — Clinical Knowledge Graph & Prior Validation Engine:** Frozen medical knowledge base covering 138+ tests and profiles, specimen tube rules (`EDTA`, `CB`, `Fl`, `Cit`, `Urine`, `Stool`, `pap`, `UBT`), alias/acronym normalization, messy handwriting fuzzy matching, Bayesian prior ranking (`assume()`), and cross-field clinical validation.
 
-Downstream blocks (mark classification, HTR, knowledge graph, HiTL) consume `NormalizedDocumentResult`.
+---
+
+## Standalone Colab Packages
+
+- **`block1/`**: Standalone Block 1 package with CLI demo and `Block_1_Document_Normalization.ipynb`
+- **`block2/`**: Standalone Block 2 package with CLI demo and `Block_2_Medical_Knowledge_Graph.ipynb`
+
+---
 
 ## Usage
 
+### Block 1: Normalize Document & Extract Crops
 ```python
 from med_doc import normalize_document
 
@@ -22,18 +27,33 @@ tick = result.checkbox_crops["body_check_plan_1"]
 print(tick.canonical_bbox, tick.quality_score)
 ```
 
-## Layout
+### Block 2: Clinical Knowledge Graph & Prior Engine
+```python
+from med_doc.kg import KnowledgeGraph
 
-- `src/med_doc/schemas.py` — `FieldCrop`, `TemplateSpec`, `NormalizedDocumentResult`
-- `src/med_doc/normalization/` — warp, align, crops, viz, pipeline
-- `templates/lab_request_canonical.json` — relative-coordinate lab-request template (from clinic print v1)
-- `tests/test_normalization.py`
+kg = KnowledgeGraph.load()
 
-## Local checks
+# Expand profile bundle
+lipid_tests = kg.expand_profile("profile_lipid")
+
+# Compute required specimen tubes
+tubes = kg.calculate_expected_tubes(["cbc", "alt", "glucose_fasting"])
+
+# Cross-field validation
+report = kg.validate_request(
+    ticked_ids=["cbc", "alt", "glucose_fasting"],
+    observed_tubes={"EDTA": 1, "CB": 1, "Fl": 1}
+)
+print(f"Valid: {report.is_valid}, Confidence: {report.confidence}")
+```
+
+---
+
+## Local Verification
 
 ```bash
 pip install -e ".[dev]"
-pytest
+pytest -v
 ```
 
 Private / unredacted clinic photos belong in `data/samples/private/` (gitignored). Never commit PHI.
