@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Interactive CLI demo for Block 2: Clinical Knowledge Graph & Prior Engine."""
+"""Interactive CLI demo for Block 2: Clinical Knowledge Graph, Prior Engine & Batch ZIP Ingestion."""
 
 import argparse
 import json
@@ -9,12 +9,24 @@ from pathlib import Path
 # Add local directory to path for standalone execution
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from med_doc.kg import KnowledgeGraph
+from med_doc.kg import KnowledgeGraph, process_batch_from_block1
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Block 2 CLI Demo — Clinical Knowledge Graph & Prior Engine"
+        description="Block 2 CLI Demo — Clinical Knowledge Graph, Prior Engine & Batch Ingestion"
+    )
+    parser.add_argument(
+        "--input-zip",
+        type=str,
+        default=None,
+        help="Path to Block 1 normalized batch ZIP file (e.g. block1_normalized_batch.zip)",
+    )
+    parser.add_argument(
+        "--output-zip",
+        type=str,
+        default="block2_validated_batch.zip",
+        help="Path to save validated Block 3 ZIP file",
     )
     parser.add_argument(
         "--kg-path",
@@ -26,7 +38,7 @@ def main() -> None:
         "--tests",
         nargs="+",
         default=["cbc", "profile_lipid", "glucose_fasting"],
-        help="List of ticked test or profile IDs to simulate",
+        help="List of ticked test or profile IDs for single-sheet simulation",
     )
     parser.add_argument(
         "--tubes",
@@ -46,12 +58,6 @@ def main() -> None:
         default="cultur and sensitivty",
         help="Messy doctor handwriting query to fuzzy match",
     )
-    parser.add_argument(
-        "--output-json",
-        type=str,
-        default=None,
-        help="Optional path to save validation JSON report",
-    )
 
     args = parser.parse_args()
 
@@ -59,29 +65,42 @@ def main() -> None:
     print("  BLOCK 2: CLINICAL KNOWLEDGE GRAPH & PRIOR VALIDATION ENGINE")
     print("=" * 70)
 
-    # 1. Load Knowledge Graph
     kg = KnowledgeGraph.load(args.kg_path)
     print(f"\n[+] Loaded Knowledge Graph: version='{kg.version}' ({len(kg.catalogue)} catalogue tests)")
     print(f"    Disclaimer: {kg.disclaimer}\n")
 
-    # 2. Resolve alias
+    # If batch ZIP input is provided
+    if args.input_zip:
+        print(f"[*] Processing Block 1 Batch ZIP: {args.input_zip}")
+        res = process_batch_from_block1(
+            args.input_zip,
+            output_zip=args.output_zip,
+            kg=kg,
+        )
+        manifest = res["manifest"]
+        print("\n" + "=" * 70)
+        print("✓ Batch Validation Complete!")
+        print(f"  Total Processed Documents: {manifest['total_documents']}")
+        print(f"  Valid Documents:           {manifest['valid_documents']}")
+        print(f"  Output ZIP for Block 3:    {res['output_zip']}")
+        print("=" * 70)
+        return
+
+    # Otherwise run single interactive demo
     resolved_id = kg.resolve_alias(args.resolve)
     print(f"[*] Alias Resolution: '{args.resolve}' -> '{resolved_id}'")
 
-    # 3. Fuzzy match doctor handwriting
     fuzzy_candidates = kg.fuzzy_match_catalogue(args.fuzzy, top_k=3)
     print(f"[*] Fuzzy Match for write-in '{args.fuzzy}':")
     for rank, c in enumerate(fuzzy_candidates, 1):
         print(f"    {rank}. {c.value} (id: {c.canonical_id}) - Score: {c.score:.3f} [Tier {c.tier}]")
 
-    # 4. Expand profiles & calculate expected tubes
     print(f"\n[*] Simulating Request with Ticked IDs: {args.tests}")
     implied = kg.implied_tests(args.tests)
     print(f"    Implied individual tests: {sorted(implied)}")
     expected_tubes = kg.calculate_expected_tubes(args.tests)
     print(f"    Required specimen tubes: {expected_tubes}")
 
-    # 5. Parse observed tubes
     observed_tubes: dict[str, int | None] = {}
     for item in args.tubes:
         if ":" in item:
@@ -93,7 +112,6 @@ def main() -> None:
 
     print(f"    Observed physical tubes: {observed_tubes}")
 
-    # 6. Run clinical validation
     report = kg.validate_request(ticked_ids=args.tests, observed_tubes=observed_tubes)
     print("\n[+] Validation Report:")
     print(f"    Status: {'VALID' if report.is_valid else 'DISCREPANCY DETECTED'}")
@@ -112,12 +130,6 @@ def main() -> None:
             print(f"      - [WARN] {w}")
     else:
         print("    Warnings: None")
-
-    if args.output_json:
-        out_p = Path(args.output_json)
-        out_p.parent.mkdir(parents=True, exist_ok=True)
-        out_p.write_text(report.model_dump_json(indent=2))
-        print(f"\n[+] Saved validation report to {out_p}")
 
     print("\n" + "=" * 70)
 
