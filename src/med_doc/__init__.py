@@ -2,10 +2,12 @@
 
 from med_doc.htr import (
     BatchPredictionManifest,
+    DocumentHypotheses,
     DocumentPrediction,
     HandwritingPrediction,
     MarkPrediction,
     process_batch_from_block2,
+    process_from_block1,
 )
 from med_doc.kg import (
     CatalogueItem,
@@ -38,4 +40,6 @@ __all__ = [
     "DocumentPrediction",
     "BatchPredictionManifest",
     "process_batch_from_block2",
+    "process_from_block1",
+    "DocumentHypotheses",
 ]

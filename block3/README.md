@@ -1,29 +1,31 @@
-# Block 3 — Handwriting Recognition & Prior Fusion Engine
+# Block 3 — Nonverbal Marks & Verbal Handwriting
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block3/block3/Block_3_Handwriting_Recognition.ipynb)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 
-Block 3 classifies checkbox marks, reads handwriting crops, and fuses those drafts with Block 2 clinical priors. It ingests `block2_validated_batch.zip` and exports `block3_predictions_batch.zip` for Block 4 / LIS.
+Block 3 reads **checkbox marks** (nonverbal, PaddleOCR) and **handwriting** (verbal, TrOCR) from a saved Block 1 ZIP. It imports Block 2 as a **frozen Knowledge Graph JSON** (`KnowledgeGraph.load()`), not as a per-sheet runner.
+
+**Do not upload real clinic PHI to Colab.** Use the committed blank / synthetic sample.
 
 ---
 
-## Batch pipeline
+## Two independent paths
 
 ```
-[ block2_validated_batch.zip from Block 2 ]
-                     |
-                     v  (Colab upload popup)
-+--------------------------------------------------------+
-| BLOCK 3                                                |
-| * Checkbox mark classifier (density / slash / filled)  |
-| * Digit, date, and optional TrOCR handwriting readers  |
-| * Prior fusion against kg.assume() rankings            |
-| * HiTL flags for borderline marks and low-confidence   |
-+--------------------------------------------------------+
-                     |
-                     v
-[ block3_predictions_batch.zip for Block 4 ]
+block1_normalized_batch.zip          block2/kg/*.json
+        |                                    |
+        +------------------+-----------------+
+                           v
+                    +-------------+
+                    |   BLOCK 3   |
+                    | nonverbal   |  PaddleOCR (density fallback)
+                    | verbal      |  TrOCR (tubes = digits; others raw)
+                    +-------------+
+                           v
+              hypotheses.json + confidence table
 ```
+
+Qwen is out of this pass. Block 4 (KG constraints / rescoring) is later.
 
 ---
 
@@ -32,11 +34,18 @@ Block 3 classifies checkbox marks, reads handwriting crops, and fuses those draf
 ```bash
 cd block3
 pip install -r requirements.txt
-python run_demo.py --input-zip block2_validated_batch.zip --output-zip block3_predictions_batch.zip
+python run_demo.py --input-zip block1_normalized_batch.zip --output-zip block3_predictions_batch.zip
 pytest -v
 ```
 
-TrOCR is optional (`pip install transformers torch`). The default `auto` backend uses TrOCR when installed and otherwise falls back to ink detection plus Knowledge Graph priors.
+Optional extras:
+
+```bash
+pip install paddlepaddle "paddleocr>=2.7,<3"
+pip install transformers torch
+```
+
+Without those extras the density fallback and empty/ink verbal path still run (CI).
 
 ---
 
@@ -44,25 +53,23 @@ TrOCR is optional (`pip install transformers torch`). The default `auto` backend
 
 Open [`Block_3_Handwriting_Recognition.ipynb`](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block3/block3/Block_3_Handwriting_Recognition.ipynb):
 
-1. Run setup (pulls branch `block3`).
-2. Upload `block2_validated_batch.zip` when the file popup appears.
-3. Run batch HTR + prior fusion.
-4. Download `block3_predictions_batch.zip`.
+1. Setup clones branch `block3` and puts `src/` on `sys.path`.
+2. **Nonverbal only** — PaddleOCR, no TrOCR.
+3. **Verbal only** — TrOCR, no Paddle.
+4. **Together** — Block 1 sample ZIP + Block 2 KG → `hypotheses.json`.
 
 ---
 
-## Output ZIP contract (`block3_predictions_batch.zip`)
+## Output (`block3_predictions_batch.zip`)
 
 ```text
 manifest.json
-docs/
-  <doc_id>/
-    prediction.json          # checkbox_marks, handwriting_fields, tubes, HiTL list
-    annotated_canvas.png     # green = high-confidence, amber = needs review
-    canonical.png
-    metadata.json
-    validation_report.json
-    prior_rankings.json
-    crops/checkboxes/
-    crops/handwriting/
+docs/<doc_id>/
+  hypotheses.json       # nonverbal + verbal + confidences
+  prediction.json       # Block 4-shaped document prediction
+  annotated_canvas.png
+  canonical.png
+  metadata.json
+  crops/checkboxes/
+  crops/handwriting/
 ```

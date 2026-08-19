@@ -6,7 +6,7 @@ A modular, agent-assisted medical document intelligence system for laboratory re
 
 - **Block 1 — Document Normalization & ROI Extraction:** Detects document quadrilateral, homography-warps to canonical canvas (`2048×1754` or `2048×1720`), fine-aligns landmarks and checkbox gutters, extracts normalized ROI crops for all checkboxes and handwriting regions.
 - **Block 2 — Clinical Knowledge Graph & Prior Validation Engine:** Frozen medical knowledge base covering 138+ tests and profiles, specimen tube rules, alias/acronym normalization, messy handwriting fuzzy matching, Bayesian prior ranking (`assume()`), and cross-field clinical validation.
-- **Block 3 — Handwriting Recognition & Prior Fusion:** Checkbox mark classification, digit/date/optional-TrOCR handwriting reads, fusion against Block 2 priors, HiTL triage, and `block3_predictions_batch.zip` for Block 4 / LIS.
+- **Block 3 — Nonverbal marks & verbal handwriting:** PaddleOCR checkbox classification (density fallback) and TrOCR handwriting (tubes = digits; `others` raw). Ingests a saved Block 1 ZIP and imports Block 2 as frozen KG JSON. Emits `hypotheses.json`. Qwen / Block 4 rescoring are later.
 
 ---
 
@@ -49,13 +49,17 @@ report = kg.validate_request(
 print(f"Valid: {report.is_valid}, Confidence: {report.confidence}")
 ```
 
-### Block 3: Marks, HTR, and Prior Fusion
+### Block 3: Nonverbal marks + verbal HTR
 ```python
-from med_doc.htr import process_batch_from_block2
+from med_doc.htr import process_from_block1
+from med_doc.kg import KnowledgeGraph
 
-result = process_batch_from_block2(
-    "block2_validated_batch.zip",
+kg = KnowledgeGraph.load()  # Block 2 JSON import, not a per-sheet runner
+result = process_from_block1(
+    "block1_normalized_batch.zip",
     output_zip="block3_predictions_batch.zip",
+    kg=kg,
+    mode="both",  # or "nonverbal" / "verbal"
 )
 print(result["manifest"]["total_documents"], result["output_zip"])
 ```

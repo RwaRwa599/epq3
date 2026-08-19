@@ -1,0 +1,99 @@
+"""Verbal Block 3: handwriting recognition (TrOCR). Independent of PaddleOCR."""
+
+from __future__ import annotations
+
+import numpy as np
+
+from med_doc.htr.fusion import fuse_handwriting
+from med_doc.htr.recognizer import recognize_handwriting
+from med_doc.htr.schemas import HandwritingPrediction
+from med_doc.kg.graph import KnowledgeGraph
+
+HITL_TAU = 0.75
+
+
+def trocr_available() -> bool:
+    """True when transformers + a TrOCR checkpoint can be loaded."""
+    try:
+        import torch  # noqa: F401
+        from transformers import TrOCRProcessor, VisionEncoderDecoderModel  # noqa: F401
+    except Exception:
+        return False
+    return True
+
+
+def recognize_verbal(
+    crop: np.ndarray | None,
+    field_id: str,
+    *,
+    backend: str = "trocr",
+) -> HandwritingPrediction:
+    """Transcribe one handwriting crop. Does not classify checkboxes.
+
+    Tube fields keep digits only. `others` stays raw (KG `assume()` is optional
+    via `attach_kg_priors`).
+    """
+    draft = recognize_handwriting(crop, field_id, backend=backend)
+    empty = not (draft.text or "").strip()
+    needs_hitl = (not empty and draft.confidence < HITL_TAU) or draft.source in {
+        "unavailable",
+        "ink-present",
+        "trocr-nodigit",
+    }
+    if empty and draft.source == "empty":
+        needs_hitl = False
+    return HandwritingPrediction(
+        field_id=field_id,
+        raw_text=draft.text,
+        canonical_value=draft.text or None,
+        canonical_id=field_id if (field_id.startswith("tube_") and draft.text) else None,
+        confidence=round(float(draft.confidence), 3),
+        source=draft.source,
+        needs_hitl=needs_hitl,
+        hypotheses=[{"value": draft.text, "score": round(draft.confidence, 3), "source": draft.source}],
+    )
+
+
+def recognize_fields(
+    crops: dict[str, np.ndarray | None],
+    *,
+    backend: str = "trocr",
+) -> dict[str, HandwritingPrediction]:
+    """Recognize many handwriting crops. Independent of PaddleOCR / nonverbal."""
+    return {fid: recognize_verbal(crop, fid, backend=backend) for fid, crop in crops.items()}
+
+
+def attach_kg_priors(
+    prediction: HandwritingPrediction,
+    kg: KnowledgeGraph | None,
+    *,
+    ticked_ids: list[str] | None = None,
+    expected_tubes: dict[str, int] | None = None,
+) -> HandwritingPrediction:
+    """Optional Block 2 `assume()` / tube prior — no VLM, no Qwen."""
+    if kg is None:
+        return prediction
+    return fuse_handwriting(
+        prediction.field_id,
+        prediction.raw_text,
+        prediction.confidence,
+        prediction.source,
+        kg=kg,
+        ticked_ids=ticked_ids or [],
+        expected_tubes=expected_tubes or {},
+    )
+
+
+def attach_kg_priors_batch(
+    fields: dict[str, HandwritingPrediction],
+    kg: KnowledgeGraph | None,
+    *,
+    ticked_ids: list[str] | None = None,
+    expected_tubes: dict[str, int] | None = None,
+) -> dict[str, HandwritingPrediction]:
+    if kg is None:
+        return fields
+    return {
+        fid: attach_kg_priors(pred, kg, ticked_ids=ticked_ids, expected_tubes=expected_tubes)
+        for fid, pred in fields.items()
+    }

@@ -48,12 +48,26 @@ class DocumentPrediction(BaseModel):
     hitl_fields: list[str] = Field(default_factory=list)
 
 
+class DocumentHypotheses(BaseModel):
+    """Per-document verbal + nonverbal hypotheses for Block 4 / Colab tables."""
+
+    version: str = "1.0"
+    block: str = "block3"
+    doc_id: str
+    nonverbal: dict[str, MarkPrediction] = Field(default_factory=dict)
+    verbal: dict[str, HandwritingPrediction] = Field(default_factory=dict)
+    ticked_test_ids: list[str] = Field(default_factory=list)
+    implied_tests: list[str] = Field(default_factory=list)
+    overall_confidence: float = Field(ge=0.0, le=1.0, default=1.0)
+    hitl_fields: list[str] = Field(default_factory=list)
+
+
 class BatchPredictionManifest(BaseModel):
     """Batch summary for a Block 3 ZIP export."""
 
     version: str = "1.0"
     block: str = "block3"
-    stage: str = "htr_and_prior_fusion"
+    stage: str = "verbal_nonverbal"
     total_documents: int = 0
     valid_documents: int = 0
     hitl_documents: int = 0

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "med-doc-block3"
-version = "0.1.0"
-description = "Block 3 — Handwriting Recognition, Checkbox Classification & Prior Fusion"
+version = "0.2.0"
+description = "Block 3 — nonverbal marks (Paddle) + verbal handwriting (TrOCR)"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
@@ -23,6 +23,10 @@ dev = [
 trocr = [
     "transformers>=4.40.0",
     "torch>=2.0.0",
+]
+paddle = [
+    "paddlepaddle>=2.6.0",
+    "paddleocr>=2.7.0,<3",
 ]
 
 [tool.setuptools.packages.find]
