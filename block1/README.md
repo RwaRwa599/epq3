@@ -1,103 +1,67 @@
-# Block 1 — Document Normalization and ROI Extraction Framework
+# Block 1 — Document Normalization & Batch ROI Extraction
 
-A standalone, high-precision document normalization engine for clinical laboratory request forms.
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block2/block1/Block_1_Document_Normalization.ipynb)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)]()
 
----
-
-## 🌟 Key Features
-
-- **Automatic Quad Detection & Homography Warp**: Detects page boundaries using adaptive multi-scale morphological filtering and projects distorted phone photos / scans into standard canonical space.
-- **Orientation Correction**: Automatically detects and fixes upside-down pages (0° vs 180° orientation scoring).
-- **Dual-Template Support**: Supports both **v0 digital forms** (124 checkboxes, 9 handwriting fields) and **v1 clinic printed forms** (138 checkboxes, 12 handwriting fields) with automatic revision detection (`_pick_revision`).
-- **Sub-Pixel Anchor Snapping (`snap_overlay`)**: Snaps individual checkboxes to actual detected ink on the page, eliminating drift caused by lens distortion, paper folds, or lighting shadows.
-- **CLAHE Illumination Normalization**: Normalizes shadows, flash gradients, and uneven ambient lighting across individual field crops.
-- **Google Colab Ready**: 100% self-contained with no external path dependencies; includes ready-to-run Jupyter notebook.
+Block 1 is the **document normalization and ROI extraction engine** for medical laboratory request sheets. It handles digital scans and unconstrained mobile camera photos (perspective tilt, non-uniform shadows, rotations).
 
 ---
 
-## 📁 Folder Structure
+## Batch Pipeline: Block 1 -> Block 2 -> Block 3
 
 ```
-block1/
-├── Block_1_Document_Normalization.ipynb  # Interactive Google Colab notebook
-├── README.md                              # This file
-├── requirements.txt                       # Standalone pip dependencies
-├── pyproject.toml                         # Standard package configuration
-├── run_demo.py                            # Standalone CLI entrypoint
-├── templates/                             # Canonical coordinate templates
-│   ├── lab_request_canonical.json         # v0 digital template (2048x1720)
-│   └── lab_request_v1_canonical.json      # v1 clinic print template (2048x1754)
-├── samples/                               # Sample images
-│   └── lab_request_v0_blank.png           # Clean synthetic blank sample
-└── med_doc/                               # Core Python package
-    ├── __init__.py
-    ├── paths.py
-    ├── schemas.py                         # Pydantic models (FieldCrop, NormalizedDocumentResult)
-    ├── template.py                        # Template loading & coordinate calculations
-    └── normalization/
-        ├── __init__.py
-        ├── warp.py                        # Page quad detection & perspective transform
-        ├── align.py                       # Anchor matching & sub-pixel fine snapping
-        ├── detect.py                      # Robust checkbox detection on photos
-        ├── crops.py                       # CLAHE normalization & crop extraction
-        ├── viz.py                         # Visual bounding box overlays
-        └── pipeline.py                    # Main public API (normalize_document)
+[ Raw Photos / Scans (ZIP or Folder) ]
+                 │
+                 ▼
+┌────────────────────────────────────────────────────────┐
+│ BLOCK 1: Normalization & Batch Crop Extraction         │
+│ • Detects document quadrilateral & homography warp     │
+│ • Corrects 0° / 180° rotation                         │
+│ • Fine-aligns landmarks & snaps checkbox gutters       │
+│ • Normalizes illumination (CLAHE + background divide)  │
+│ • Exports standardized 'block1_normalized_batch.zip'   │
+└────────────────────────────────────────────────────────┘
+                 │
+                 ▼ (block1_normalized_batch.zip)
+┌────────────────────────────────────────────────────────┐
+│ BLOCK 2: Clinical Knowledge Graph & Prior Engine       │
+│ • Upload popup receives block1_normalized_batch.zip    │
+│ • Expands profiles, calculates tubes, validates rules  │
+│ • Exports 'block2_validated_batch.zip' for Block 3     │
+└────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🚀 Quick Start (Local)
+## Standalone Usage
 
-### 1. Install Dependencies
+### 1. Batch Normalization CLI
 ```bash
-cd block1
-pip install -r requirements.txt
+python run_demo.py path/to/images/ --output-zip block1_normalized_batch.zip
 ```
 
-### 2. Run Demo CLI
-```bash
-python run_demo.py samples/lab_request_v0_blank.png
-```
-
-This will output:
-- Canonical canvas size and orientation
-- Total extracted checkboxes and handwriting ROIs
-- Bounding box debug overlay to `outputs/lab_request_v0_blank_overlay.jpg`
-- Extracted crops to `outputs/lab_request_v0_blank_crops/`
+### 2. Google Colab
+Open [`Block_1_Document_Normalization.ipynb`](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block2/block1/Block_1_Document_Normalization.ipynb) in Colab:
+1. Run setup cells.
+2. Choose your input images via the upload popup.
+3. Click to run batch normalization.
+4. Download `block1_normalized_batch.zip`.
 
 ---
 
-## ☁️ Running on Google Colab
+## Output ZIP Contract (`block1_normalized_batch.zip`)
 
-1. Upload the `block1/` folder to Google Colab, or clone the repository directly:
-   ```python
-   !git clone https://github.com/RwaRwa599/epq3.git
-   %cd epq3/block1
-   !pip install -r requirements.txt
-   ```
-2. Open `Block_1_Document_Normalization.ipynb`.
-3. Run all cells: you can upload your own clinic document photo or use the built-in sample to visualize overlays and download extracted crops as a ZIP.
-
----
-
-## 💻 Python API Usage
-
-```python
-from PIL import Image
-from med_doc.normalization.pipeline import normalize_document
-
-# Load any image (PIL Image, numpy array, or file path)
-img = Image.open("path/to/clinic_photo.png")
-
-# Run normalization
-result = normalize_document(img, document_id="patient_form_01")
-
-print(f"Confidence: {result.alignment_confidence:.2f}")
-print(f"Checkboxes: {len(result.checkbox_crops)}")
-print(f"Handwriting: {len(result.handwriting_crops)}")
-
-# Access individual crops
-hba1c_crop = result.checkbox_crops["hba1c"]
-raw_rgb = hba1c_crop.raw_image
-norm_rgb = hba1c_crop.normalized_image
+```text
+manifest.json
+docs/
+  <doc_id>/
+    canonical.png        # 2048×1754 rectified RGB image
+    overlay.png          # Visual verification overlay with bboxes
+    metadata.json        # Quad corners, alignment score, detected candidate marks
+    crops/
+      checkboxes/
+        <field_id>.png   # Normalized checkbox crops (138 fields)
+      handwriting/
+        <field_id>.png   # Normalized handwriting crops (12 fields)
 ```

@@ -69,6 +69,157 @@ def photograph(page: np.ndarray, *, tilt: float = 0.12, rotate180: bool = False)
     return warped
 
 
+def test_section_territories_cover_checkbox_groups():
+    from med_doc.paths import V1_TEMPLATE
+
+    v0 = load_template()
+    assert v0.main_sections()
+    assert any(s.id == "checkup_profile" for s in v0.main_sections())
+    assert any(s.id == "health_check" and s.kind == "sub" for s in v0.sections)
+    assert any(s.parent_id == "clinical_chemistry" for s in v0.sub_sections())
+    v1 = load_template(V1_TEMPLATE)
+    assert any(s.id == "molecular" for s in v1.main_sections())
+    others = next(s for s in v1.main_sections() if s.id == "others")
+    assert others.bbox[1] > 0.5
+    for spec in v0.sections + v1.sections:
+        x0, y0, x1, y1 = spec.bbox
+        assert 0.0 <= x0 < x1 <= 1.0
+        assert 0.0 <= y0 < y1 <= 1.0
+
+
+def test_snap_sections_keeps_count_without_bars():
+    from med_doc.normalization.sections import snap_sections
+
+    template = load_template()
+    page = render_canonical_form(template)
+    snapped, meta = snap_sections(page, template)
+    assert len(snapped.main_sections()) == len(template.main_sections())
+    assert len(snapped.sub_sections()) == len(template.sub_sections())
+    assert "n_snapped" in meta
+
+
+def test_snap_sections_locks_to_painted_headers():
+    from med_doc.normalization.sections import snap_sections
+    from med_doc.paths import V1_TEMPLATE
+
+    template = load_template(V1_TEMPLATE)
+    w, h = template.width, template.height
+    page = np.full((h, w, 3), 255, dtype=np.uint8)
+    by_col: dict[int, list] = {}
+    for spec in template.main_sections():
+        if spec.column is None:
+            continue
+        by_col.setdefault(int(spec.column), []).append(spec)
+    painted = {}
+    for mains in by_col.values():
+        mains = sorted(mains, key=lambda s: s.bbox[1])
+        for spec in mains:
+            x0, y0, x1, y1 = [int(round(v * s)) for v, s in zip(spec.bbox, (w, h, w, h))]
+            bar_y1 = min(h, y0 + 28)
+            cv2.rectangle(page, (x0, y0), (x1, bar_y1), (20, 20, 20), -1)
+            painted[spec.id] = y0
+    snapped, meta = snap_sections(page, template)
+    assert meta["n_snapped"] == len(painted)
+    by_id = {s.id: s for s in snapped.main_sections()}
+    for sid, y0 in painted.items():
+        top = int(round(by_id[sid].bbox[1] * h))
+        assert abs(top - y0) <= 3, sid
+    checkup_subs = snapped.sub_sections("checkup_profile")
+    assert len(checkup_subs) == 2
+    bar_bottom = painted["checkup_profile"] + 28
+    assert checkup_subs[0].bbox[1] * h >= bar_bottom - 4
+    chem_subs = snapped.sub_sections("clinical_chemistry")
+    assert len(chem_subs) == 4
+    for a, b in zip(chem_subs, chem_subs[1:]):
+        assert a.bbox[3] <= b.bbox[1] + 1e-6
+    assert "row_counts" in meta
+    # Right edges must not cover the next column's tick-box side.
+    cols: dict[int, list] = {}
+    for spec in snapped.main_sections():
+        if spec.column is None:
+            continue
+        cols.setdefault(int(spec.column), []).append(spec)
+    for col in sorted(cols)[:-1]:
+        for left in cols[col]:
+            for right in cols.get(col + 1, []):
+                if left.bbox[3] <= right.bbox[1] or right.bbox[3] <= left.bbox[1]:
+                    continue
+                assert left.bbox[2] <= right.bbox[0] + 1e-6, (left.id, right.id)
+
+
+def test_detect_printed_rows_counts_squares():
+    from med_doc.normalization.sections import detect_printed_rows
+
+    h, w = 200, 300
+    page = np.full((h, w), 255, dtype=np.uint8)
+    for i, y in enumerate((40, 70, 100, 130, 160)):
+        cv2.rectangle(page, (20, y), (36, y + 16), (40, 40, 40), 2)
+        cv2.putText(page, f"row{i}", (44, y + 12), cv2.FONT_HERSHEY_SIMPLEX, 0.35, 20, 1)
+    bbox = [0.02, 0.10, 0.90, 0.95]
+    ys = detect_printed_rows(page, bbox, paper=255.0, height=h, width=w, skip_top=8)
+    assert len(ys) == 5
+
+
+def test_rows_lock_to_first_printed_peak():
+    from med_doc.normalization.sections import _rows_in_leaf
+    from med_doc.schemas import FieldSpec, SectionSpec
+
+    h, w = 200, 240
+    page = np.full((h, w), 255, dtype=np.uint8)
+    peaks = (50, 82, 114)
+    for y in peaks:
+        cv2.rectangle(page, (16, y), (32, y + 16), (40, 40, 40), 2)
+        cv2.putText(page, "t", (40, y + 12), cv2.FONT_HERSHEY_SIMPLEX, 0.4, 20, 1)
+    leaf = SectionSpec(
+        id="demo",
+        kind="main",
+        label="DEMO",
+        bbox=[0.02, 0.10, 0.90, 0.90],
+        column=2,
+        groups=["demo"],
+    )
+    # Field Y is biased down toward the next square, as snap_overlay does on clinic scans.
+    fields = [
+        FieldSpec(
+            field_id=f"f{i}",
+            label=f"row{i}",
+            field_type="checkbox",
+            bbox=[0.1, 0.28 + i * 0.16, 0.2, 0.34 + i * 0.16],
+            group="demo",
+        )
+        for i in range(3)
+    ]
+    rows = _rows_in_leaf(page, leaf, leaf, fields, paper=255.0, height=h, width=w)
+    assert len(rows) == 3
+    assert abs(int(rows[0].bbox[1] * h) - peaks[0]) <= 2
+
+
+def test_split_row_text_leaves_tick_on_the_left():
+    from med_doc.normalization.sections import split_row_text_and_ticks
+    from med_doc.schemas import SectionSpec
+
+    h, w = 40, 220
+    page = np.full((h, w), 255, dtype=np.uint8)
+    cv2.rectangle(page, (8, 10), (24, 26), (30, 30, 30), 2)
+    cv2.putText(page, "HbA1c", (32, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.45, 20, 1)
+    row = SectionSpec(
+        id="demo_row",
+        kind="row",
+        label="HbA1c",
+        bbox=[0.0, 0.0, 1.0, 1.0],
+        column=0,
+        groups=["diabetes"],
+    )
+    texts, ticks = split_row_text_and_ticks(
+        page, row, paper=255.0, height=h, width=w, wall_x0=0.0
+    )
+    assert len(texts) == 1
+    assert len(ticks) == 1
+    assert ticks[0].bbox[0] == pytest.approx(0.0, abs=0.01)
+    assert ticks[0].bbox[2] <= texts[0].bbox[0] + 0.02
+    assert ticks[0].bbox[2] - ticks[0].bbox[0] > 0.08
+
+
 def test_template_relative_coords():
     template = load_template()
     assert template.canvas_size == list(CANONICAL_SIZE)
@@ -166,6 +317,30 @@ def test_checkbox_squares_centered_after_photograph():
     )
     n = len(result.checkbox_crops)
     assert centered / n >= 0.95, f"centered {centered}/{n} after warp"
+
+
+def test_section_bar_pairing_prefers_consistent_window():
+    from med_doc.normalization.align import _fit_affine_y, _pair_section_bars
+
+    expected = [608.0, 888.0, 1032.0]
+    detected = [571.0, 886.0, 1043.0, 1065.0, 1213.0]
+    paired = _pair_section_bars(expected, detected)
+    assert paired is not None
+    exp, det = paired
+    _scale, shift, residual = _fit_affine_y(exp, det)
+    assert residual < 40.0
+    assert abs(shift) < 80.0
+
+
+def test_section_bar_affine_identity_when_aligned():
+    from med_doc.normalization.align import _fit_affine_y
+
+    expected = np.array([936.0, 1152.0, 1334.0])
+    detected = expected + 1.0
+    scale, shift, residual = _fit_affine_y(expected, detected)
+    assert scale == pytest.approx(1.0, abs=0.02)
+    assert shift == pytest.approx(1.0, abs=2.0)
+    assert residual < 3.0
 
 
 def test_landmark_ncc_runs():

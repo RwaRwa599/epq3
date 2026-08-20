@@ -21,6 +21,8 @@ def draw_overlay(
         x0, y0, x1, y1 = (int(v) for v in bbox)
         cv2.rectangle(vis, (x0, y0), (x1, y1), color, width)
 
+    if template is not None:
+        vis = draw_sections(vis, template)
     for crop in result.checkbox_crops.values():
         _box(crop.canonical_bbox, (40, 180, 80), 1)
     for crop in result.handwriting_crops.values():
@@ -32,5 +34,49 @@ def draw_overlay(
             y0 = int(landmark.bbox[1] * h)
             x1 = int(landmark.bbox[2] * w)
             y1 = int(landmark.bbox[3] * h)
-            cv2.rectangle(vis, (x0, y0), (x1, y1), (220, 160, 40), 2)
+            cv2.rectangle(vis, (x0, y0), (x1, y1), (220, 160, 40), 1)
+    return vis
+
+
+def draw_sections(canvas: np.ndarray, template: TemplateSpec) -> np.ndarray:
+    """Main sections (magenta) and bold-subhead territories (cyan)."""
+    vis = canvas.copy()
+    if vis.ndim == 2:
+        vis = cv2.cvtColor(vis, cv2.COLOR_GRAY2RGB)
+    h, w = vis.shape[:2]
+
+    def _rel_box(bbox: list[float]) -> tuple[int, int, int, int]:
+        return (
+            int(round(bbox[0] * w)),
+            int(round(bbox[1] * h)),
+            int(round(bbox[2] * w)),
+            int(round(bbox[3] * h)),
+        )
+
+    for spec in template.main_sections():
+        x0, y0, x1, y1 = _rel_box(spec.bbox)
+        cv2.rectangle(vis, (x0, y0), (x1, y1), (200, 40, 180), 3)
+        cv2.putText(
+            vis,
+            spec.label,
+            (x0 + 4, max(14, y0 + 16)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.42,
+            (200, 40, 180),
+            1,
+            cv2.LINE_AA,
+        )
+    for spec in template.sub_sections():
+        x0, y0, x1, y1 = _rel_box(spec.bbox)
+        cv2.rectangle(vis, (x0, y0), (x1, y1), (20, 160, 200), 1)
+        cv2.putText(
+            vis,
+            spec.label,
+            (x0 + 4, min(h - 4, y0 + 14)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.35,
+            (20, 120, 180),
+            1,
+            cv2.LINE_AA,
+        )
     return vis

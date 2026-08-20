@@ -9,6 +9,7 @@ from PIL import Image
 
 from med_doc.normalization.align import _checkbox_grid_score, fine_align, snap_overlay
 from med_doc.normalization.crops import extract_crops
+from med_doc.normalization.sections import snap_sections
 from med_doc.normalization.viz import draw_overlay
 from med_doc.normalization.warp import warp_to_canonical
 from med_doc.paths import DEFAULT_TEMPLATE, V1_TEMPLATE
@@ -59,6 +60,7 @@ def normalize_document(
     canvas, warp_meta = warp_to_canonical(image, dest_size=dest)
     aligned, align_meta, col_shifts = fine_align(canvas, spec)
     snapped, snap_meta = snap_overlay(aligned, spec)
+    sectioned, section_meta = snap_sections(aligned, snapped)
     checkbox, handwriting = extract_crops(aligned, snapped, col_shifts)
 
     confidence = float(
@@ -78,8 +80,15 @@ def normalize_document(
         handwriting_crops=handwriting,
         warp_method=str(warp_meta.get("method", "none")),
         orientation_degrees=int(warp_meta.get("orientation_degrees", 0)),
-        extra={"warp": warp_meta, "align": align_meta, "snap": snap_meta, "template_id": spec.template_id},
+        extra={
+            "warp": warp_meta,
+            "align": align_meta,
+            "snap": snap_meta,
+            "section_snap": section_meta,
+            "template_id": spec.template_id,
+            "sections": [s.model_dump() for s in sectioned.sections],
+        },
     )
     if draw_debug:
-        result.debug_overlay = draw_overlay(aligned, result, snapped)
+        result.debug_overlay = draw_overlay(aligned, result, sectioned)
     return result

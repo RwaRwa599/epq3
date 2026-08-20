@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "med-doc-block3"
+version = "0.2.0"
+description = "Block 3 — nonverbal marks (Paddle) + verbal handwriting (TrOCR)"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "pydantic>=2.0.0",
+    "numpy>=1.24.0",
+    "opencv-python-headless>=4.8.0",
+    "Pillow>=10.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "matplotlib>=3.7.0",
+]
+trocr = [
+    "transformers>=4.40.0",
+    "torch>=2.0.0",
+]
+paddle = [
+    "paddlepaddle>=2.6.0",
+    "paddleocr>=2.7.0,<3",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["med_doc*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

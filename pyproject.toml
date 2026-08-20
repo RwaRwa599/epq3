@@ -17,6 +17,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+paddle = ["paddlepaddle>=2.6", "paddleocr>=2.7,<3"]
+trocr = ["transformers>=4.40", "torch>=2.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

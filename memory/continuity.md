@@ -13,9 +13,9 @@
 ## Project State
 
 - **project:** new2
-- **status:** Block 1 photo normalization verified across 3 clinic samples (v1 template auto-picked, 138 checkboxes + 12 handwriting crops extracted per sample)
+- **status:** Block 1 snaps main sections to printed black headers
 - **last_enabled:** 2026-08-14
-- **last_session:** 2026-08-14 | agent: Cursor (2026-08-14-031206)
+- **last_session:** 2026-08-20 | agent: Cursor (2026-08-20-093548)
 - **last_review:** (none yet)
 - **last_invariant_check:** (none yet)
 - **repo:** ~/new2
@@ -26,20 +26,42 @@
 > versions. `instructions.md` keeps only a high-level descriptor and points here.
 
 - Python >=3.10; package `med-doc` 0.1.0 (`pyproject.toml`)
-- Runtime: numpy, opencv-python-headless, Pillow, pydantic
-- Tests: pytest; Block 1 suite last recorded 11 passed
-<!-- id: stack-python-opencv | created: 2026-08-14 | last_used: 2026-08-14 | uses: 1 | tier: working | origin: 2026-08-14-025804 -->
+- Runtime: numpy, opencv-python-headless, Pillow, pydantic; optional PaddleOCR (nonverbal) and TrOCR/transformers (verbal)
+- Tests: pytest; Block 1+2+3 suite last recorded 43 passed
+<!-- id: stack-python-opencv | created: 2026-08-14 | last_used: 2026-08-14 | uses: 4 | tier: active | origin: 2026-08-14-025804 -->
 
 ## Key Decisions
 
 - Initialized with agent-memory v4.32.1 (Mode A, deep analysis)
-  <!-- id: init-agent-memory-v4321 | created: 2026-08-14 | last_used: 2026-08-14 | uses: 2 | tier: active | origin: 2026-08-14-023004 -->
+  <!-- id: init-agent-memory-v4321 | created: 2026-08-14 | last_used: 2026-08-14 | uses: 3 | tier: active | origin: 2026-08-14-023004 -->
 - Default Block 1 overlay is digital print **v0** (`templates/lab_request_canonical.json`, canvas 2048×1720). Clinic photos are a later **v1** print (`templates/lab_request_v1_canonical.json`).
-  <!-- id: decision-v0-default-v1-clinic | created: 2026-08-14 | last_used: 2026-08-14 | uses: 2 | tier: active | origin: 2026-08-14-025804 -->
+  <!-- id: decision-v0-default-v1-clinic | created: 2026-08-14 | last_used: 2026-08-14 | uses: 4 | tier: active | origin: 2026-08-14-025804 -->
 - Full-page scans use height letterbox to the canonical canvas, not an anisotropic stretch.
   <!-- id: decision-letterbox-fullpage | created: 2026-08-14 | last_used: 2026-08-14 | uses: 1 | tier: working | origin: 2026-08-14-025804 -->
 - Clinic photos automatically select `v1` template via `_pick_revision` and use 1-to-1 checkbox snapping within column boundaries (`snap_overlay`) with contrast-relative scoring.
   <!-- id: decision-photo-v1-snap-matching | created: 2026-08-14 | last_used: 2026-08-14 | uses: 1 | tier: working | origin: 2026-08-14-031206 -->
+- Block 1 `snap_overlay` may use printed section bars (per column, order-paired, Y affine) only when `_checkbox_grid_score` beats hollow-ring snap by ≥ 0.02. Forced text-name / ungated bar snap lost hollow score; gated path kept synthetic 95.2% and clinic mean 54.3% → 55.2%.
+  <!-- id: block1-section-bar-gated-snap | created: 2026-08-20 | last_used: 2026-08-20 | uses: 1 | tier: working | origin: 2026-08-20-031237 -->
+- Template overlay has two-level printed territories: main = black header bar through the next bar (column-clipped); sub = bold subhead + its JSON groups. Built in `med_doc.normalization.sections` and drawn on `overlay.png` / `sections.png`. Extra-ink subtract later uses the digital blank (`lab_request_v0_blank.png`), not a filled clinic photo.
+  <!-- id: template-section-territories | created: 2026-08-20 | last_used: 2026-08-20 | uses: 1 | tier: working | origin: 2026-08-20-032544 -->
+- Block 1 `snap_sections` locks each main to a detected black header, cyan subs to bold subheads, and green rows to JSON tests in printed-peak order below that header (not snap_overlay field Y). Within each row the test-name text is boxed and subtracted; the leftover from the magenta column wall to that text is one tick box.
+  <!-- id: block1-header-to-next-section-snap | created: 2026-08-20 | last_used: 2026-08-20 | uses: 1 | tier: working | origin: 2026-08-20-035004 -->
+- Block 2 Knowledge Graph is frozen and deterministic (`kg/lab_request_v1_kg.json`), providing profile expansions, tube requirements, acronym resolution, fuzzy matching for write-ins, and cross-field validation.
+  <!-- id: block2-clinical-kg | created: 2026-08-14 | last_used: 2026-08-14 | uses: 3 | tier: active | origin: 2026-08-14-034450 -->
+- Prior engine `assume()` biases downstream HTR hypotheses using Bayesian priors from observed checkboxes and profile bundles.
+  <!-- id: decision-frozen-kg-priors | created: 2026-08-14 | last_used: 2026-08-14 | uses: 2 | tier: active | origin: 2026-08-14-034450 -->
+- Standardized ZIP contract links Block 1 (`block1_normalized_batch.zip`) → Block 2 (`block2_validated_batch.zip`) → Block 3 (`block3_predictions_batch.zip` for Block 4 / LIS).
+  <!-- id: block1-block2-batch-zip-pipeline | created: 2026-08-14 | last_used: 2026-08-14 | uses: 2 | tier: superseded | origin: 2026-08-14-035451 | superseded-by: block3-ingests-block1-zip-kg-import -->
+- Block 3 classifies checkbox marks, reads handwriting crops (digits/dates/optional TrOCR), fuses drafts with Block 2 priors, and flags HiTL fields.
+  <!-- id: block3-htr-prior-fusion | created: 2026-08-14 | last_used: 2026-08-14 | uses: 1 | tier: superseded | origin: 2026-08-14-080522 | superseded-by: block3-verbal-nonverbal-split -->
+- Block 3 is two independent recognizers: nonverbal (PaddleOCR on checkbox crops, `source` `paddle` or `density_fallback`) and verbal (TrOCR on handwriting crops; tubes keep digits; `others` stays raw). Qwen is out of this pass.
+  <!-- id: block3-verbal-nonverbal-split | created: 2026-08-19 | last_used: 2026-08-19 | uses: 1 | tier: working | origin: 2026-08-19-110415 | supersedes: block3-htr-prior-fusion -->
+- Block 3 ingests a saved Block 1 ZIP (`block1_normalized_batch.zip`) and imports Block 2 as frozen KG JSON for Block 4, not Block 2's per-sheet batch. Emits `hypotheses.json`.
+  <!-- id: block3-ingests-block1-zip-kg-import | created: 2026-08-19 | last_used: 2026-08-19 | uses: 1 | tier: working | origin: 2026-08-19-110415 | supersedes: block1-block2-batch-zip-pipeline -->
+- Block 3 nonverbal is precision-first: a tick must be one interior slash (or a filled box) inside a printed square. Printed corners, label glyphs, and density-only ink are unmarked. Clinic 5-sheet dry run: 1/1 true tick, 0 false ticks.
+  <!-- id: nonverbal-precision-first | created: 2026-08-19 | last_used: 2026-08-19 | uses: 1 | tier: working | origin: 2026-08-19-112047 -->
+- Block 3 verbal emits OCR drafts only (`raw_text`, confidence, `unavailable`/`ink-present` → HiTL). Block 4 applies KG `assume()`, tube expected vs observed, and catalogue constraints. Do not fuse priors in Block 3.
+  <!-- id: verbal-drafts-for-block4 | created: 2026-08-19 | last_used: 2026-08-19 | uses: 1 | tier: working | origin: 2026-08-19-112047 -->
 
 ## Conventions
 
@@ -56,10 +78,23 @@
   <!-- id: greenfield-seed-stack | created: 2026-08-14 | last_used: 2026-08-14 | uses: 2 | tier: active | origin: 2026-08-14-023004 -->
 - [x] Photographed clinic sheets use print v1 (extra rows: ANA, Molecular, Pap, extra tubes). Block 1 needs a v1 snap/warp before the v0 overlay will sit on those squares.
   <!-- id: clinic-print-v1-drift | created: 2026-08-14 | last_used: 2026-08-14 | uses: 2 | tier: active | origin: 2026-08-14-025804 -->
+- [x] Block 3 slash detector treats printed checkbox corners as ticks on clinic photos (tens of FPs/sheet). Density-only or Paddle interior-ink should be the default until slash is gated on interior pixels.
+  <!-- id: clinic-slash-false-positives | created: 2026-08-19 | last_used: 2026-08-19 | uses: 1 | tier: working | origin: 2026-08-19-111033 -->
+- [x] `has_ink` min_frac is too high for large `others` ROIs: handwriting is in the crop but verbal returns empty. Need an ink gate that is area-adaptive (or a tighter crop around dark pixels).
+  <!-- id: others-has-ink-too-strict | created: 2026-08-19 | last_used: 2026-08-19 | uses: 1 | tier: working | origin: 2026-08-19-111033 -->
+- [x] Block 3 already writes KG tube `prior_expected` from ticked IDs. False ticks therefore invent tube counts. Tube priors belong in Block 4 after marks are trusted.
+  <!-- id: tube-priors-from-false-ticks | created: 2026-08-19 | last_used: 2026-08-19 | uses: 1 | tier: working | origin: 2026-08-19-111033 -->
+- [ ] Block 4: KG constraints / tubes / rescoring on Block 3 hypotheses (no VLM). Then Block 5 report + accept/loop_once/HiTL gate.
+  <!-- id: block4-kg-constraints | created: 2026-08-19 | last_used: 2026-08-19 | uses: 1 | tier: working | origin: 2026-08-19-110415 -->
+- [ ] Block 1 remaining hollow misses on clinic photos are mostly full-frame warp / X, not missing section headers. Section-bar Y affine helps one sheet slightly; label-strip matching did not.
+  <!-- id: block1-warp-limits-hollow | created: 2026-08-20 | last_used: 2026-08-20 | uses: 1 | tier: working | origin: 2026-08-20-031237 -->
+- [ ] Header-to-next section snap is in; next is extra-ink vs the digital blank. Do not extra-ink until the HQ overlays look right to a human.
+  <!-- id: block1-section-match-samples | created: 2026-08-20 | last_used: 2026-08-20 | uses: 1 | tier: working | origin: 2026-08-20-032544 -->
 
 ## User Preferences
 
-(none recorded yet — record ONLY what the user explicitly states; never infer)
+- Colab is development only (synthetic / committed blank). Do not upload real clinic PHI to Colab. Clinic product is later local Jupyter.
+  <!-- id: colab-no-phi | created: 2026-08-19 | last_used: 2026-08-19 | uses: 1 | tier: working | origin: 2026-08-19-110415 -->
 
 ## Team / Members
 
