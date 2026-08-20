@@ -192,6 +192,7 @@ def test_rows_lock_to_first_printed_peak():
     rows = _rows_in_leaf(page, leaf, leaf, fields, paper=255.0, height=h, width=w)
     assert len(rows) == 3
     assert abs(int(rows[0].bbox[1] * h) - peaks[0]) <= 2
+    assert rows[0].field_id == "f0"
 
 
 def test_split_row_text_leaves_tick_on_the_left():
@@ -209,6 +210,7 @@ def test_split_row_text_leaves_tick_on_the_left():
         bbox=[0.0, 0.0, 1.0, 1.0],
         column=0,
         groups=["diabetes"],
+        field_id="hba1c",
     )
     texts, ticks = split_row_text_and_ticks(
         page, row, paper=255.0, height=h, width=w, wall_x0=0.0
@@ -218,6 +220,45 @@ def test_split_row_text_leaves_tick_on_the_left():
     assert ticks[0].bbox[0] == pytest.approx(0.0, abs=0.01)
     assert ticks[0].bbox[2] <= texts[0].bbox[0] + 0.02
     assert ticks[0].bbox[2] - ticks[0].bbox[0] > 0.08
+    assert ticks[0].field_id == "hba1c"
+
+
+def test_apply_tick_windows_snaps_square_inside_strip():
+    from med_doc.normalization.sections import apply_tick_windows
+    from med_doc.schemas import FieldSpec, SectionSpec, TemplateSpec
+
+    h, w = 40, 220
+    page = np.full((h, w, 3), 255, dtype=np.uint8)
+    cv2.rectangle(page, (8, 10), (24, 26), (30, 30, 30), 2)
+    cv2.putText(page, "HbA1c", (80, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (20, 20, 20), 1)
+    template = TemplateSpec(
+        template_id="demo_tick_windows",
+        canvas_size=[w, h],
+        fields=[
+            FieldSpec(
+                field_id="hba1c",
+                field_type="checkbox",
+                label="HbA1c",
+                bbox=[0.40, 0.20, 0.55, 0.70],
+                group="diabetes",
+            )
+        ],
+        sections=[
+            SectionSpec(
+                id="demo_tick",
+                kind="tick",
+                label="",
+                bbox=[0.0, 0.0, 0.16, 1.0],
+                field_id="hba1c",
+            )
+        ],
+    )
+    gated, meta = apply_tick_windows(page, template)
+    assert meta["n_applied"] == 1
+    box = gated.checkbox_fields()[0].bbox
+    assert box[0] < 0.12
+    assert box[2] < 0.20
+    assert box[2] < 0.40
 
 
 def test_template_relative_coords():

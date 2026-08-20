@@ -13,9 +13,9 @@
 ## Project State
 
 - **project:** new2
-- **status:** Block 1 snaps main sections to printed black headers
+- **status:** Block 1 checkbox crops use red tick strips as gated search windows
 - **last_enabled:** 2026-08-14
-- **last_session:** 2026-08-20 | agent: Cursor (2026-08-20-093548)
+- **last_session:** 2026-08-20 | agent: Cursor (2026-08-20-113324)
 - **last_review:** (none yet)
 - **last_invariant_check:** (none yet)
 - **repo:** ~/new2
@@ -44,8 +44,10 @@
   <!-- id: block1-section-bar-gated-snap | created: 2026-08-20 | last_used: 2026-08-20 | uses: 1 | tier: working | origin: 2026-08-20-031237 -->
 - Template overlay has two-level printed territories: main = black header bar through the next bar (column-clipped); sub = bold subhead + its JSON groups. Built in `med_doc.normalization.sections` and drawn on `overlay.png` / `sections.png`. Extra-ink subtract later uses the digital blank (`lab_request_v0_blank.png`), not a filled clinic photo.
   <!-- id: template-section-territories | created: 2026-08-20 | last_used: 2026-08-20 | uses: 1 | tier: working | origin: 2026-08-20-032544 -->
-- Block 1 `snap_sections` locks each main to a detected black header, cyan subs to bold subheads, and green rows to JSON tests in printed-peak order below that header (not snap_overlay field Y). Within each row the test-name text is boxed and subtracted; the leftover from the magenta column wall to that text is one tick box.
+- Block 1 `snap_sections` locks each main to a detected black header, cyan subs to bold subheads, and green rows to JSON tests in printed-peak order below that header (not snap_overlay field Y). Within each row the test-name text is boxed and subtracted; the leftover from the magenta column wall to that text is one tick box. Rows and ticks carry the JSON `field_id`.
   <!-- id: block1-header-to-next-section-snap | created: 2026-08-20 | last_used: 2026-08-20 | uses: 1 | tier: working | origin: 2026-08-20-035004 -->
+- Block 1 `extract_crops` takes one ~16–24 px hollow square per checkbox `field_id` found inside that field’s red tick strip (`apply_tick_windows`). If `_checkbox_grid_score` drops more than 0.02 vs `snap_overlay`, crops stay on the snap_overlay bboxes. Overlay still draws `sectioned`; handwriting fields are not retargeted. Synthetic hollow ≥ 95%.
+  <!-- id: block1-tick-window-gated-crops | created: 2026-08-20 | last_used: 2026-08-20 | uses: 1 | tier: working | origin: 2026-08-20-113324 -->
 - Block 2 Knowledge Graph is frozen and deterministic (`kg/lab_request_v1_kg.json`), providing profile expansions, tube requirements, acronym resolution, fuzzy matching for write-ins, and cross-field validation.
   <!-- id: block2-clinical-kg | created: 2026-08-14 | last_used: 2026-08-14 | uses: 3 | tier: active | origin: 2026-08-14-034450 -->
 - Prior engine `assume()` biases downstream HTR hypotheses using Bayesian priors from observed checkboxes and profile bundles.
@@ -90,6 +92,8 @@
   <!-- id: block1-warp-limits-hollow | created: 2026-08-20 | last_used: 2026-08-20 | uses: 1 | tier: working | origin: 2026-08-20-031237 -->
 - [ ] Header-to-next section snap is in; next is extra-ink vs the digital blank. Do not extra-ink until the HQ overlays look right to a human.
   <!-- id: block1-section-match-samples | created: 2026-08-20 | last_used: 2026-08-20 | uses: 1 | tier: working | origin: 2026-08-20-032544 -->
+- [ ] Local (not CI): demo6 s6 / s7 first-field crop Y should sit on the first printed line under the header after tick-window gating, not one row down.
+  <!-- id: block1-demo6-first-row-crop-y | created: 2026-08-20 | last_used: 2026-08-20 | uses: 1 | tier: working | origin: 2026-08-20-113324 -->
 
 ## User Preferences
 

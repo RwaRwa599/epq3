@@ -7,7 +7,7 @@ from typing import Any
 import cv2
 import numpy as np
 
-from med_doc.schemas import SectionSpec, TemplateSpec
+from med_doc.schemas import FieldSpec, SectionSpec, TemplateSpec
 
 # Black-bar blocks. Nested entries are bold subheads + their JSON groups
 # until the next subhead (or the next black bar).
@@ -449,6 +449,7 @@ def _rows_in_leaf(
                 column=leaf.column,
                 parent_id=leaf.id,
                 groups=list(leaf.groups),
+                field_id=members[i].field_id if i < len(members) else None,
             )
         )
     return rows
@@ -518,6 +519,7 @@ def split_row_text_and_ticks(
                 column=row.column,
                 parent_id=row.id,
                 groups=list(row.groups),
+                field_id=row.field_id,
             )
         )
         rem_x1 = x0 + max(8, tx0 - 1)
@@ -534,9 +536,72 @@ def split_row_text_and_ticks(
                 column=row.column,
                 parent_id=row.id,
                 groups=list(row.groups),
+                field_id=row.field_id,
             )
         )
     return texts, ticks
+
+
+def _square_in_tick(
+    gray: np.ndarray,
+    tick: SectionSpec,
+    paper: float,
+    height: int,
+    width: int,
+) -> list[float] | None:
+    """Return a ~one-square bbox inside the red tick strip, or None."""
+    x0, y0, x1, y1 = [int(round(v * s)) for v, s in zip(tick.bbox, (width, height, width, height))]
+    x0, y0 = max(0, x0), max(0, y0)
+    x1, y1 = min(width, x1), min(height, y1)
+    if x1 - x0 < 12 or y1 - y0 < 8:
+        return None
+    xs = _hollow_xs(gray, y0, y1, x0, x1, paper)
+    if not xs:
+        return None
+    hx = int(xs[0])
+    side = max(14, min(22, y1 - y0, x1 - hx))
+    return _clamp_box(hx / width, y0 / height, (hx + side) / width, (y0 + side) / height)
+
+
+def apply_tick_windows(
+    canvas: np.ndarray,
+    template: TemplateSpec,
+) -> tuple[TemplateSpec, dict[str, Any]]:
+    """Snap each checkbox field to the hollow square inside its red tick strip."""
+    from med_doc.normalization.align import _checkbox_grid_score
+
+    gray = cv2.cvtColor(canvas, cv2.COLOR_RGB2GRAY) if canvas.ndim == 3 else canvas
+    h, w = gray.shape
+    paper = float(np.percentile(gray, 90))
+    by_field: dict[str, SectionSpec] = {}
+    for spec in template.tick_sections():
+        if spec.field_id:
+            by_field[spec.field_id] = spec
+    n_applied = 0
+    fields: list[FieldSpec] = []
+    for spec in template.fields:
+        if spec.field_type != "checkbox":
+            fields.append(spec)
+            continue
+        tick = by_field.get(spec.field_id)
+        if tick is None:
+            fields.append(spec)
+            continue
+        square = _square_in_tick(gray, tick, paper, h, w)
+        if square is None:
+            fields.append(spec)
+            continue
+        fields.append(spec.model_copy(update={"bbox": square}))
+        n_applied += 1
+    gated = template.model_copy(update={"fields": fields})
+    grid = float(_checkbox_grid_score(gray, gated))
+    meta: dict[str, Any] = {
+        "method": "tick-windows",
+        "n_ticks": len(by_field),
+        "n_applied": n_applied,
+        "grid": round(grid, 4),
+    }
+    return gated, meta
 
 
 def _plan_for(template: TemplateSpec) -> list[dict]:

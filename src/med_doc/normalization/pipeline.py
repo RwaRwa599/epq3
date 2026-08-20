@@ -9,7 +9,7 @@ from PIL import Image
 
 from med_doc.normalization.align import _checkbox_grid_score, fine_align, snap_overlay
 from med_doc.normalization.crops import extract_crops
-from med_doc.normalization.sections import snap_sections
+from med_doc.normalization.sections import apply_tick_windows, snap_sections
 from med_doc.normalization.viz import draw_overlay
 from med_doc.normalization.warp import warp_to_canonical
 from med_doc.paths import DEFAULT_TEMPLATE, V1_TEMPLATE
@@ -61,7 +61,15 @@ def normalize_document(
     aligned, align_meta, col_shifts = fine_align(canvas, spec)
     snapped, snap_meta = snap_overlay(aligned, spec)
     sectioned, section_meta = snap_sections(aligned, snapped)
-    checkbox, handwriting = extract_crops(aligned, snapped, col_shifts)
+    gated, crop_meta = apply_tick_windows(aligned, sectioned)
+    snap_grid = float(snap_meta.get("grid_score", 0) or 0)
+    if crop_meta["grid"] + 1e-9 >= snap_grid - 0.02:
+        crop_src = gated
+        crop_meta["used"] = True
+    else:
+        crop_src = snapped
+        crop_meta["used"] = False
+    checkbox, handwriting = extract_crops(aligned, crop_src, col_shifts)
 
     confidence = float(
         np.clip(
@@ -85,6 +93,7 @@ def normalize_document(
             "align": align_meta,
             "snap": snap_meta,
             "section_snap": section_meta,
+            "tick_crops": crop_meta,
             "template_id": spec.template_id,
             "sections": [s.model_dump() for s in sectioned.sections],
         },

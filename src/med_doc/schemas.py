@@ -53,6 +53,7 @@ class SectionSpec(BaseModel):
     column: int | None = None
     parent_id: str | None = None
     groups: list[str] = Field(default_factory=list)
+    field_id: str | None = None
 
     @field_validator("bbox")
     @classmethod
