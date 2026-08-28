@@ -17,13 +17,16 @@ from med_doc.schemas import NormalizedDocumentResult, TemplateSpec
 
 
 def _compute_mark_heuristic(crop_img: np.ndarray) -> tuple[float, bool]:
-    """Compute mark intensity score (dark pixel ratio) and candidate flag."""
+    """Interior dark ratio as registration-quality debug — not a tick label.
+
+    Block 1 does not classify marks. Callers that still read
+    ``is_marked_candidate`` should treat it as debug-only.
+    """
     if crop_img.ndim == 3:
         gray = cv2.cvtColor(crop_img, cv2.COLOR_RGB2GRAY)
     else:
         gray = crop_img
-    
-    # Checkbox interior dark ratio (pixels < 130)
+
     dark_ratio = float((gray < 130).mean())
     is_candidate = bool(dark_ratio >= 0.12)
     return round(dark_ratio, 4), is_candidate
@@ -73,18 +76,23 @@ def save_normalized_document(
     # 3. Save crops
     cb_crops_dir = doc_path / "crops" / "checkboxes"
     hw_crops_dir = doc_path / "crops" / "handwriting"
+    sec_crops_dir = doc_path / "crops" / "sections"
     if save_crops:
         cb_crops_dir.mkdir(parents=True, exist_ok=True)
         hw_crops_dir.mkdir(parents=True, exist_ok=True)
+        sec_crops_dir.mkdir(parents=True, exist_ok=True)
 
-    fields_meta: dict[str, Any] = {"checkboxes": {}, "handwriting": {}}
+    fields_meta: dict[str, Any] = {"checkboxes": {}, "handwriting": {}, "sections": {}}
     detected_marks: dict[str, Any] = {}
+    registration = result.extra.get("registration") or {}
 
     for fid, crop in result.checkbox_crops.items():
         dark_ratio, is_candidate = _compute_mark_heuristic(crop.normalized_image)
+        # Kept for Block 3 ingest compatibility; not a Block 1 product signal.
         detected_marks[fid] = {
             "dark_ratio": dark_ratio,
             "is_marked_candidate": is_candidate,
+            "debug": True,
         }
 
         crop_rel_path = None
@@ -97,8 +105,8 @@ def save_normalized_document(
             "bbox": crop.canonical_bbox,
             "quality_score": round(crop.quality_score, 3),
             "dark_ratio": dark_ratio,
-            "is_marked_candidate": is_candidate,
             "crop_path": crop_rel_path,
+            "debug": {"is_marked_candidate": is_candidate},
         }
 
     for fid, crop in result.handwriting_crops.items():
@@ -114,6 +122,21 @@ def save_normalized_document(
             "crop_path": crop_rel_path,
         }
 
+    for sid, crop in result.section_crops.items():
+        crop_rel_path = None
+        if save_crops:
+            crop_rel_path = f"crops/sections/{sid}.png"
+            raw = crop.raw_image
+            raw_bgr = cv2.cvtColor(raw, cv2.COLOR_RGB2BGR) if raw.ndim == 3 else raw
+            cv2.imwrite(str(doc_path / crop_rel_path), raw_bgr)
+
+        fields_meta["sections"][sid] = {
+            "bbox": crop.canonical_bbox,
+            "quality_score": round(crop.quality_score, 3),
+            "field_ids": list(crop.field_ids),
+            "crop_path": crop_rel_path,
+        }
+
     # 4. Save metadata.json
     doc_meta = {
         "doc_id": result.document_id,
@@ -124,9 +147,12 @@ def save_normalized_document(
         "orientation_degrees": result.orientation_degrees,
         "num_checkboxes": len(result.checkbox_crops),
         "num_handwriting": len(result.handwriting_crops),
+        "num_sections": len(result.section_crops),
         "canonical_path": can_rel_path,
         "overlay_path": overlay_rel_path,
         "detected_marks": detected_marks,
+        "registration": registration,
+        "mark_classification": "deferred_to_block3",
         "fields": fields_meta,
         "extra": {k: v for k, v in result.extra.items() if isinstance(v, (str, int, float, bool, list, dict))},
     }

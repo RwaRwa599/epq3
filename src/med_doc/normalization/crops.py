@@ -5,7 +5,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from med_doc.schemas import FieldCrop, FieldSpec, TemplateSpec
+from med_doc.schemas import FieldCrop, FieldSpec, SectionCrop, TemplateSpec
 
 
 def quality_metrics(gray: np.ndarray) -> tuple[float, float, float]:
@@ -112,3 +112,88 @@ def extract_crops(
         else:
             handwriting[spec.field_id] = crop
     return checkbox, handwriting
+
+
+def apply_column_shifts_to_template(
+    template: TemplateSpec,
+    column_shifts: dict[int, float] | None,
+) -> TemplateSpec:
+    """Bake 1a page-column dy into checkbox field bboxes (relative coords)."""
+    if not column_shifts:
+        return template
+    h = template.height
+    w = template.width
+    fields: list[FieldSpec] = []
+    for spec in template.fields:
+        if spec.field_type != "checkbox":
+            fields.append(spec)
+            continue
+        pixel = [
+            int(round(spec.bbox[0] * w)),
+            int(round(spec.bbox[1] * h)),
+            int(round(spec.bbox[2] * w)),
+            int(round(spec.bbox[3] * h)),
+        ]
+        shifted = _apply_column_shift(pixel, spec, template, column_shifts)
+        dy = shifted[1] - pixel[1]
+        if dy == 0:
+            fields.append(spec)
+            continue
+        dy_rel = dy / float(max(h, 1))
+        x0, y0, x1, y1 = spec.bbox
+        box_h = y1 - y0
+        y0 = min(max(0.0, y0 + dy_rel), 0.995)
+        y1 = min(1.0, max(y0 + 0.004, y0 + box_h))
+        fields.append(spec.model_copy(update={"bbox": [x0, round(y0, 6), x1, round(y1, 6)]}))
+    return template.model_copy(update={"fields": fields})
+
+
+def extract_section_crops(
+    canvas: np.ndarray,
+    template: TemplateSpec,
+) -> dict[str, SectionCrop]:
+    """One slightly padded tick-column crop per leaf section (raw pixels)."""
+    from med_doc.normalization.sections import (
+        _ancestor_ids,
+        _leaf_sections,
+        section_member_field_ids,
+    )
+
+    h, w = canvas.shape[:2]
+    by_id = {s.id: s for s in template.sections}
+    out: dict[str, SectionCrop] = {}
+    for leaf in _leaf_sections(template):
+        ticks = [t for t in template.tick_sections() if leaf.id in _ancestor_ids(t, by_id)]
+        if ticks:
+            x0 = min(t.bbox[0] for t in ticks)
+            y0 = min(t.bbox[1] for t in ticks)
+            x1 = max(t.bbox[2] for t in ticks)
+            y1 = max(t.bbox[3] for t in ticks)
+        else:
+            x0, y0, x1, y1 = leaf.bbox
+            x1 = x0 + 0.28 * max(x1 - x0, 0.01)
+        pad = 0.004
+        bbox = clip_bbox(
+            [
+                int(round((x0 - pad) * w)),
+                int(round((y0 - pad) * h)),
+                int(round((x1 + pad) * w)),
+                int(round((y1 + pad) * h)),
+            ],
+            w,
+            h,
+        )
+        raw = canvas[bbox[1] : bbox[3], bbox[0] : bbox[2]].copy()
+        if raw.size == 0:
+            raw = np.full((4, 4, 3), 255, dtype=np.uint8)
+        normalized = normalize_crop_rgb(raw)
+        quality, _, _ = quality_metrics(normalized)
+        out[leaf.id] = SectionCrop(
+            section_id=leaf.id,
+            canonical_bbox=bbox,
+            raw_image=raw,
+            normalized_image=normalized,
+            field_ids=section_member_field_ids(template, leaf.id),
+            quality_score=quality,
+        )
+    return out

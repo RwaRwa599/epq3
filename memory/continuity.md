@@ -13,9 +13,9 @@
 ## Project State
 
 - **project:** new2
-- **status:** Block 1 checkbox crops use red tick strips as gated search windows
+- **status:** Block 1 is 1a global warp/align plus 1b layout (squares + extra-ink); it does not classify marks
 - **last_enabled:** 2026-08-14
-- **last_session:** 2026-08-20 | agent: Cursor (2026-08-20-113324)
+- **last_session:** 2026-08-28 | agent: Cursor (2026-08-28-144429)
 - **last_review:** (none yet)
 - **last_invariant_check:** (none yet)
 - **repo:** ~/new2
@@ -47,7 +47,11 @@
 - Block 1 `snap_sections` locks each main to a detected black header, cyan subs to bold subheads, and green rows to JSON tests in printed-peak order below that header (not snap_overlay field Y). Within each row the test-name text is boxed and subtracted; the leftover from the magenta column wall to that text is one tick box. Rows and ticks carry the JSON `field_id`.
   <!-- id: block1-header-to-next-section-snap | created: 2026-08-20 | last_used: 2026-08-20 | uses: 1 | tier: working | origin: 2026-08-20-035004 -->
 - Block 1 `extract_crops` takes one ~16–24 px hollow square per checkbox `field_id` found inside that field’s red tick strip (`apply_tick_windows`). If `_checkbox_grid_score` drops more than 0.02 vs `snap_overlay`, crops stay on the snap_overlay bboxes. Overlay still draws `sectioned`; handwriting fields are not retargeted. Synthetic hollow ≥ 95%.
-  <!-- id: block1-tick-window-gated-crops | created: 2026-08-20 | last_used: 2026-08-20 | uses: 1 | tier: working | origin: 2026-08-20-113324 -->
+  <!-- id: block1-tick-window-gated-crops | created: 2026-08-20 | last_used: 2026-08-20 | uses: 1 | tier: superseded | origin: 2026-08-20-113324 | superseded-by: block1-1a-1b-split -->
+- Block 1 internals are `run_block1a` (revision pick, warp, page `fine_align`) then `run_block1b` (section lock, per-section dy from printed-row peaks, tick-strip squares preferring ink-in-ring, extra-ink `crops/sections/{id}.png`). Public API stays `normalize_document()`. Square placement may fall back to dy-shifted snap fields when tick-window grid is >0.02 worse; extra-ink always keeps the section lock. Synthetic hollow ≥ 95%.
+  <!-- id: block1-1a-1b-split | created: 2026-08-28 | last_used: 2026-08-28 | uses: 1 | tier: working | origin: 2026-08-28-144429 | supersedes: block1-tick-window-gated-crops -->
+- Block 1 does not classify ticks. Fill/dark ratio in 1b is registration quality; `is_marked_candidate` is debug-only; ZIP `mark_classification` is `deferred_to_block3`.
+  <!-- id: block1-no-mark-classification | created: 2026-08-28 | last_used: 2026-08-28 | uses: 1 | tier: working | origin: 2026-08-28-144429 -->
 - Block 2 Knowledge Graph is frozen and deterministic (`kg/lab_request_v1_kg.json`), providing profile expansions, tube requirements, acronym resolution, fuzzy matching for write-ins, and cross-field validation.
   <!-- id: block2-clinical-kg | created: 2026-08-14 | last_used: 2026-08-14 | uses: 3 | tier: active | origin: 2026-08-14-034450 -->
 - Prior engine `assume()` biases downstream HTR hypotheses using Bayesian priors from observed checkboxes and profile bundles.

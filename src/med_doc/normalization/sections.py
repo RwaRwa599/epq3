@@ -477,6 +477,191 @@ def _hollow_xs(gray: np.ndarray, y0: int, y1: int, x0: int, x1: int, paper: floa
     return found
 
 
+def _ink_ring_candidates(
+    gray: np.ndarray,
+    y0: int,
+    y1: int,
+    x0: int,
+    x1: int,
+    paper: float,
+) -> list[tuple[int, int, float]]:
+    """Printed rings whose interior is dark (pen). Returns (x, y, interior_dark)."""
+    found: list[tuple[int, int, float]] = []
+    y_hi = max(y0, y1 - 16)
+    for y in range(y0, y_hi + 1, 2):
+        x = x0
+        while x <= x1 - 16:
+            crop = gray[y : y + 16, x : x + 16]
+            if crop.shape[0] < 12 or crop.shape[1] < 12:
+                x += 2
+                continue
+            cy, cx = crop.shape[0] // 2, crop.shape[1] // 2
+            interior = crop[2:-2, 2:-2]
+            center = float(crop[max(0, cy - 2) : cy + 3, max(0, cx - 2) : cx + 3].mean())
+            dark = float((crop < paper * 0.55).mean())
+            interior_dark = float((interior < paper * 0.55).mean())
+            border = np.concatenate([crop[0, :], crop[-1, :], crop[:, 0], crop[:, -1]])
+            border_dark = float((border < paper * 0.55).mean())
+            has_ring = border_dark >= 0.08 and 0.07 <= dark <= 0.75
+            has_ink = center < paper * 0.70 and interior_dark >= 0.10
+            if has_ring and has_ink:
+                if not any(abs(x - px) < 14 and abs(y - py) < 14 for px, py, _ in found):
+                    found.append((x, y, interior_dark))
+                x += 14
+            else:
+                x += 2
+    found.sort(key=lambda item: -item[2])
+    return found
+
+
+def _leaf_sections(template: TemplateSpec) -> list[SectionSpec]:
+    """Mains without subs, plus each sub — skip others / office_use (handwriting)."""
+    subs = template.sub_sections()
+    mains_with_subs = {s.parent_id for s in subs}
+    leaves: list[SectionSpec] = list(subs)
+    for spec in template.main_sections():
+        if spec.column is None:
+            continue
+        if spec.id in mains_with_subs:
+            continue
+        if spec.id in {"others", "office_use"}:
+            continue
+        leaves.append(spec)
+    return leaves
+
+
+def _ancestor_ids(spec: SectionSpec, by_id: dict[str, SectionSpec]) -> list[str]:
+    out: list[str] = []
+    cur: SectionSpec | None = spec
+    seen: set[str] = set()
+    while cur is not None and cur.id not in seen:
+        seen.add(cur.id)
+        out.append(cur.id)
+        cur = by_id.get(cur.parent_id) if cur.parent_id else None
+    return out
+
+
+def section_member_field_ids(template: TemplateSpec, section_id: str) -> list[str]:
+    """Checkbox field_ids whose tick/row/group belongs to this main or sub."""
+    by_id = {s.id: s for s in template.sections}
+    ids: list[str] = []
+    seen: set[str] = set()
+    for tick in template.tick_sections():
+        if tick.field_id and section_id in _ancestor_ids(tick, by_id) and tick.field_id not in seen:
+            seen.add(tick.field_id)
+            ids.append(tick.field_id)
+    spec = by_id.get(section_id)
+    groups = set(spec.groups) if spec is not None else set()
+    if groups:
+        for field in template.checkbox_fields():
+            if (field.group or "") in groups and field.field_id not in seen:
+                seen.add(field.field_id)
+                ids.append(field.field_id)
+    return ids
+
+
+def _shift_box_y(bbox: list[float], dy_px: int, height: int) -> list[float]:
+    dy = dy_px / float(max(height, 1))
+    x0, y0, x1, y1 = bbox
+    box_h = y1 - y0
+    y0 = y0 + dy
+    y1 = y0 + box_h
+    if y0 < 0.0:
+        y1 -= y0
+        y0 = 0.0
+    if y1 > 1.0:
+        y0 -= y1 - 1.0
+        y1 = 1.0
+    return _clamp_box(x0, y0, x1, y1)
+
+
+def apply_section_dy(
+    canvas: np.ndarray,
+    template: TemplateSpec,
+    *,
+    search_px: int = 48,
+) -> tuple[TemplateSpec, dict[str, Any]]:
+    """Shift each leaf's rows/ticks/fields by one dy from printed-row peaks.
+
+    Pair detected hollow-row Ys with expected row centers. A consistent offset
+    (e.g. one printed row up) becomes the section dy. Generic dark-ink profiles
+    are not used — they lock onto labels and headers.
+    """
+    gray = cv2.cvtColor(canvas, cv2.COLOR_RGB2GRAY) if canvas.ndim == 3 else canvas
+    h, w = gray.shape
+    paper = float(np.percentile(gray, 90))
+    by_id = {s.id: s for s in template.sections}
+    shifts: dict[str, int] = {}
+
+    for leaf in _leaf_sections(template):
+        rows = template.row_sections(leaf.id)
+        members = [
+            f
+            for f in template.checkbox_fields()
+            if f.field_id in set(section_member_field_ids(template, leaf.id))
+        ]
+        if len(rows) < 2 and len(members) < 2:
+            continue
+        if rows:
+            expected_ys = [int(round(r.bbox[1] * h)) for r in rows]
+        else:
+            expected_ys = [int(round(f.bbox[1] * h)) for f in members]
+        skip = 22 if leaf.kind == "sub" else int(0.024 * h)
+        peaks = detect_printed_rows(gray, leaf.bbox, paper, h, w, skip_top=skip)
+        if len(peaks) != len(expected_ys) or len(peaks) < 2:
+            continue
+        dys = [peaks[i] - expected_ys[i] for i in range(len(peaks))]
+        best_dy = int(round(float(np.median(np.array(dys, dtype=float)))))
+        if abs(best_dy) < 3 or abs(best_dy) > search_px:
+            continue
+        if float(np.std(np.array(dys, dtype=float))) > 12.0:
+            continue
+        shifts[leaf.id] = best_dy
+
+    if not shifts:
+        return template, {"method": "section-dy", "n_shifted": 0, "shifts": {}}
+
+    member_to_leaf: dict[str, str] = {}
+    for leaf_id in shifts:
+        for fid in section_member_field_ids(template, leaf_id):
+            member_to_leaf[fid] = leaf_id
+
+    new_sections: list[SectionSpec] = []
+    for spec in template.sections:
+        leaf_id = None
+        if spec.id in shifts:
+            leaf_id = spec.id
+        else:
+            for anc in _ancestor_ids(spec, by_id):
+                if anc in shifts:
+                    leaf_id = anc
+                    break
+        if leaf_id is None:
+            new_sections.append(spec)
+            continue
+        new_sections.append(
+            spec.model_copy(update={"bbox": _shift_box_y(spec.bbox, shifts[leaf_id], h)})
+        )
+
+    new_fields: list[FieldSpec] = []
+    for spec in template.fields:
+        leaf_id = member_to_leaf.get(spec.field_id)
+        if leaf_id is None or spec.field_type != "checkbox":
+            new_fields.append(spec)
+            continue
+        new_fields.append(
+            spec.model_copy(update={"bbox": _shift_box_y(spec.bbox, shifts[leaf_id], h)})
+        )
+
+    shifted = template.model_copy(update={"sections": new_sections, "fields": new_fields})
+    meta: dict[str, Any] = {
+        "method": "section-dy",
+        "n_shifted": len(shifts),
+        "shifts": {k: int(v) for k, v in shifts.items()},
+    }
+    return shifted, meta
+
+
 def split_row_text_and_ticks(
     gray: np.ndarray,
     row: SectionSpec,
@@ -549,18 +734,33 @@ def _square_in_tick(
     height: int,
     width: int,
 ) -> list[float] | None:
-    """Return a ~one-square bbox inside the red tick strip, or None."""
+    """Return a ~one-square bbox inside the red tick strip, or None.
+
+    Prefer a printed ring whose interior is dark (pen) over the first hollow.
+    A 1 px inset trims the printed border for Block 3; this is geometry, not a mark label.
+    """
     x0, y0, x1, y1 = [int(round(v * s)) for v, s in zip(tick.bbox, (width, height, width, height))]
     x0, y0 = max(0, x0), max(0, y0)
     x1, y1 = min(width, x1), min(height, y1)
     if x1 - x0 < 12 or y1 - y0 < 8:
         return None
-    xs = _hollow_xs(gray, y0, y1, x0, x1, paper)
-    if not xs:
-        return None
-    hx = int(xs[0])
-    side = max(14, min(22, y1 - y0, x1 - hx))
-    return _clamp_box(hx / width, y0 / height, (hx + side) / width, (y0 + side) / height)
+    ink = _ink_ring_candidates(gray, y0, y1, x0, x1, paper)
+    if ink:
+        hx, hy, _ = ink[0]
+    else:
+        xs = _hollow_xs(gray, y0, y1, x0, x1, paper)
+        if not xs:
+            return None
+        hx = int(xs[0])
+        hy = y0
+    side = max(14, min(22, y1 - hy, x1 - hx))
+    inset = 1 if side >= 16 else 0
+    return _clamp_box(
+        (hx + inset) / width,
+        (hy + inset) / height,
+        (hx + side - inset) / width,
+        (hy + side - inset) / height,
+    )
 
 
 def apply_tick_windows(

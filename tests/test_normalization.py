@@ -261,6 +261,196 @@ def test_apply_tick_windows_snaps_square_inside_strip():
     assert box[2] < 0.40
 
 
+def test_run_block1a_returns_canonical_size():
+    from med_doc.normalization.block1a import run_block1a
+
+    template = load_template()
+    page = render_canonical_form(template)
+    photo = photograph(page, tilt=0.10)
+    result = run_block1a(photo, template=template, document_id="a")
+    assert result.canvas.shape[1] == template.width
+    assert result.canvas.shape[0] == template.height
+    assert result.template.template_id == template.template_id
+
+
+def test_run_block1b_emits_section_crops():
+    from med_doc.normalization.block1a import run_block1a
+    from med_doc.normalization.block1b import run_block1b
+    from med_doc.paths import V1_TEMPLATE
+
+    template = load_template(V1_TEMPLATE)
+    page = render_canonical_form(template)
+    layout = run_block1b(run_block1a(page, template=template, document_id="v1"), draw_debug=False)
+    result = layout.to_result()
+    for sid in ("urine", "endocrinology", "haematology"):
+        assert sid in result.section_crops, sid
+        crop = result.section_crops[sid]
+        assert crop.raw_image.size > 0
+        assert crop.field_ids
+        assert crop.section_id == sid
+
+
+def test_square_prefers_ink_one_row_up_in_same_strip():
+    from med_doc.normalization.sections import apply_tick_windows
+    from med_doc.schemas import FieldSpec, SectionSpec, TemplateSpec
+
+    h, w = 80, 80
+    page = np.full((h, w, 3), 255, dtype=np.uint8)
+    cv2.rectangle(page, (8, 16), (24, 32), (30, 30, 30), 2)
+    cv2.rectangle(page, (10, 18), (22, 30), (40, 40, 40), -1)
+    cv2.rectangle(page, (8, 48), (24, 64), (30, 30, 30), 2)
+    cv2.rectangle(page, (40, 48), (56, 64), (30, 30, 30), 2)
+    template = TemplateSpec(
+        template_id="demo_ink_up",
+        canvas_size=[w, h],
+        fields=[
+            FieldSpec(
+                field_id="row_lower",
+                field_type="checkbox",
+                label="lower",
+                bbox=[0.08, 0.58, 0.32, 0.82],
+                group="demo",
+            ),
+            FieldSpec(
+                field_id="neighbor",
+                field_type="checkbox",
+                label="neighbor",
+                bbox=[0.48, 0.58, 0.72, 0.82],
+                group="demo",
+            ),
+        ],
+        sections=[
+            SectionSpec(
+                id="left_tick",
+                kind="tick",
+                label="",
+                bbox=[0.05, 0.10, 0.40, 0.90],
+                field_id="row_lower",
+            ),
+            SectionSpec(
+                id="right_tick",
+                kind="tick",
+                label="",
+                bbox=[0.45, 0.50, 0.80, 0.90],
+                field_id="neighbor",
+            ),
+        ],
+    )
+    gated, meta = apply_tick_windows(page, template)
+    assert meta["n_applied"] == 2
+    by_id = {f.field_id: f for f in gated.checkbox_fields()}
+    lower = by_id["row_lower"].bbox
+    neighbor = by_id["neighbor"].bbox
+    assert lower[1] * h < 40, lower
+    assert 0.5 * (lower[1] + lower[3]) * h < 48
+    assert neighbor[0] * w >= 36
+    assert abs(0.5 * (neighbor[0] + neighbor[2]) * w - 48) <= 12
+
+
+def test_section_dy_shifts_rows_toward_ink_above():
+    from med_doc.normalization.sections import apply_section_dy
+    from med_doc.schemas import FieldSpec, SectionSpec, TemplateSpec
+
+    h, w = 200, 120
+    page = np.full((h, w, 3), 255, dtype=np.uint8)
+    peaks = (50, 82)
+    for y in peaks:
+        cv2.rectangle(page, (12, y), (28, y + 16), (40, 40, 40), 2)
+    template = TemplateSpec(
+        template_id="demo_section_dy",
+        canvas_size=[w, h],
+        fields=[
+            FieldSpec(
+                field_id="f0",
+                field_type="checkbox",
+                bbox=[0.08, 0.40, 0.28, 0.50],
+                group="demo",
+            ),
+            FieldSpec(
+                field_id="f1",
+                field_type="checkbox",
+                bbox=[0.08, 0.56, 0.28, 0.66],
+                group="demo",
+            ),
+        ],
+        sections=[
+            SectionSpec(
+                id="demo",
+                kind="main",
+                label="DEMO",
+                bbox=[0.02, 0.15, 0.90, 0.90],
+                column=0,
+                groups=["demo"],
+            ),
+            SectionSpec(
+                id="demo_r0",
+                kind="row",
+                label="r0",
+                bbox=[0.02, 0.38, 0.90, 0.52],
+                column=0,
+                parent_id="demo",
+                groups=["demo"],
+                field_id="f0",
+            ),
+            SectionSpec(
+                id="demo_r1",
+                kind="row",
+                label="r1",
+                bbox=[0.02, 0.54, 0.90, 0.68],
+                column=0,
+                parent_id="demo",
+                groups=["demo"],
+                field_id="f1",
+            ),
+            SectionSpec(
+                id="demo_r0_tick",
+                kind="tick",
+                label="",
+                bbox=[0.02, 0.38, 0.30, 0.52],
+                column=0,
+                parent_id="demo_r0",
+                groups=["demo"],
+                field_id="f0",
+            ),
+            SectionSpec(
+                id="demo_r1_tick",
+                kind="tick",
+                label="",
+                bbox=[0.02, 0.54, 0.30, 0.68],
+                column=0,
+                parent_id="demo_r1",
+                groups=["demo"],
+                field_id="f1",
+            ),
+        ],
+    )
+    y0_before = template.checkbox_fields()[0].bbox[1] * h
+    shifted, meta = apply_section_dy(page, template)
+    assert meta["n_shifted"] == 1
+    y0_after = shifted.checkbox_fields()[0].bbox[1] * h
+    assert y0_after < y0_before - 8
+    assert abs(y0_after - 50) <= 12
+    f1_y = 0.5 * sum(shifted.field_map()["f1"].bbox[1:4:2]) * h
+    assert abs(f1_y - 90) <= 16
+
+
+def test_section_crops_written_to_zip_layout(tmp_path):
+    from med_doc.normalization.batch import save_normalized_document
+    from med_doc.paths import V1_TEMPLATE
+
+    template = load_template(V1_TEMPLATE)
+    page = render_canonical_form(template)
+    result = normalize_document(page, template=template, document_id="zipsec", draw_debug=False)
+    meta = save_normalized_document(result, tmp_path / "doc")
+    assert meta["num_sections"] >= 3
+    urine = tmp_path / "doc" / "crops" / "sections" / "urine.png"
+    assert urine.exists()
+    assert meta["fields"]["sections"]["urine"]["field_ids"]
+    first_cb = next(iter(meta["fields"]["checkboxes"]))
+    assert "is_marked_candidate" not in meta["fields"]["checkboxes"][first_cb]
+    assert meta["mark_classification"] == "deferred_to_block3"
+
+
 def test_template_relative_coords():
     template = load_template()
     assert template.canvas_size == list(CANONICAL_SIZE)

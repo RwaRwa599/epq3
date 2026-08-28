@@ -145,6 +145,19 @@ class FieldCrop(BaseModel):
     glare_index: float = Field(ge=0.0, le=1.0, default=0.0)
 
 
+class SectionCrop(BaseModel):
+    """Tick-column extra-ink crop for one main or sub (raw pixels, no blank subtraction)."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    section_id: str
+    canonical_bbox: list[int]
+    raw_image: np.ndarray
+    normalized_image: np.ndarray
+    field_ids: list[str] = Field(default_factory=list)
+    quality_score: float = Field(ge=0.0, le=1.0, default=0.0)
+
+
 class NormalizedDocumentResult(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -153,6 +166,7 @@ class NormalizedDocumentResult(BaseModel):
     alignment_confidence: float = Field(ge=0.0, le=1.0)
     checkbox_crops: dict[str, FieldCrop]
     handwriting_crops: dict[str, FieldCrop]
+    section_crops: dict[str, SectionCrop] = Field(default_factory=dict)
     debug_overlay: np.ndarray | None = None
     warp_method: str = "none"
     orientation_degrees: int = 0
