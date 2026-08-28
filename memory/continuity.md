@@ -15,7 +15,7 @@
 - **project:** new2
 - **status:** Block 1 is 1a global warp/align plus 1b layout (squares + extra-ink); it does not classify marks
 - **last_enabled:** 2026-08-14
-- **last_session:** 2026-08-28 | agent: Cursor (2026-08-28-144429)
+- **last_session:** 2026-08-28 | agent: Cursor (2026-08-28-145408)
 - **last_review:** (none yet)
 - **last_invariant_check:** (none yet)
 - **repo:** ~/new2
@@ -52,6 +52,8 @@
   <!-- id: block1-1a-1b-split | created: 2026-08-28 | last_used: 2026-08-28 | uses: 1 | tier: working | origin: 2026-08-28-144429 | supersedes: block1-tick-window-gated-crops -->
 - Block 1 does not classify ticks. Fill/dark ratio in 1b is registration quality; `is_marked_candidate` is debug-only; ZIP `mark_classification` is `deferred_to_block3`.
   <!-- id: block1-no-mark-classification | created: 2026-08-28 | last_used: 2026-08-28 | uses: 1 | tier: working | origin: 2026-08-28-144429 -->
+- Local demo9 through 1a/1b → Block 3: Paddle over-calls because `_looks_like_mark(t) or (t and s >= 0.55)` treats any OCR snippet as a tick when interior `ink_density >= 0.06`. Density correctly left those unmarked (`source=density`, printed label / mis-crop). Prior demo9_b1b3 had Paddle off (all `density_fallback`). 1b tick-windows unused; many crops shifted onto labels so density cleared 0.06 and Paddle read glyph fragments (`opc`, `-h(`). Block 1 `dark_ratio` / `is_marked_candidate` is not the product path when crops exist. Blank clean; s1 `urine_culture` still a density slash.
+  <!-- id: demo9-1a1b-paddle-fps | created: 2026-08-28 | last_used: 2026-08-28 | uses: 1 | tier: working | origin: 2026-08-28-145408 -->
 - Block 2 Knowledge Graph is frozen and deterministic (`kg/lab_request_v1_kg.json`), providing profile expansions, tube requirements, acronym resolution, fuzzy matching for write-ins, and cross-field validation.
   <!-- id: block2-clinical-kg | created: 2026-08-14 | last_used: 2026-08-14 | uses: 3 | tier: active | origin: 2026-08-14-034450 -->
 - Prior engine `assume()` biases downstream HTR hypotheses using Bayesian priors from observed checkboxes and profile bundles.
@@ -98,6 +100,8 @@
   <!-- id: block1-section-match-samples | created: 2026-08-20 | last_used: 2026-08-20 | uses: 1 | tier: working | origin: 2026-08-20-032544 -->
 - [ ] Local (not CI): demo6 s6 / s7 first-field crop Y should sit on the first printed line under the header after tick-window gating, not one row down.
   <!-- id: block1-demo6-first-row-crop-y | created: 2026-08-20 | last_used: 2026-08-20 | uses: 1 | tier: working | origin: 2026-08-20-113324 -->
+- [ ] Paddle over-calls ticks on 1a/1b clinic crops (demo9_1a1b: 7–43 ticks/sheet vs prior density-only). Need to check crop content vs Paddle gate, not density fallback.
+  <!-- id: demo9-paddle-overcall | created: 2026-08-28 | last_used: 2026-08-28 | uses: 1 | tier: working | origin: 2026-08-28-145408 -->
 
 ## User Preferences
 
