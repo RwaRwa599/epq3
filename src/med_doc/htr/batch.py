@@ -122,6 +122,11 @@ def process_block1_document(
     marks: dict[str, MarkPrediction] = {}
     if run_nv:
         marks = classify_marks(doc.checkbox_crops, fallbacks=doc.detected_marks)
+        cb_meta = (doc.fields.get("checkboxes") or {}) if doc.fields else {}
+        for fid, pred in list(marks.items()):
+            info = cb_meta.get(fid) or {}
+            if info.get("crop_needs_hitl"):
+                marks[fid] = pred.model_copy(update={"needs_hitl": True})
 
     # KG scoring (assume / tubes / implied tests) is Block 4. Block 3 emits drafts only.
     hw: dict[str, HandwritingPrediction] = {}

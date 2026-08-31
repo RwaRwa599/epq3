@@ -5,7 +5,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from med_doc.schemas import FieldCrop, FieldSpec, SectionCrop, TemplateSpec
+from med_doc.schemas import FieldCrop, FieldSpec, FieldType, SectionCrop, TemplateSpec
 
 
 def quality_metrics(gray: np.ndarray) -> tuple[float, float, float]:
@@ -197,3 +197,30 @@ def extract_section_crops(
             quality_score=quality,
         )
     return out
+
+
+def recrop_pixels(
+    canvas: np.ndarray,
+    field_id: str,
+    bbox: list[int],
+    *,
+    field_type: FieldType = "checkbox",
+) -> FieldCrop:
+    """Rebuild a field crop from an absolute pixel bbox on the canonical canvas."""
+    h, w = canvas.shape[:2]
+    box = clip_bbox(bbox, w, h)
+    raw = canvas[box[1] : box[3], box[0] : box[2]].copy()
+    if raw.size == 0:
+        raw = np.full((4, 4, 3), 255, dtype=np.uint8)
+    normalized = normalize_crop_rgb(raw)
+    quality, blur, glare = quality_metrics(normalized)
+    return FieldCrop(
+        field_id=field_id,
+        field_type=field_type,
+        canonical_bbox=box,
+        normalized_image=normalized,
+        raw_image=raw,
+        quality_score=quality,
+        blur_score=blur,
+        glare_index=glare,
+    )

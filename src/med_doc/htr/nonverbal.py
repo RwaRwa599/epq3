@@ -13,7 +13,7 @@ from typing import Any
 import cv2
 import numpy as np
 
-from med_doc.htr.marks import classify_mark
+from med_doc.htr.marks import SLASH_MIN_DENSITY, classify_mark, looks_like_text_line
 from med_doc.htr.schemas import MarkPrediction
 
 logger = logging.getLogger(__name__)
@@ -194,9 +194,22 @@ def classify_mark_nonverbal(
         logger.info("PaddleOCR failed on %s (%s); density fallback.", field_id, exc)
         return density_labeled
 
-    mark_hits = [(t, s) for t, s in hits if _looks_like_mark(t) or (t and s >= 0.55)]
-    if mark_hits and density_pred.ink_density >= 0.06:
-        best = max(mark_hits, key=lambda x: x[1])
+    whitelist = [(t, s) for t, s in hits if _looks_like_mark(t)]
+    dens = float(density_pred.ink_density)
+    in_band = SLASH_MIN_DENSITY <= dens < 0.62
+    text_line = looks_like_text_line(crop)
+
+    # Geometry alone is enough (Paddle off must still recall V/slash/fill).
+    if density_pred.is_marked and density_pred.source in {"slash", "v_check", "filled"}:
+        if whitelist:
+            best = max(whitelist, key=lambda x: x[1])
+            conf = float(min(0.97, max(density_pred.confidence, best[1])))
+            return density_pred.model_copy(update={"source": "paddle", "confidence": round(conf, 3)})
+        return density_labeled
+
+    # Second vote: whitelist token + interior ink + not a label strip (no score≥0.55 loophole).
+    if whitelist and in_band and not text_line:
+        best = max(whitelist, key=lambda x: x[1])
         conf = float(min(0.97, max(0.6, best[1])))
         return MarkPrediction(
             field_id=field_id,
@@ -206,10 +219,6 @@ def classify_mark_nonverbal(
             needs_hitl=conf < 0.70,
             source="paddle",
         )
-
-    # Paddle saw no mark (or no interior ink). Trust a filled/slash interior, else empty.
-    if density_pred.is_marked and density_pred.source in {"slash", "filled"}:
-        return density_labeled
 
     return MarkPrediction(
         field_id=field_id,

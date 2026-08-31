@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import cv2
 import numpy as np
 
 from med_doc.htr.fusion import fuse_handwriting
@@ -46,7 +47,7 @@ def test_ticked_checkbox_is_marked():
     pred = classify_mark(_ticked_checkbox(), "cbc")
     assert pred.is_marked is True
     assert pred.ink_density >= 0.05
-    assert pred.source in {"slash", "density", "filled"}
+    assert pred.source in {"slash", "v_check", "density", "filled"}
 
 
 def test_filled_checkbox_is_marked():
@@ -131,3 +132,41 @@ def test_sparse_handwriting_on_large_others_crop():
     filled = ink_density(_filled_checkbox())
     assert 0.0 <= empty < 0.15
     assert filled > empty
+
+
+def _padded_empty_square(size: int = 40, pad: int = 8) -> np.ndarray:
+    img = np.full((size, size, 3), 245, dtype=np.uint8)
+    x0, y0, x1, y1 = pad, pad, size - pad, size - pad
+    cv2.rectangle(img, (x0, y0), (x1 - 1, y1 - 1), (90, 90, 90), 2)
+    return img
+
+
+def _padded_v_tick(size: int = 40, pad: int = 8) -> np.ndarray:
+    img = _padded_empty_square(size, pad)
+    cx, cy = size // 2, size // 2
+    cv2.line(img, (cx - 6, cy - 3), (cx - 1, cy + 6), (18, 18, 18), 2)
+    cv2.line(img, (cx - 1, cy + 6), (cx + 8, cy - 7), (18, 18, 18), 2)
+    return img
+
+
+def _label_strip() -> np.ndarray:
+    img = np.full((36, 80, 3), 245, dtype=np.uint8)
+    cv2.putText(img, "CEA", (4, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (20, 20, 20), 1)
+    return img
+
+
+def test_padded_v_tick_is_marked_without_png_frame():
+    pred = classify_mark(_padded_v_tick(), "cea")
+    assert pred.is_marked is True
+    assert pred.source in {"v_check", "slash"}
+    assert pred.ink_density >= 0.06
+
+
+def test_padded_empty_square_unmarked():
+    pred = classify_mark(_padded_empty_square(), "cea")
+    assert pred.is_marked is False
+
+
+def test_label_strip_is_not_a_tick():
+    pred = classify_mark(_label_strip(), "cea")
+    assert pred.is_marked is False

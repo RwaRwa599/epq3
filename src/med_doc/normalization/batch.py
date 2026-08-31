@@ -106,6 +106,10 @@ def save_normalized_document(
             "quality_score": round(crop.quality_score, 3),
             "dark_ratio": dark_ratio,
             "crop_path": crop_rel_path,
+            "crop_ok": bool(crop.crop_ok),
+            "crop_needs_hitl": bool(crop.crop_needs_hitl),
+            "crop_validate_status": crop.crop_validate_status,
+            "crop_validate_attempts": int(crop.crop_validate_attempts),
             "debug": {"is_marked_candidate": is_candidate},
         }
 
@@ -152,6 +156,7 @@ def save_normalized_document(
         "overlay_path": overlay_rel_path,
         "detected_marks": detected_marks,
         "registration": registration,
+        "crop_validate": result.extra.get("crop_validate") or {},
         "mark_classification": "deferred_to_block3",
         "fields": fields_meta,
         "extra": {k: v for k, v in result.extra.items() if isinstance(v, (str, int, float, bool, list, dict))},

@@ -143,6 +143,10 @@ class FieldCrop(BaseModel):
     quality_score: float = Field(ge=0.0, le=1.0)
     blur_score: float = Field(ge=0.0, le=1.0, default=0.0)
     glare_index: float = Field(ge=0.0, le=1.0, default=0.0)
+    crop_ok: bool = True
+    crop_needs_hitl: bool = False
+    crop_validate_status: str = "ok"
+    crop_validate_attempts: int = 0
 
 
 class SectionCrop(BaseModel):

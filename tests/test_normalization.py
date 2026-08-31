@@ -448,6 +448,7 @@ def test_section_crops_written_to_zip_layout(tmp_path):
     assert meta["fields"]["sections"]["urine"]["field_ids"]
     first_cb = next(iter(meta["fields"]["checkboxes"]))
     assert "is_marked_candidate" not in meta["fields"]["checkboxes"][first_cb]
+    assert "crop_ok" in meta["fields"]["checkboxes"][first_cb]
     assert meta["mark_classification"] == "deferred_to_block3"
 
 
@@ -619,3 +620,98 @@ def test_clinic_photos_emit_full_crop_set():
     assert result.canonical_canvas.shape[0] == template.height
     assert 0.0 <= result.alignment_confidence <= 1.0
     _ = PRIVATE_SAMPLES_DIR  # documented gitignored location in this repo
+
+
+def test_block1c_empty_hollow_ok():
+    from med_doc.normalization.block1c import window_ok
+
+    img = np.full((40, 40, 3), 245, dtype=np.uint8)
+    cv2.rectangle(img, (8, 8), (31, 31), (90, 90, 90), 2)
+    assert window_ok(img) is True
+
+
+def test_block1c_label_window_fails():
+    from med_doc.normalization.block1c import window_ok
+
+    img = np.full((36, 80, 3), 245, dtype=np.uint8)
+    cv2.putText(img, "HbA1c", (2, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (20, 20, 20), 1)
+    assert window_ok(img) is False
+
+
+def test_block1c_rematch_label_onto_ring_without_stealing_neighbour():
+    from med_doc.normalization.block1a import Block1aPage
+    from med_doc.normalization.block1b import Block1bLayout
+    from med_doc.normalization.block1c import run_block1c
+    from med_doc.normalization.crops import recrop_pixels
+    from med_doc.schemas import FieldSpec, NormalizedDocumentResult, TemplateSpec
+
+    canvas = np.full((160, 220, 3), 245, dtype=np.uint8)
+    cv2.rectangle(canvas, (30, 50), (48, 68), (90, 90, 90), 2)
+    cv2.rectangle(canvas, (140, 50), (158, 68), (90, 90, 90), 2)
+    cv2.putText(canvas, "CEA", (52, 66), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (20, 20, 20), 1)
+
+    spec_a = FieldSpec(field_id="cea", field_type="checkbox", bbox=[0.22, 0.28, 0.50, 0.48], label="CEA")
+    spec_b = FieldSpec(field_id="afp", field_type="checkbox", bbox=[0.62, 0.28, 0.78, 0.48], label="AFP")
+    template = TemplateSpec(
+        template_id="t",
+        canvas_size=[220, 160],
+        fields=[spec_a, spec_b],
+    )
+    crop_a = recrop_pixels(canvas, "cea", [52, 48, 110, 78])
+    crop_b = recrop_pixels(canvas, "afp", [138, 48, 160, 72])
+    result = NormalizedDocumentResult(
+        document_id="t",
+        canonical_canvas=canvas,
+        alignment_confidence=0.8,
+        checkbox_crops={"cea": crop_a, "afp": crop_b},
+        handwriting_crops={},
+    )
+    page = Block1aPage(
+        canvas=canvas,
+        template=template,
+        warp_meta={},
+        align_meta={},
+        col_shifts={},
+        document_id="t",
+    )
+    gated = run_block1c(page, Block1bLayout(result=result, sectioned=template), draw_debug=False)
+    cea = gated.result.checkbox_crops["cea"]
+    afp = gated.result.checkbox_crops["afp"]
+    assert cea.crop_validate_status in {"retry", "ok"}
+    assert cea.crop_needs_hitl is False
+    cx = 0.5 * (cea.canonical_bbox[0] + cea.canonical_bbox[2])
+    assert cx < 70, cea.canonical_bbox
+    assert abs(afp.canonical_bbox[0] - crop_b.canonical_bbox[0]) <= 2
+
+
+def test_block1c_no_ring_sets_hitl():
+    from med_doc.normalization.block1a import Block1aPage
+    from med_doc.normalization.block1b import Block1bLayout
+    from med_doc.normalization.block1c import run_block1c
+    from med_doc.normalization.crops import recrop_pixels
+    from med_doc.schemas import FieldSpec, NormalizedDocumentResult, TemplateSpec
+
+    canvas = np.full((80, 80, 3), 245, dtype=np.uint8)
+    spec = FieldSpec(field_id="cea", field_type="checkbox", bbox=[0.2, 0.2, 0.45, 0.45])
+    template = TemplateSpec(template_id="t", canvas_size=[80, 80], fields=[spec])
+    crop = recrop_pixels(canvas, "cea", [16, 16, 34, 34])
+    result = NormalizedDocumentResult(
+        document_id="t",
+        canonical_canvas=canvas,
+        alignment_confidence=0.5,
+        checkbox_crops={"cea": crop},
+        handwriting_crops={},
+    )
+    page = Block1aPage(
+        canvas=canvas,
+        template=template,
+        warp_meta={},
+        align_meta={},
+        col_shifts={},
+        document_id="t",
+    )
+    gated = run_block1c(page, Block1bLayout(result=result, sectioned=template), draw_debug=False)
+    cea = gated.result.checkbox_crops["cea"]
+    assert cea.crop_needs_hitl is True
+    assert cea.crop_ok is False
+    assert cea.canonical_bbox == crop.canonical_bbox

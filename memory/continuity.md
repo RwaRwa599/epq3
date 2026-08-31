@@ -13,9 +13,9 @@
 ## Project State
 
 - **project:** new2
-- **status:** Block 1 is 1a/1b (no 1c on this branch); Block 3 density fallback has zero recall on synthetic ticks in 1b crops
+- **status:** Block 1 is 1a/1b/1c (crop gate, no mark labels); Block 3 classifies interior slash/V/fill
 - **last_enabled:** 2026-08-14
-- **last_session:** 2026-08-31 | agent: Cursor (2026-08-31-153927)
+- **last_session:** 2026-08-31 | agent: Cursor (2026-08-31-160749)
 - **last_review:** (none yet)
 - **last_invariant_check:** (none yet)
 - **repo:** ~/new2
@@ -69,7 +69,11 @@
 - Block 3 nonverbal is precision-first: a tick must be one interior slash (or a filled box) inside a printed square. Printed corners, label glyphs, and density-only ink are unmarked. Clinic 5-sheet dry run: 1/1 true tick, 0 false ticks.
   <!-- id: nonverbal-precision-first | created: 2026-08-19 | last_used: 2026-08-19 | uses: 1 | tier: working | origin: 2026-08-19-112047 -->
 - 1a/1b → Block 3 on synthetic v0 (10 gold ticks, Paddle off): digital 0 TP / 10 FN / 0 FP; photo 0 TP / 10 FN / 1 FP (`ca72_4`). Interior ink is present on digital gold crops (~0.29 density) but rejected as `density`. Clinic gate5 not in this clone. Accuracy did not rise vs prior clinic dual-signal 10/10/41.
-  <!-- id: block3-1ab-synth-recall-zero | created: 2026-08-31 | last_used: 2026-08-31 | uses: 1 | tier: working | origin: 2026-08-31-153927 -->
+  <!-- id: block3-1ab-synth-recall-zero | created: 2026-08-31 | last_used: 2026-08-31 | uses: 1 | tier: superseded | origin: 2026-08-31-153927 | superseded-by: block3-interior-geometry -->
+- Block 3 marks interior geometry: slash, V/check/lambda, or fill. It does not require a unit-test PNG-edge frame. Paddle is whitelist-only (no score≥0.55). Digital synthetic 10-tick after 1c: 10 TP / 0 FN / 0 FP; blank 0 FP (Paddle off).
+  <!-- id: block3-interior-geometry | created: 2026-08-31 | last_used: 2026-08-31 | uses: 1 | tier: working | origin: 2026-08-31-160749 | supersedes: block3-1ab-synth-recall-zero -->
+- Block 1c runs after 1b on checkbox crops: square-window pass, one widen rematch with neighbour-steal and dark-header guards, else keep the 1b bbox and `crop_needs_hitl`. Overlay-sized cells skip unless they look like a label. No tick classification. ZIP may include `crop_ok` / `crop_needs_hitl`.
+  <!-- id: block1-1c-crop-validate | created: 2026-08-31 | last_used: 2026-08-31 | uses: 1 | tier: working | origin: 2026-08-31-160749 -->
 - Block 3 verbal emits OCR drafts only (`raw_text`, confidence, `unavailable`/`ink-present` → HiTL). Block 4 applies KG `assume()`, tube expected vs observed, and catalogue constraints. Do not fuse priors in Block 3.
   <!-- id: verbal-drafts-for-block4 | created: 2026-08-19 | last_used: 2026-08-19 | uses: 1 | tier: working | origin: 2026-08-19-112047 -->
 
@@ -104,7 +108,7 @@
   <!-- id: block1-demo6-first-row-crop-y | created: 2026-08-20 | last_used: 2026-08-20 | uses: 1 | tier: working | origin: 2026-08-20-113324 -->
 - [ ] Paddle over-calls ticks on 1a/1b clinic crops (demo9_1a1b: 7–43 ticks/sheet vs prior density-only). Need to check crop content vs Paddle gate, not density fallback.
   <!-- id: demo9-paddle-overcall | created: 2026-08-28 | last_used: 2026-08-28 | uses: 1 | tier: working | origin: 2026-08-28-145408 -->
-- [ ] Block 3 density path misses V/lambda ticks in 1b overlay crops (border frac 0, slash gate false). Need a frame-aware slash/V accept without reopening Paddle FPs. Re-run on gate5 when PHI is present; 1c is not on this git snapshot.
+- [x] Block 3 density path misses V/lambda ticks in 1b overlay crops (border frac 0, slash gate false). Need a frame-aware slash/V accept without reopening Paddle FPs. Re-run on gate5 when PHI is present; 1c is not on this git snapshot.
   <!-- id: block3-recall-1b-crops | created: 2026-08-31 | last_used: 2026-08-31 | uses: 1 | tier: working | origin: 2026-08-31-153927 -->
 
 ## User Preferences
