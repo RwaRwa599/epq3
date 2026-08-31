@@ -15,7 +15,7 @@
 - **project:** new2
 - **status:** Block 1 is 1a/1b/1c (crop gate, no mark labels); Block 3 classifies interior slash/V/fill
 - **last_enabled:** 2026-08-14
-- **last_session:** 2026-08-31 | agent: Cursor (2026-08-31-160749)
+- **last_session:** 2026-08-31 | agent: Cursor (2026-08-31-162036)
 - **last_review:** (none yet)
 - **last_invariant_check:** (none yet)
 - **repo:** ~/new2
@@ -70,7 +70,7 @@
   <!-- id: nonverbal-precision-first | created: 2026-08-19 | last_used: 2026-08-19 | uses: 1 | tier: working | origin: 2026-08-19-112047 -->
 - 1a/1b → Block 3 on synthetic v0 (10 gold ticks, Paddle off): digital 0 TP / 10 FN / 0 FP; photo 0 TP / 10 FN / 1 FP (`ca72_4`). Interior ink is present on digital gold crops (~0.29 density) but rejected as `density`. Clinic gate5 not in this clone. Accuracy did not rise vs prior clinic dual-signal 10/10/41.
   <!-- id: block3-1ab-synth-recall-zero | created: 2026-08-31 | last_used: 2026-08-31 | uses: 1 | tier: superseded | origin: 2026-08-31-153927 | superseded-by: block3-interior-geometry -->
-- Block 3 marks interior geometry: slash, V/check/lambda, or fill. It does not require a unit-test PNG-edge frame. Paddle is whitelist-only (no score≥0.55). Digital synthetic 10-tick after 1c: 10 TP / 0 FN / 0 FP; blank 0 FP (Paddle off).
+- Block 3 marks interior geometry: slash, V/check/lambda, or fill. It does not require a unit-test PNG-edge frame. Paddle is whitelist-only (no score≥0.55). Digital synthetic 10-tick after 1c: 10 TP / 0 FN / 0 FP; blank 0 FP. Photo warp: marked 4 TP / 6 FN / 5 FP (was 0/10/1); blank photo 3 FP. Clinic gate5 not in this clone.
   <!-- id: block3-interior-geometry | created: 2026-08-31 | last_used: 2026-08-31 | uses: 1 | tier: working | origin: 2026-08-31-160749 | supersedes: block3-1ab-synth-recall-zero -->
 - Block 1c runs after 1b on checkbox crops: square-window pass, one widen rematch with neighbour-steal and dark-header guards, else keep the 1b bbox and `crop_needs_hitl`. Overlay-sized cells skip unless they look like a label. No tick classification. ZIP may include `crop_ok` / `crop_needs_hitl`.
   <!-- id: block1-1c-crop-validate | created: 2026-08-31 | last_used: 2026-08-31 | uses: 1 | tier: working | origin: 2026-08-31-160749 -->
