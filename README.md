@@ -4,9 +4,11 @@ A modular, agent-assisted medical document intelligence system for laboratory re
 
 ## Architecture
 
-- **Block 1 — Document Normalization & ROI Extraction:** Detects document quadrilateral, homography-warps to canonical canvas (`2048×1754` or `2048×1720`), fine-aligns landmarks and checkbox gutters, extracts normalized ROI crops for all checkboxes and handwriting regions.
-- **Block 2 — Clinical Knowledge Graph & Prior Validation Engine:** Frozen medical knowledge base covering 138+ tests and profiles, specimen tube rules, alias/acronym normalization, messy handwriting fuzzy matching, Bayesian prior ranking (`assume()`), and cross-field clinical validation.
-- **Block 3 — Nonverbal marks & verbal handwriting:** PaddleOCR checkbox classification (density fallback) and TrOCR handwriting (tubes = digits; `others` raw). Ingests a saved Block 1 ZIP and imports Block 2 as frozen KG JSON. Emits `hypotheses.json`. Qwen / Block 4 rescoring are later.
+- **Block 1 — Document Normalization & ROI Extraction:** 1a warp/align, 1b section squares + extra-ink, 1c crop-window gate. Does not classify ticks. Version history: [`docs/blocks/block1-versions.md`](docs/blocks/block1-versions.md).
+- **Block 2 — Clinical Knowledge Graph:** Frozen `kg/lab_request_v1_kg.json`. Status: [`docs/blocks/block2-status.md`](docs/blocks/block2-status.md).
+- **Block 3 — Nonverbal marks & verbal handwriting:** Interior slash / V / fill; optional Paddle whitelist. Ingests a Block 1 ZIP. Version history: [`docs/blocks/block3-versions.md`](docs/blocks/block3-versions.md). Current synthetic scorecard: [`docs/blocks/data/synthetic-10tick-scorecard.json`](docs/blocks/data/synthetic-10tick-scorecard.json).
+
+Hub: [`docs/blocks/README.md`](docs/blocks/README.md).
 
 ---
 

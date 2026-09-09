@@ -1,6 +1,10 @@
-# Engineering brief — Block 1a / 1b contract
+# Engineering brief — Block 1a / 1b / 1c contract
 
-Block 1 **preprocesses only**. Public API stays `normalize_document()`; callers do not choose 1a vs 1b.
+Block 1 **preprocesses only**. Public API stays `normalize_document()`; callers do not choose 1a vs 1b vs 1c.
+
+Version train (architectures B1.1–B1.6): [`docs/blocks/block1-versions.md`](blocks/block1-versions.md).
+
+## 1a — global normalisation
 
 ## 1a — global normalisation
 
@@ -25,6 +29,16 @@ Returns a `Block1aPage` (`canvas`, `template`, align/warp meta, `col_shifts`). C
 
 Sheet-wide hollow-grid is **not** used to drop section lock. Square placement is per-field; if no hollow/ink square is found, the dy-shifted bbox is kept.
 
+## 1c — crop-window gate
+
+`med_doc.normalization.block1c.run_block1c` (after 1b):
+
+1. Pass if the PNG is a printed square (empty hollow or ink-in-ring) and not a label strip
+2. Else one widened rematch (hollow-only if the field looks empty; neighbour-steal and dark-header guards)
+3. Else keep the 1b bbox and set `crop_needs_hitl`
+
+Does not classify ticks. Overlay-sized cells skip unless they look like a label.
+
 ## ZIP contract
 
 | Path | Contents |
@@ -39,4 +53,4 @@ Sheet-wide hollow-grid is **not** used to drop section lock. Square placement is
 
 - Classify ticks (`is_marked` / fill-ratio product signals). Interior dark ratio may appear under `debug` / `detected_marks` for older Block 3 ingest; it is registration quality, not a mark label. `mark_classification` is `deferred_to_block3`.
 - Blank-form extra-ink subtraction
-- Standalone `block1a/` / `block1b/` Colab trees
+- Standalone `block1a/` / `block1b/` Colab trees (use `src/med_doc`; `block1/` notebook tree is a pre-1c snapshot)

@@ -13,9 +13,9 @@
 ## Project State
 
 - **project:** new2
-- **status:** Block 1 is 1a/1b/1c (crop gate, no mark labels); Block 3 classifies interior slash/V/fill
+- **status:** Blocks 1–3 live in `src/med_doc` on branch block1; version history is in docs/blocks
 - **last_enabled:** 2026-08-14
-- **last_session:** 2026-08-31 | agent: Cursor (2026-08-31-162036)
+- **last_session:** 2026-09-09 | agent: Cursor (2026-09-09-082502)
 - **last_review:** (none yet)
 - **last_invariant_check:** (none yet)
 - **repo:** ~/new2
@@ -74,6 +74,8 @@
   <!-- id: block3-interior-geometry | created: 2026-08-31 | last_used: 2026-08-31 | uses: 1 | tier: working | origin: 2026-08-31-160749 | supersedes: block3-1ab-synth-recall-zero -->
 - Block 1c runs after 1b on checkbox crops: square-window pass, one widen rematch with neighbour-steal and dark-header guards, else keep the 1b bbox and `crop_needs_hitl`. Overlay-sized cells skip unless they look like a label. No tick classification. ZIP may include `crop_ok` / `crop_needs_hitl`.
   <!-- id: block1-1c-crop-validate | created: 2026-08-31 | last_used: 2026-08-31 | uses: 1 | tier: working | origin: 2026-08-31-160749 -->
+- GitHub docs hub `docs/blocks/` records Block 1 generations B1.1–B1.6 and Block 3 B3.1–B3.5 (architecture per version) plus current synthetic scorecard JSON. Live tree is `src/med_doc` on `block1`; Colab package dirs are older snapshots. No clinic PHI in that upload.
+  <!-- id: docs-blocks-version-history | created: 2026-09-09 | last_used: 2026-09-09 | uses: 1 | tier: working | origin: 2026-09-09-082502 -->
 - Block 3 verbal emits OCR drafts only (`raw_text`, confidence, `unavailable`/`ink-present` → HiTL). Block 4 applies KG `assume()`, tube expected vs observed, and catalogue constraints. Do not fuse priors in Block 3.
   <!-- id: verbal-drafts-for-block4 | created: 2026-08-19 | last_used: 2026-08-19 | uses: 1 | tier: working | origin: 2026-08-19-112047 -->
 
