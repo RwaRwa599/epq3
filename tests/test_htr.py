@@ -1,0 +1,172 @@
+"""Unit tests for Block 3 mark classification, digit/date helpers, and prior fusion."""
+
+from __future__ import annotations
+
+import cv2
+import numpy as np
+
+from med_doc.htr.fusion import fuse_handwriting
+from med_doc.htr.marks import classify_mark, ink_density
+from med_doc.htr.recognizer import extract_digits, has_ink, parse_datetime
+from med_doc.kg import KnowledgeGraph
+from med_doc.paths import DEFAULT_KG
+
+
+def _empty_checkbox(size: int = 32) -> np.ndarray:
+    img = np.full((size, size, 3), 245, dtype=np.uint8)
+    img[0:2, :] = 20
+    img[-2:, :] = 20
+    img[:, 0:2] = 20
+    img[:, -2:] = 20
+    return img
+
+
+def _ticked_checkbox(size: int = 32) -> np.ndarray:
+    img = _empty_checkbox(size)
+    for i in range(6, size - 6):
+        img[i, i] = 15
+        if i + 1 < size - 6:
+            img[i, i + 1] = 15
+    return img
+
+
+def _filled_checkbox(size: int = 32) -> np.ndarray:
+    img = _empty_checkbox(size)
+    img[6:-6, 6:-6] = 25
+    return img
+
+
+def test_empty_checkbox_is_unmarked():
+    pred = classify_mark(_empty_checkbox(), "cbc")
+    assert pred.is_marked is False
+    assert pred.needs_hitl is False
+    assert pred.ink_density < 0.08
+
+
+def test_ticked_checkbox_is_marked():
+    pred = classify_mark(_ticked_checkbox(), "cbc")
+    assert pred.is_marked is True
+    assert pred.ink_density >= 0.05
+    assert pred.source in {"slash", "v_check", "density", "filled"}
+
+
+def test_filled_checkbox_is_marked():
+    pred = classify_mark(_filled_checkbox(), "alt")
+    assert pred.is_marked is True
+    assert pred.source == "filled"
+    assert pred.confidence >= 0.9
+
+
+def test_metadata_fallback_without_crop():
+    pred = classify_mark(None, "cbc", fallback_dark_ratio=0.28, fallback_candidate=True)
+    assert pred.is_marked is True
+    assert pred.source == "metadata_fallback"
+
+
+def test_extract_digits_and_date_parse():
+    assert extract_digits("x2") == "2"
+    assert extract_digits("EDTA 1") == "1"
+    parsed, conf = parse_datetime("14/08/2026 09:30")
+    assert parsed.startswith("14/08/2026")
+    assert "09:30" in parsed
+    assert conf >= 0.8
+
+
+def test_has_ink_detects_stroke():
+    assert has_ink(_ticked_checkbox()) is True
+    assert has_ink(_empty_checkbox(), min_frac=0.15) is False
+
+
+def test_fuse_others_with_kg_prior():
+    kg = KnowledgeGraph.load(DEFAULT_KG)
+    fused = fuse_handwriting(
+        "others",
+        "triglyc",
+        0.55,
+        "trocr",
+        kg=kg,
+        ticked_ids=["profile_lipid"],
+    )
+    assert fused.canonical_id == "triglycerides"
+    assert fused.canonical_value is not None
+
+
+def test_fuse_tube_matches_expected():
+    kg = KnowledgeGraph.load(DEFAULT_KG)
+    fused = fuse_handwriting(
+        "tube_edta",
+        "1",
+        0.8,
+        "trocr",
+        kg=kg,
+        ticked_ids=["cbc"],
+    )
+    assert fused.canonical_value == "1"
+    assert fused.needs_hitl is False
+    assert fused.confidence >= 0.9
+
+
+def test_fuse_empty_others_no_hitl():
+    fused = fuse_handwriting("others", "", 0.85, "empty")
+    assert fused.canonical_value is None
+    assert fused.needs_hitl is False
+    assert fused.source == "empty"
+
+
+def test_printed_corner_is_not_a_tick():
+    """Clinic FP: crop is the L of a printed box, not a handwritten slash."""
+    img = np.full((32, 32, 3), 245, dtype=np.uint8)
+    img[0:4, :] = 20
+    img[:, 0:4] = 20
+    pred = classify_mark(img, "body_check_plan_1")
+    assert pred.is_marked is False
+    assert pred.ink_density < 0.06
+
+
+def test_sparse_handwriting_on_large_others_crop():
+    img = np.full((200, 300, 3), 250, dtype=np.uint8)
+    img[80:92, 40:160] = 20  # one handwritten line, << 4% of the ROI
+    assert has_ink(img) is True
+    assert has_ink(_empty_checkbox(), min_frac=0.15) is False
+    empty = ink_density(_empty_checkbox())
+    filled = ink_density(_filled_checkbox())
+    assert 0.0 <= empty < 0.15
+    assert filled > empty
+
+
+def _padded_empty_square(size: int = 40, pad: int = 8) -> np.ndarray:
+    img = np.full((size, size, 3), 245, dtype=np.uint8)
+    x0, y0, x1, y1 = pad, pad, size - pad, size - pad
+    cv2.rectangle(img, (x0, y0), (x1 - 1, y1 - 1), (90, 90, 90), 2)
+    return img
+
+
+def _padded_v_tick(size: int = 40, pad: int = 8) -> np.ndarray:
+    img = _padded_empty_square(size, pad)
+    cx, cy = size // 2, size // 2
+    cv2.line(img, (cx - 6, cy - 3), (cx - 1, cy + 6), (18, 18, 18), 2)
+    cv2.line(img, (cx - 1, cy + 6), (cx + 8, cy - 7), (18, 18, 18), 2)
+    return img
+
+
+def _label_strip() -> np.ndarray:
+    img = np.full((36, 80, 3), 245, dtype=np.uint8)
+    cv2.putText(img, "CEA", (4, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (20, 20, 20), 1)
+    return img
+
+
+def test_padded_v_tick_is_marked_without_png_frame():
+    pred = classify_mark(_padded_v_tick(), "cea")
+    assert pred.is_marked is True
+    assert pred.source in {"v_check", "slash"}
+    assert pred.ink_density >= 0.06
+
+
+def test_padded_empty_square_unmarked():
+    pred = classify_mark(_padded_empty_square(), "cea")
+    assert pred.is_marked is False
+
+
+def test_label_strip_is_not_a_tick():
+    pred = classify_mark(_label_strip(), "cea")
+    assert pred.is_marked is False

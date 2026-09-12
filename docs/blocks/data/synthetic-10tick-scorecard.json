@@ -1,0 +1,84 @@
+{
+  "eval_id": "synthetic-10tick-1c-b3.5",
+  "date_utc": "2026-08-31T16:20:36Z",
+  "git_branch": "block1",
+  "block1_generation": "B1.6",
+  "block3_generation": "B3.5",
+  "paddle_available": false,
+  "clinic_phi_present": false,
+  "n_checkbox_v0": 124,
+  "gold_field_ids": [
+    "cea",
+    "afp",
+    "ca125",
+    "cbc",
+    "hba1c",
+    "profile_lipid",
+    "profile_renal_function",
+    "uric_acid",
+    "profile_liver",
+    "triglycerides"
+  ],
+  "committed_inputs": [
+    "data/samples/synthetic/lab_request_v0_blank.png",
+    "templates/lab_request_canonical.json"
+  ],
+  "baselines": {
+    "pre_fix_digital_10tick": {"tp": 0, "fn": 10, "fp": 0},
+    "pre_fix_photo_10tick": {"tp": 0, "fn": 10, "fp": 1, "fp_ids": ["ca72_4"]},
+    "clinic_dual_signal_note": "10 TP / 10 FN / 41 FP from another workspace; not re-run; no PHI in this clone"
+  },
+  "cases": [
+    {
+      "name": "blank_digital",
+      "align": 0.763,
+      "crop_validate": {"n_ok": 0, "n_retry": 111, "n_hitl": 0, "n_skip": 13},
+      "tp": 0,
+      "fn": 0,
+      "fp": 0,
+      "n_pred": 0
+    },
+    {
+      "name": "marked_digital",
+      "align": 0.739,
+      "crop_validate": {"n_ok": 10, "n_retry": 105, "n_hitl": 0, "n_skip": 9},
+      "tp": 10,
+      "fn": 0,
+      "fp": 0,
+      "n_pred": 10,
+      "recall": 1.0,
+      "precision": 1.0
+    },
+    {
+      "name": "blank_photo",
+      "align": 0.777,
+      "crop_validate": {"n_ok": 0, "n_retry": 113, "n_hitl": 0, "n_skip": 11},
+      "tp": 0,
+      "fn": 0,
+      "fp": 3,
+      "n_pred": 3,
+      "fp_ids": ["albumin", "microalbumin_creatinine", "shbg"]
+    },
+    {
+      "name": "marked_photo",
+      "align": 0.76,
+      "crop_validate": {"n_ok": 9, "n_retry": 105, "n_hitl": 0, "n_skip": 10},
+      "tp": 4,
+      "fn": 6,
+      "fp": 5,
+      "n_pred": 9,
+      "recall": 0.4,
+      "precision": 0.444,
+      "tp_ids": ["afp", "cbc", "triglycerides", "uric_acid"],
+      "fn_ids": [
+        "ca125",
+        "cea",
+        "hba1c",
+        "profile_lipid",
+        "profile_liver",
+        "profile_renal_function"
+      ],
+      "fp_ids": ["albumin", "alt", "ca72_4", "microalbumin_creatinine", "shbg"]
+    }
+  ]
+}

@@ -258,6 +258,246 @@ def _px_to_rel(bbox: list[int], w: int, h: int) -> list[float]:
     return rel
 
 
+# Printed black section bars, grouped by the nearest checkbox-gutter column.
+# Subheads such as "Diabetes" are bold text, not bars, and are omitted.
+_SECTION_BAR_GROUPS: tuple[tuple[str, ...], ...] = (
+    ("haematology", "bone_nutrition", "cardiovascular"),
+    ("diabetes",),
+    ("immunology", "endocrinology"),
+    ("tumour_markers", "urine", "stool"),
+)
+
+
+def _gutter_centers(template: TemplateSpec) -> list[float]:
+    guts = [lm for lm in template.landmarks if lm.kind == "column_gutter"]
+    guts = sorted(guts, key=lambda g: g.bbox[0])
+    return [0.5 * (g.bbox[0] + g.bbox[2]) for g in guts]
+
+
+def _column_of(spec: FieldSpec, gutters: list[float]) -> int:
+    cx = 0.5 * (spec.bbox[0] + spec.bbox[2])
+    if not gutters:
+        return 0
+    return int(np.argmin([abs(cx - gx) for gx in gutters]))
+
+
+def _column_bounds(gutters: list[float]) -> list[tuple[float, float]]:
+    bounds: list[tuple[float, float]] = []
+    for i, x in enumerate(gutters):
+        left = max(0.0, x - 0.018)
+        right = (gutters[i + 1] - 0.018) if i + 1 < len(gutters) else 0.995
+        bounds.append((left, right))
+    return bounds
+
+
+def _detect_section_bars(
+    gray: np.ndarray, x0: int, x1: int, y_min: float, y_max: float
+) -> list[float]:
+    """Y centers of full-width dark header bars in a column strip."""
+    strip = gray[:, x0:x1]
+    if strip.size == 0:
+        return []
+    paper = float(np.percentile(strip, 90))
+    row_dark = (strip < paper * 0.55).mean(axis=1)
+    row_mean = strip.mean(axis=1)
+    bars: list[float] = []
+    in_bar = False
+    y0 = 0
+    height = strip.shape[0]
+    for y in range(height):
+        is_bar = bool(row_dark[y] > 0.48 and row_mean[y] < paper * 0.62)
+        if is_bar and not in_bar:
+            in_bar = True
+            y0 = y
+        elif not is_bar and in_bar:
+            in_bar = False
+            cy = (y0 + y) / 2.0
+            if 8 <= (y - y0) <= 50 and y_min < cy < y_max:
+                bars.append(cy)
+    return bars
+
+
+def _expected_section_bars(
+    members: list[FieldSpec], groups: tuple[str, ...], height: int, y_min: float
+) -> list[float]:
+    expected: list[float] = []
+    for group in groups:
+        ys = [f.bbox[1] for f in members if (f.group or "") == group]
+        if not ys:
+            continue
+        y = float(min(ys) * height - 26)
+        if y > y_min:
+            expected.append(y)
+    return expected
+
+
+def _fit_affine_y(expected: np.ndarray, detected: np.ndarray) -> tuple[float, float, float]:
+    design = np.vstack([expected, np.ones_like(expected)]).T
+    scale, shift = np.linalg.lstsq(design, detected, rcond=None)[0]
+    if not (0.90 <= float(scale) <= 1.10):
+        scale = 1.0
+        shift = float(np.median(detected - expected))
+    residual = float(np.max(np.abs(scale * expected + shift - detected)))
+    return float(scale), float(shift), residual
+
+
+def _pair_section_bars(
+    expected: list[float], detected: list[float]
+) -> tuple[np.ndarray, np.ndarray] | None:
+    if len(expected) < 2 or len(detected) < 2:
+        return None
+    exp = np.array(sorted(expected), dtype=float)
+    det = np.array(sorted(detected), dtype=float)
+    if len(det) == len(exp):
+        return exp, det
+    best: tuple[np.ndarray, np.ndarray] | None = None
+    best_res = 1e9
+    if len(det) > len(exp):
+        width = len(exp)
+        source, target = det, exp
+        extra_on_det = True
+    else:
+        width = len(det)
+        source, target = exp, det
+        extra_on_det = False
+    for i in range(len(source) - width + 1):
+        window = source[i : i + width]
+        if extra_on_det:
+            pair_e, pair_d = target, window
+        else:
+            pair_e, pair_d = window, target
+        _scale, _shift, residual = _fit_affine_y(pair_e, pair_d)
+        if residual < best_res:
+            best_res = residual
+            best = (pair_e, pair_d)
+    return best
+
+
+def _apply_column_affine(
+    template: TemplateSpec,
+    col_ab: dict[int, tuple[float, float]],
+    gutters: list[float],
+) -> TemplateSpec:
+    w, h = template.width, template.height
+    moved: list[FieldSpec] = []
+    for spec in template.fields:
+        col = _column_of(spec, gutters)
+        if col not in col_ab:
+            moved.append(spec)
+            continue
+        scale, shift = col_ab[col]
+        x0, y0, x1, y1 = template.pixel_bbox(spec, apply_pad=False)
+        cy = 0.5 * (y0 + y1)
+        dy = float(np.clip(scale * cy + shift - cy, -h * 0.12, h * 0.12))
+        moved.append(
+            spec.model_copy(
+                update={
+                    "bbox": _px_to_rel(
+                        [x0, int(round(y0 + dy)), x1, int(round(y1 + dy))], w, h
+                    )
+                }
+            )
+        )
+    return template.model_copy(update={"fields": moved})
+
+
+def _snap_rings_to_fields(
+    canvas: np.ndarray,
+    template: TemplateSpec,
+    detected: list[list[int]],
+    *,
+    snap_px: float,
+) -> tuple[TemplateSpec, int]:
+    h, w = canvas.shape[:2]
+    centers = [((b[0] + b[2]) / 2.0, (b[1] + b[3]) / 2.0, b) for b in detected]
+    used: set[int] = set()
+    fields: list[FieldSpec] = []
+    n_snapped = 0
+    for spec in template.fields:
+        if spec.field_type != "checkbox":
+            fields.append(spec)
+            continue
+        x0, y0, x1, y1 = template.pixel_bbox(spec, apply_pad=False)
+        cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+        best_idx = None
+        best_d = snap_px
+        for idx, (px, py, _box) in enumerate(centers):
+            if idx in used or abs(px - cx) > 28:
+                continue
+            dist = ((px - cx) ** 2 + (py - cy) ** 2) ** 0.5
+            if dist < best_d:
+                best_d = dist
+                best_idx = idx
+        if best_idx is not None:
+            used.add(best_idx)
+            n_snapped += 1
+            fields.append(
+                spec.model_copy(update={"bbox": _px_to_rel(centers[best_idx][2], w, h)})
+            )
+        else:
+            fields.append(spec)
+    return template.model_copy(update={"fields": fields}), n_snapped
+
+
+def _snap_overlay_sections(
+    canvas: np.ndarray,
+    template: TemplateSpec,
+    detected: list[list[int]],
+    *,
+    snap_px: float,
+) -> tuple[TemplateSpec, dict[str, Any]]:
+    """Align columns using printed section bars, then snap one square per row."""
+    h, w = canvas.shape[:2]
+    gray = cv2.cvtColor(canvas, cv2.COLOR_RGB2GRAY) if canvas.ndim == 3 else canvas
+    gutters = _gutter_centers(template)
+    meta: dict[str, Any] = {
+        "method": "section-bars",
+        "n_snapped": 0,
+        "n_columns_fitted": 0,
+        "dx": 0.0,
+        "dy": 0.0,
+    }
+    if len(gutters) < 4:
+        return template, meta
+    bounds = _column_bounds(gutters)
+    y_min, y_max = 0.12 * h, 0.92 * h
+    col_ab: dict[int, tuple[float, float]] = {}
+    columns_meta: list[dict[str, Any]] = []
+    boxes = template.checkbox_fields()
+    for col, (left, right) in enumerate(bounds):
+        members = [f for f in boxes if _column_of(f, gutters) == col]
+        groups = _SECTION_BAR_GROUPS[col] if col < len(_SECTION_BAR_GROUPS) else ()
+        px0, px1 = max(0, int(left * w)), min(w, int(right * w))
+        bars = _detect_section_bars(gray, px0, px1, y_min, y_max)
+        expected = _expected_section_bars(members, groups, h, y_min)
+        paired = _pair_section_bars(expected, bars)
+        entry: dict[str, Any] = {
+            "column": col,
+            "n_bars": len(bars),
+            "n_expected": len(expected),
+        }
+        if paired is None:
+            columns_meta.append(entry)
+            continue
+        exp, det = paired
+        scale, shift, residual = _fit_affine_y(exp, det)
+        entry.update({"scale": round(scale, 3), "shift": round(shift, 1), "residual": round(residual, 1)})
+        if residual <= 18.0 and abs(shift) <= 0.10 * h and len(exp) >= 2:
+            col_ab[col] = (scale, shift)
+            entry["fitted"] = True
+        columns_meta.append(entry)
+    meta["columns"] = columns_meta
+    meta["n_columns_fitted"] = len(col_ab)
+    if len(col_ab) < 1:
+        return template, meta
+    shifted = _apply_column_affine(template, col_ab, gutters)
+    snapped, n_snapped = _snap_rings_to_fields(canvas, shifted, detected, snap_px=snap_px)
+    meta["n_snapped"] = n_snapped
+    meta["n_offset_hits"] = n_snapped
+    meta["confidence"] = float(np.clip(n_snapped / max(len(shifted.checkbox_fields()), 1), 0.0, 1.0))
+    return snapped, meta
+
+
 def snap_overlay(
     canvas: np.ndarray,
     template: TemplateSpec,
@@ -265,7 +505,7 @@ def snap_overlay(
     search_px: float = 64.0,
     snap_px: float = 30.0,
 ) -> tuple[TemplateSpec, dict[str, Any]]:
-    """Shift the frozen overlay by the median checkbox offset, then snap marks.
+    """Snap the overlay using hollow rings, or section bars if they score better.
 
     Do not fit a min/max envelope from an incomplete grid — that caused the
     ~40 px Y drift on dark clinic photos.
@@ -280,6 +520,12 @@ def snap_overlay(
         "method": "frozen",
     }
     if len(detected) < 30:
+        section, section_meta = _snap_overlay_sections(
+            canvas, template, detected, snap_px=snap_px
+        )
+        if section_meta.get("n_columns_fitted", 0):
+            section_meta["n_detected"] = len(detected)
+            return section, section_meta
         return template, meta
 
     centers = [((b[0] + b[2]) / 2.0, (b[1] + b[3]) / 2.0, b) for b in detected]
@@ -344,4 +590,20 @@ def snap_overlay(
     meta["n_snapped"] = n_snapped
     meta["method"] = "global-shift-then-snap"
     meta["confidence"] = float(np.clip(n_snapped / max(len(moved.checkbox_fields()), 1), 0.0, 1.0))
-    return moved.model_copy(update={"fields": snapped_fields}), meta
+    rings = moved.model_copy(update={"fields": snapped_fields})
+
+    section, section_meta = _snap_overlay_sections(
+        canvas, template, detected, snap_px=snap_px
+    )
+    gray = cv2.cvtColor(canvas, cv2.COLOR_RGB2GRAY) if canvas.ndim == 3 else canvas
+    ring_score = _checkbox_grid_score(gray, rings)
+    section_score = _checkbox_grid_score(gray, section)
+    meta["grid_score"] = round(ring_score, 4)
+    meta["section_grid_score"] = round(section_score, 4)
+    # Keep section-bar snap only when it clearly improves hollow-grid registration.
+    if section_meta.get("n_columns_fitted", 0) and section_score >= ring_score + 0.02:
+        section_meta["n_detected"] = len(detected)
+        section_meta["grid_score"] = round(section_score, 4)
+        section_meta["ring_grid_score"] = round(ring_score, 4)
+        return section, section_meta
+    return rings, meta

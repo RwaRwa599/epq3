@@ -1,19 +1,30 @@
-# Block 1 — Document Normalization & ROI Extraction
+# Medical Document Intelligence System (`new2`)
 
-`new2` is a modular medical lab-request document pipeline. This branch implements **Block 1 only**: take a raw photo or scan of a laboratory request sheet and emit a rectified canonical canvas plus illumination-normalized field crops.
+A modular, agent-assisted medical document intelligence system for laboratory request forms.
 
-## Pipeline
+## Architecture
 
-1. Detect the page quadrilateral and warp it to the canonical canvas (`2048×1754`).
-2. Correct 90/180/270 orientation so the printed header sits at the top.
-3. Fine-align using header/footer landmarks and column checkbox gutters.
-4. Crop every checkbox and handwriting ROI from relative `[0, 1]` template coordinates.
-5. Flatten illumination (background division + CLAHE) and attach a quality score.
+- **Block 1 — Document Normalization & ROI Extraction:** 1a warp/align, 1b section squares + extra-ink, 1c crop-window gate. Does not classify ticks. Version history: [`docs/blocks/block1-versions.md`](docs/blocks/block1-versions.md).
+- **Block 2 — Clinical Knowledge Graph:** Frozen `kg/lab_request_v1_kg.json`. Status: [`docs/blocks/block2-status.md`](docs/blocks/block2-status.md).
+- **Block 3 — Nonverbal marks & verbal handwriting:** Interior slash / V / fill; optional Paddle whitelist. Ingests a Block 1 ZIP. Version history: [`docs/blocks/block3-versions.md`](docs/blocks/block3-versions.md). Current synthetic scorecard: [`docs/blocks/data/synthetic-10tick-scorecard.json`](docs/blocks/data/synthetic-10tick-scorecard.json).
 
-Downstream blocks (mark classification, HTR, knowledge graph, HiTL) consume `NormalizedDocumentResult`.
+Hub: [`docs/blocks/README.md`](docs/blocks/README.md).
+
+Do not add agent-memory files (`memory/`, `agent-skills/`, `AGENTS.md`, protocol docs, hooks, or agent-memory CI) to this repository or to new block packages.
+
+---
+
+## Standalone Colab Packages
+
+- **`block1/`**: Standalone Block 1 package with CLI demo and `Block_1_Document_Normalization.ipynb`
+- **`block2/`**: Standalone Block 2 package with CLI demo and `Block_2_Medical_Knowledge_Graph.ipynb`
+- **`block3/`**: Standalone Block 3 package with CLI demo and `Block_3_Handwriting_Recognition.ipynb`
+
+---
 
 ## Usage
 
+### Block 1: Normalize Document & Extract Crops
 ```python
 from med_doc import normalize_document
 
@@ -22,18 +33,48 @@ tick = result.checkbox_crops["body_check_plan_1"]
 print(tick.canonical_bbox, tick.quality_score)
 ```
 
-## Layout
+### Block 2: Clinical Knowledge Graph & Prior Engine
+```python
+from med_doc.kg import KnowledgeGraph
 
-- `src/med_doc/schemas.py` — `FieldCrop`, `TemplateSpec`, `NormalizedDocumentResult`
-- `src/med_doc/normalization/` — warp, align, crops, viz, pipeline
-- `templates/lab_request_canonical.json` — relative-coordinate lab-request template (from clinic print v1)
-- `tests/test_normalization.py`
+kg = KnowledgeGraph.load()
 
-## Local checks
+# Expand profile bundle
+lipid_tests = kg.expand_profile("profile_lipid")
+
+# Compute required specimen tubes
+tubes = kg.calculate_expected_tubes(["cbc", "alt", "glucose_fasting"])
+
+# Cross-field validation
+report = kg.validate_request(
+    ticked_ids=["cbc", "alt", "glucose_fasting"],
+    observed_tubes={"EDTA": 1, "CB": 1, "Fl": 1}
+)
+print(f"Valid: {report.is_valid}, Confidence: {report.confidence}")
+```
+
+### Block 3: Nonverbal marks + verbal HTR
+```python
+from med_doc.htr import process_from_block1
+from med_doc.kg import KnowledgeGraph
+
+kg = KnowledgeGraph.load()  # Block 2 JSON import, not a per-sheet runner
+result = process_from_block1(
+    "block1_normalized_batch.zip",
+    output_zip="block3_predictions_batch.zip",
+    kg=kg,
+    mode="both",  # or "nonverbal" / "verbal"
+)
+print(result["manifest"]["total_documents"], result["output_zip"])
+```
+
+---
+
+## Local Verification
 
 ```bash
 pip install -e ".[dev]"
-pytest
+pytest -v
 ```
 
 Private / unredacted clinic photos belong in `data/samples/private/` (gitignored). Never commit PHI.
