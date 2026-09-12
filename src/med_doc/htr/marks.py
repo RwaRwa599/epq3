@@ -395,6 +395,16 @@ def classify_mark(
     mean = float(gray.mean()) if gray.size else 255.0
     feat = mark_features(crop, blank=blank)
     p = logreg_mark_prob(feat)
+    h, w = gray.shape[:2]
+    if min(h, w) > 0 and max(h, w) / float(min(h, w)) > 1.45:
+        return MarkPrediction(
+            field_id=field_id,
+            is_marked=False,
+            confidence=0.9,
+            ink_density=round(density, 4),
+            needs_hitl=False,
+            source="nonsquare-crop",
+        )
 
     if mean < 90.0:
         return MarkPrediction(
@@ -428,10 +438,21 @@ def classify_mark(
         )
 
     kind = interior_mark_class(crop, blank=blank)
-    # Precision: commit only a slash / V / fill. Logistic-only fires on printed boxes
-    # (IMG_7596 / IMG_7600 clinic photos) and must not enter trusted ticks.
-    marked = kind in {"slash", "v_check", "filled"} and density >= SLASH_MIN_DENSITY
-    if kind == "filled" and density < FILL_DENSITY:
+    # Clinic photos (order-5): printed rings look like a V or a faint slash.
+    # Commit only a clean `/` (or a truly filled box). V → HiTL, not LIS.
+    if kind == "v_check":
+        return MarkPrediction(
+            field_id=field_id,
+            is_marked=False,
+            confidence=0.55,
+            ink_density=round(density, 4),
+            needs_hitl=True,
+            source="v_check",
+        )
+    marked = kind == "slash" and density >= SLASH_MIN_DENSITY
+    if kind == "filled" and density >= FILL_DENSITY:
+        marked = True
+    if marked and kind == "slash" and blank is not None and density < 0.09:
         marked = False
 
     if marked:

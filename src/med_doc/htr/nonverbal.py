@@ -285,17 +285,20 @@ def classify_marks(
     for fid, crop in crops.items():
         info = fallbacks.get(fid) or {}
         blank = None
-        if use_blank and crop is not None and getattr(crop, "size", 0):
-            arr = np.asarray(crop)
-            if arr.size:
-                bbox = info.get("bbox") or info.get("canonical_bbox")
-                blank = blank_patch(
-                    template,
-                    fid,
-                    (arr.shape[0], arr.shape[1]),
-                    bbox=bbox if bbox else None,
-                )
-        out[fid] = classify_mark_nonverbal(
+        arr = np.asarray(crop) if crop is not None else None
+        real_crop = arr is not None and arr.size > 0 and min(arr.shape[:2]) >= 36
+        take_blank = use_blank or (template is not None and real_crop)
+        if take_blank and arr is not None and arr.size:
+            bbox = info.get("bbox") or info.get("canonical_bbox")
+            if not use_blank:
+                bbox = None
+            blank = blank_patch(
+                template,
+                fid,
+                (arr.shape[0], arr.shape[1]),
+                bbox=bbox if bbox else None,
+            )
+        pred = classify_mark_nonverbal(
             crop,
             fid,
             fallback_dark_ratio=None,
@@ -303,4 +306,8 @@ def classify_marks(
             blank=blank,
             use_paddle=mark_backend == "paddle",
         )
+        # A false profile tick expands a whole panel in Block 4. Never auto-commit.
+        if fid.startswith("profile_") and pred.is_marked:
+            pred = pred.model_copy(update={"needs_hitl": True})
+        out[fid] = pred
     return out

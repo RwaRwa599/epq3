@@ -156,11 +156,12 @@ def _label_strip() -> np.ndarray:
     return img
 
 
-def test_padded_v_tick_is_marked_without_png_frame():
+def test_padded_v_tick_is_not_auto_committed():
+    """V-geometry is HiTL only — printed corners look like a V on clinic photos."""
     pred = classify_mark(_padded_v_tick(), "cea")
-    assert pred.is_marked is True
-    assert pred.source in {"v_check", "slash"}
-    assert pred.ink_density >= 0.06
+    assert pred.is_marked is False
+    assert pred.source == "v_check"
+    assert pred.needs_hitl is True
 
 
 def test_logreg_alone_does_not_commit_printed_noise():
@@ -179,6 +180,11 @@ def test_many_empty_squares_stay_unmarked():
     assert n_fp == 0
 
 
-def test_label_strip_is_not_a_tick():
-    pred = classify_mark(_label_strip(), "cea")
-    assert pred.is_marked is False
+def test_profile_slash_is_hitl_not_trusted():
+    from med_doc.htr.nonverbal import classify_marks
+
+    marks = classify_marks({"profile_lipid": _ticked_checkbox(), "cbc": _ticked_checkbox()})
+    assert marks["cbc"].is_marked is True
+    assert marks["cbc"].needs_hitl is False
+    assert marks["profile_lipid"].is_marked is True
+    assert marks["profile_lipid"].needs_hitl is True
