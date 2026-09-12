@@ -30,6 +30,7 @@ from med_doc.htr.viz import draw_prediction_overlay
 from med_doc.kg.graph import KnowledgeGraph
 
 Mode = Literal["nonverbal", "verbal", "both"]
+MarkBackend = Literal["geometry", "paddle"]
 
 
 def _template_for(doc: Block1Document):
@@ -154,6 +155,7 @@ def process_block1_document(
     kg: KnowledgeGraph | None = None,
     backend: str = "auto",
     mode: Mode = "both",
+    mark_backend: MarkBackend = "geometry",
 ) -> DocumentHypotheses:
     """Nonverbal and/or verbal on one ingested Block 1 document."""
     run_nv = mode in ("nonverbal", "both")
@@ -170,6 +172,7 @@ def process_block1_document(
             fallbacks=merged,
             template=_template_for(doc),
             canvas_size=(doc.metadata or {}).get("canvas_size"),
+            mark_backend=mark_backend,
         )
         for fid, pred in list(marks.items()):
             info = cb_meta.get(fid) or {}
@@ -199,6 +202,7 @@ def process_from_block1(
     kg: KnowledgeGraph | None = None,
     backend: str = "auto",
     mode: Mode = "both",
+    mark_backend: MarkBackend = "geometry",
 ) -> dict[str, Any]:
     """Ingest Block 1 ZIP/folder, run verbal/nonverbal, emit hypotheses.json + ZIP.
 
@@ -220,7 +224,9 @@ def process_from_block1(
 
     for doc in iter_block1_documents(base_in_dir):
         print(f"  → {mode} recognition for '{doc.doc_id}'...")
-        hyp = process_block1_document(doc, kg=None, backend=backend, mode=mode)
+        hyp = process_block1_document(
+            doc, kg=None, backend=backend, mode=mode, mark_backend=mark_backend
+        )
         prediction = prediction_from_hypotheses(hyp, kg=None)
 
         doc_dir_out = target_dir / "docs" / doc.doc_id

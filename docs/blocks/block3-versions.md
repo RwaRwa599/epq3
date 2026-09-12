@@ -160,7 +160,7 @@ flowchart TB
 
 ---
 
-## B3.7 — Field-typed verbal HTR (2026-09-12) — **current**
+## B3.7 — Field-typed verbal HTR (2026-09-12)
 
 **Architecture** (live `recognize_verbal` / `recognize_handwriting`)
 
@@ -195,6 +195,18 @@ Rendered `putText` tokens, then the same photoreal distortions as Block 1/3 mark
 | Others write-ins (AFP, CEA, …) | 6 | **1.00** | **1.00** |
 
 Dates under JPEG/shadow still drop; that field needs a stronger constrained decoder next, not a bigger TrOCR.
+
+---
+
+## B3.8 — Crop gold + logistic refit; Paddle off ticks (2026-09-12) — **current**
+
+**Ticks:** `mark_backend="geometry"` (default). Paddle fusion is opt-in (`mark_backend="paddle"`); it is the wrong model for checkboxes. TrOCR is verbal-only.
+
+**Labels:** gold = ticked field ids per sheet (`data/labels/examples/IMG_7596.json` is `ca125` only). `python -m med_doc.eval export` copies Block 1 checkbox PNGs into local `empty/` vs `tick/` (gitignored). `python -m med_doc.eval train` refits `LOGREG_W`/`LOGREG_B` with a heavy empty mix. Clinic weights: `data/labels/mark_weights.json` or `MED_DOC_MARK_WEIGHTS`.
+
+**If a gold tick is still FN:** `python -m med_doc.eval crop-qa --field ca125` — `block1_shift` means the PNG is a label, not the box.
+
+**CNN:** `htr/crop_cnn.py` exists but is not wired; use only if logreg plateaus on labeled clinic empties.
 
 ---
 

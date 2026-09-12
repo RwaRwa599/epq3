@@ -53,6 +53,8 @@ print(result["output_json"])  # pipeline_out/order.json
 # run_blocks_1_to_5("photos/", output_dir="pipeline_out", output_mode="dev")
 ```
 
+Ticks are geometry + logistic (not TrOCR/Paddle). Crop gold + refit: [`data/labels/README.md`](data/labels/README.md). `python -m med_doc.eval models` prints the live stack.
+
 Warp-only (no crops / HTR): `run_block1a_batch` with the same input shapes.
 
 ### Block 1: Normalize Document & Extract Crops

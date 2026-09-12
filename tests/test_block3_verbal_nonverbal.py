@@ -100,12 +100,12 @@ def test_nonverbal_empty_and_ticked_without_paddle():
     assert tick.is_marked is True
     assert filled.is_marked is True
     if not paddle_available():
-        assert empty.source == "density_fallback"
-        assert tick.source == "density_fallback"
-        assert filled.source == "density_fallback"
+        assert empty.source in {"density_fallback", "hollow-empty", "density", "logreg"}
+        assert tick.source in {"slash", "v_check", "filled", "logreg", "density_fallback"}
+        assert filled.source in {"filled", "logreg", "density_fallback"}
     else:
-        assert empty.source in {"paddle", "density_fallback"}
-        assert tick.source in {"paddle", "density_fallback"}
+        assert empty.source in {"paddle", "density_fallback", "hollow-empty", "density", "logreg"}
+        assert tick.source in {"paddle", "slash", "v_check", "filled", "logreg", "density_fallback"}
 
 
 def test_nonverbal_batch_independent_of_trocr():

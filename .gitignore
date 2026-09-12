@@ -39,10 +39,12 @@ artifacts/
 *.safetensors
 .DS_Store
 
-# Real / redacted PHI — never commit
-data/samples/private/
-data/testbase/private/
-!data/samples/private/.gitkeep
+data/labels/clinic/
+data/labels/crops/
+data/labels/mark_weights.json
+!data/labels/examples/
+!data/labels/examples/**
+!data/labels/README.md
 
 # Agent-memory must not be committed (repo policy)
 /memory/

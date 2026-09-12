@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import cv2
 import numpy as np
+from pathlib import Path
 
 from med_doc.htr.blank import residual_against_blank
 from med_doc.htr.schemas import MarkPrediction
@@ -254,16 +255,71 @@ def mark_features(crop: np.ndarray, blank: np.ndarray | None = None) -> np.ndarr
     )
 
 
-# Frozen logistic weights: fit on synthetic empty / slash / V / fill / printed-corner / label.
-# Recalibrate with train_mark_logreg() as photo-realistic labels grow.
-LOGREG_W = np.array(
+# Default logistic weights: synthetic empty / slash / V / fill / printed-corner / label.
+# Clinic refits write data/labels/mark_weights.json (gitignored) or MED_DOC_MARK_WEIGHTS.
+_DEFAULT_LOGREG_W = np.array(
     [6.4, 1.1, 2.8, 1.6, 1.7, -1.2, -3.5, 0.4],
     dtype=np.float64,
 )
-LOGREG_B = -2.35
+_DEFAULT_LOGREG_B = -2.35
+LOGREG_W = _DEFAULT_LOGREG_W
+LOGREG_B = _DEFAULT_LOGREG_B
 
 
-def logreg_mark_prob(feat: np.ndarray, w: np.ndarray = LOGREG_W, b: float = LOGREG_B) -> float:
+def load_logreg_weights() -> tuple[np.ndarray, float]:
+    """Prefer local clinic weights, then the committed package file, then defaults."""
+    import json
+    import os
+
+    from med_doc.paths import PACKAGE_DIR, ROOT
+
+    candidates = []
+    env = os.environ.get("MED_DOC_MARK_WEIGHTS")
+    if env:
+        candidates.append(Path(env))
+    candidates.append(ROOT / "data" / "labels" / "mark_weights.json")
+    candidates.append(PACKAGE_DIR / "htr" / "mark_weights.json")
+    for path in candidates:
+        if not path.is_file():
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            w = np.asarray(payload["w"], dtype=np.float64)
+            b = float(payload["b"])
+            if w.shape == _DEFAULT_LOGREG_W.shape:
+                return w, b
+        except Exception:
+            continue
+    return _DEFAULT_LOGREG_W.copy(), float(_DEFAULT_LOGREG_B)
+
+
+def save_logreg_weights(path: str | Path, w: np.ndarray, b: float) -> Path:
+    """Write clinic or synthetic weights. Call reload_logreg_weights() after."""
+    import json
+
+    dest = Path(path)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(
+        json.dumps({"w": [float(x) for x in np.asarray(w).tolist()], "b": float(b)}, indent=2),
+        encoding="utf-8",
+    )
+    return dest
+
+
+def reload_logreg_weights() -> tuple[np.ndarray, float]:
+    global LOGREG_W, LOGREG_B
+    LOGREG_W, LOGREG_B = load_logreg_weights()
+    return LOGREG_W, LOGREG_B
+
+
+LOGREG_W, LOGREG_B = load_logreg_weights()
+
+
+def logreg_mark_prob(feat: np.ndarray, w: np.ndarray | None = None, b: float | None = None) -> float:
+    if w is None:
+        w = LOGREG_W
+    if b is None:
+        b = LOGREG_B
     z = float(np.dot(feat, w) + b)
     z = float(np.clip(z, -20.0, 20.0))
     return float(1.0 / (1.0 + np.exp(-z)))
@@ -275,17 +331,27 @@ def train_mark_logreg(
     *,
     steps: int = 600,
     lr: float = 0.35,
+    sample_weight: np.ndarray | None = None,
 ) -> tuple[np.ndarray, float]:
-    """Fit a small logistic model; numpy only (no sklearn)."""
+    """Fit a small logistic model; numpy only (no sklearn).
+
+    ``sample_weight`` up-weights clinic empties (false-positive pressure) without
+    needing more tick crops.
+    """
     X = np.asarray(X, dtype=np.float64)
     y = np.asarray(y, dtype=np.float64)
+    if sample_weight is None:
+        sw = np.ones(len(y), dtype=np.float64)
+    else:
+        sw = np.asarray(sample_weight, dtype=np.float64)
+        sw = sw / max(float(sw.mean()), 1e-9)
     w = np.zeros(X.shape[1], dtype=np.float64)
     b = 0.0
     n = max(len(y), 1)
     for _ in range(steps):
         z = np.clip(X @ w + b, -20.0, 20.0)
         p = 1.0 / (1.0 + np.exp(-z))
-        err = p - y
+        err = (p - y) * sw
         w -= lr * (X.T @ err) / n
         b -= lr * float(err.mean())
     return w, b

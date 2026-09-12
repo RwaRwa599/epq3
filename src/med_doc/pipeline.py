@@ -25,6 +25,7 @@ def run_blocks_1_to_5(
     reviews: dict[str, list[ReviewPatch | dict[str, Any]]] | None = None,
     patch_missing_edta: bool = False,
     output_mode: OutputMode = "user",
+    mark_backend: str = "geometry",
 ) -> dict[str, Any]:
     """Normalize many photos, then run Blocks 3–5 on the whole batch.
 
@@ -58,6 +59,7 @@ def run_blocks_1_to_5(
         kg=kg,
         backend=backend,
         mode="both",
+        mark_backend=mark_backend,  # type: ignore[arg-type]
     )
     print("[Pipeline] Block 4 — KG rescoring")
     b4 = process_from_block3(

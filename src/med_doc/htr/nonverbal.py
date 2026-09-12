@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+from typing import Any, Literal
+
+MarkBackend = Literal["geometry", "paddle"]
 
 import cv2
 import numpy as np
@@ -189,8 +191,13 @@ def classify_mark_nonverbal(
     fallback_dark_ratio: float | None = None,
     fallback_candidate: bool | None = None,
     blank: np.ndarray | None = None,
+    use_paddle: bool = False,
 ) -> MarkPrediction:
-    """Classify one checkbox. Geometry and Paddle are fused when both exist."""
+    """Classify one checkbox. Default is geometry + logistic (not Paddle/TrOCR).
+
+    PaddleOCR is opt-in: it over-called printed glyphs as ticks (B3.4). TrOCR is
+    verbal-only and must not run on checkbox crops.
+    """
     density_pred = classify_mark(
         crop,
         field_id,
@@ -198,6 +205,9 @@ def classify_mark_nonverbal(
         fallback_candidate=fallback_candidate,
         blank=blank,
     )
+    if not use_paddle:
+        return density_pred
+
     density_labeled = density_pred.model_copy(update={"source": "density_fallback"})
 
     if crop is None or (hasattr(crop, "size") and np.asarray(crop).size == 0):
@@ -212,7 +222,7 @@ def classify_mark_nonverbal(
 
     engine = _get_paddle()
     if engine is None:
-        return density_pred.model_copy(update={"source": "density_fallback"})
+        return density_pred
 
     try:
         hits = _paddle_hits(engine, np.asarray(crop))
@@ -258,6 +268,7 @@ def classify_marks(
     fallbacks: dict[str, dict[str, Any]] | None = None,
     template: Any | None = None,
     canvas_size: tuple[int, int] | list[int] | None = None,
+    mark_backend: MarkBackend = "geometry",
 ) -> dict[str, MarkPrediction]:
     """Classify many checkbox crops. Independent of TrOCR / verbal."""
     from med_doc.htr.blank import blank_patch
@@ -289,5 +300,6 @@ def classify_marks(
             fallback_dark_ratio=info.get("dark_ratio"),
             fallback_candidate=info.get("is_marked_candidate"),
             blank=blank,
+            use_paddle=mark_backend == "paddle",
         )
     return out
