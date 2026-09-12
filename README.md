@@ -8,6 +8,9 @@ A modular, agent-assisted medical document intelligence system for laboratory re
 - **Block 2 — Clinical Knowledge Graph & Prior Validation Engine:** Frozen medical knowledge base covering 138+ tests and profiles, specimen tube rules, alias/acronym normalization, messy handwriting fuzzy matching, Bayesian prior ranking (`assume()`), and cross-field clinical validation.
 - **Block 3 — Handwriting Recognition & Prior Fusion:** Checkbox mark classification, digit/date/optional-TrOCR handwriting reads, fusion against Block 2 priors, HiTL triage, and `block3_predictions_batch.zip` for Block 4 / LIS.
 
+
+Do not add agent-memory files (`memory/`, `agent-skills/`, `AGENTS.md`, protocol docs, hooks, or agent-memory CI) to this repository or to new block packages.
+
 ---
 
 ## Standalone Colab Packages
