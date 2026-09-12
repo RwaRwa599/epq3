@@ -1,6 +1,6 @@
 # Block 3 — version history and architecture
 
-**Current generation: B3.6** (template residual + logistic features + Paddle fusion). Ingests a Block 1 ZIP; does not run Block 2 `assume()` or invent tube priors.
+**Current generation: B3.7** (field-typed verbal HTR + residual marks). Ingests a Block 1 ZIP; does not run Block 2 `assume()` or invent tube priors.
 
 Live code: `src/med_doc/htr/` on branch `block1`. Standalone `block3/` Colab tree is **B3.2-era** (Paddle + density fallback, fused ZIP runner remnants).
 
@@ -131,7 +131,7 @@ JSON: [data/synthetic-10tick-scorecard.json](./data/synthetic-10tick-scorecard.j
 
 ---
 
-## B3.6 — Template residual + logistic features + Paddle fusion (2026-09-12) — **current**
+## B3.6 — Template residual + logistic features + Paddle fusion (2026-09-12)
 
 **After** Block 1 registration, not instead of it.
 
@@ -157,6 +157,44 @@ flowchart TB
   resid --> feat --> logreg --> fuse
   paddle --> fuse
 ```
+
+---
+
+## B3.7 — Field-typed verbal HTR (2026-09-12) — **current**
+
+**Architecture** (live `recognize_verbal` / `recognize_handwriting`)
+
+1. Residual vs blank patch when the Block 1 ZIP canvas matches the template.
+2. **Tubes** (`tube_*`): 1–2 digit prototype matcher (`htr/glyphs.py`). Charset `{0–9}`. Empty residual → `empty`, not a guessed count.
+3. **Dates** (`received_at`): charset line + `parse_datetime` grammar.
+4. **`others` / `office_other`:** line split → charset glyphs, plus whole-line match to a small write-in lexicon (visual, **not** KG `assume()`). n-best in `hypotheses`. Optional TrOCR if installed.
+5. KG lexicon fusion stays in `attach_kg_priors` / Block 4.
+
+```mermaid
+flowchart TB
+  crop[Handwriting crop]
+  resid[Blank residual]
+  tubes[Digit prototypes]
+  dates[Charset plus date grammar]
+  others[Charset plus visual lexicon]
+  hyp[n-best draft]
+  crop --> resid
+  resid --> tubes --> hyp
+  resid --> dates --> hyp
+  resid --> others --> hyp
+```
+
+### Verbal accuracy (synthetic, no PHI)
+
+Rendered `putText` tokens, then the same photoreal distortions as Block 1/3 mark eval. Isolated from checkbox TP/FN. JSON: [data/verbal-accuracy.json](./data/verbal-accuracy.json).
+
+| Task | N | Clean | Photoreal |
+|---|---|---|---|
+| Tube digits 0–9 | 40 | **1.00** | **1.00** |
+| Dates `DD/MM/YYYY` | 6 | **1.00** | **0.50** |
+| Others write-ins (AFP, CEA, …) | 6 | **1.00** | **1.00** |
+
+Dates under JPEG/shadow still drop; that field needs a stronger constrained decoder next, not a bigger TrOCR.
 
 ---
 

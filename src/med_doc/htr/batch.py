@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import cv2
+import numpy as np
 
 from med_doc.htr.ingest import (
     Block1Document,
@@ -42,6 +43,32 @@ def _template_for(doc: Block1Document):
         return load_template(DEFAULT_TEMPLATE)
     except Exception:
         return None
+
+
+def _verbal_blanks(doc: Block1Document) -> dict[str, np.ndarray | None]:
+    template = _template_for(doc)
+    canvas_size = (doc.metadata or {}).get("canvas_size")
+    if template is None or canvas_size is None:
+        return {}
+    if int(canvas_size[0]) != int(template.width) or int(canvas_size[1]) != int(template.height):
+        return {}
+    from med_doc.htr.blank import blank_patch
+
+    hw_meta = (doc.fields.get("handwriting") or {}) if doc.fields else {}
+    out: dict[str, np.ndarray | None] = {}
+    for fid, crop in doc.handwriting_crops.items():
+        if crop is None or getattr(crop, "size", 0) == 0:
+            continue
+        arr = np.asarray(crop)
+        info = hw_meta.get(fid) or {}
+        bbox = info.get("bbox") or info.get("canonical_bbox")
+        out[fid] = blank_patch(
+            template,
+            fid,
+            (arr.shape[0], arr.shape[1]),
+            bbox=bbox if bbox else None,
+        )
+    return out
 
 
 def _ticked_ids(marks: dict[str, MarkPrediction]) -> list[str]:
@@ -155,7 +182,11 @@ def process_block1_document(
         verbal_backend = "trocr" if backend in ("auto", "trocr") else backend
         if backend == "lexicon":
             verbal_backend = "auto"
-        hw = recognize_fields(doc.handwriting_crops, backend=verbal_backend)
+        hw = recognize_fields(
+            doc.handwriting_crops,
+            backend=verbal_backend,
+            blanks=_verbal_blanks(doc),
+        )
 
     return hypotheses_from_parts(doc.doc_id, marks, hw)
 

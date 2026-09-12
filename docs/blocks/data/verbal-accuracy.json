@@ -1,0 +1,20 @@
+{
+  "eval_id": "verbal-field-typed-b3.7",
+  "note": "Synthetic putText + photoreal distortions. No PHI. Isolated from checkbox marks.",
+  "tubes": {
+    "n": 40,
+    "clean": 1.0,
+    "photoreal": 1.0
+  },
+  "dates": {
+    "n": 6,
+    "clean": 1.0,
+    "photoreal": 0.5
+  },
+  "others": {
+    "n": 6,
+    "clean": 1.0,
+    "photoreal": 1.0
+  },
+  "backend": "digits+charset+writein-lexicon (TrOCR optional)"
+}

@@ -1,4 +1,4 @@
-"""Verbal Block 3: handwriting recognition (TrOCR). Independent of PaddleOCR."""
+"""Verbal Block 3: field-typed handwriting drafts. Independent of PaddleOCR."""
 
 from __future__ import annotations
 
@@ -27,27 +27,38 @@ def recognize_verbal(
     field_id: str,
     *,
     backend: str = "trocr",
+    blank: np.ndarray | None = None,
 ) -> HandwritingPrediction:
     """Transcribe one handwriting crop. Does not classify checkboxes.
 
-    Tube fields keep digits only. `others` stays raw. KG `assume()` is Block 4
-    (`attach_kg_priors` is opt-in and not used on the live Block 3 path).
+    Tube fields keep digits only. Dates are grammar-normalized. `others` stays
+    a raw n-best draft. KG `assume()` is Block 4.
     """
-    draft = recognize_handwriting(crop, field_id, backend=backend)
+    draft = recognize_handwriting(crop, field_id, backend=backend, blank=blank)
     empty = not (draft.text or "").strip()
-    engine_gap = draft.source in {"unavailable", "ink-present", "trocr-nodigit"}
+    engine_gap = draft.source in {"unavailable", "ink-present", "trocr-nodigit", "digit-reject"}
     needs_hitl = engine_gap or (not empty and draft.confidence < HITL_TAU)
     if empty and draft.source == "empty":
         needs_hitl = False
+    canonical = draft.text or None
+    canonical_id = None
+    if field_id.startswith("tube_") and draft.text:
+        canonical_id = field_id
+    if field_id in {"received_at", "date", "sample_received"} and draft.source in {"date", "trocr"}:
+        canonical_id = field_id
+    hyps = [{"value": draft.text, "score": round(draft.confidence, 3), "source": draft.source}]
+    for alt, score in draft.alternatives:
+        if alt and alt != draft.text:
+            hyps.append({"value": alt, "score": round(float(score), 3), "source": "alt"})
     return HandwritingPrediction(
         field_id=field_id,
         raw_text=draft.text,
-        canonical_value=draft.text or None,
-        canonical_id=field_id if (field_id.startswith("tube_") and draft.text) else None,
+        canonical_value=canonical,
+        canonical_id=canonical_id,
         confidence=round(float(draft.confidence), 3),
         source=draft.source,
         needs_hitl=needs_hitl,
-        hypotheses=[{"value": draft.text, "score": round(draft.confidence, 3), "source": draft.source}],
+        hypotheses=hyps,
     )
 
 
@@ -55,9 +66,14 @@ def recognize_fields(
     crops: dict[str, np.ndarray | None],
     *,
     backend: str = "trocr",
+    blanks: dict[str, np.ndarray | None] | None = None,
 ) -> dict[str, HandwritingPrediction]:
     """Recognize many handwriting crops. Independent of PaddleOCR / nonverbal."""
-    return {fid: recognize_verbal(crop, fid, backend=backend) for fid, crop in crops.items()}
+    blanks = blanks or {}
+    return {
+        fid: recognize_verbal(crop, fid, backend=backend, blank=blanks.get(fid))
+        for fid, crop in crops.items()
+    }
 
 
 def attach_kg_priors(

@@ -7,7 +7,8 @@ This folder is the **GitHub-facing record** of Blocks 1–3: what shipped in eac
 | [block1-versions.md](./block1-versions.md) | Every Block 1 architecture generation + current data |
 | [block3-versions.md](./block3-versions.md) | Every Block 3 architecture generation + current data |
 | [block2-status.md](./block2-status.md) | Frozen Block 2 KG (no separate version train in this pass) |
-| [data/synthetic-10tick-scorecard.json](./data/synthetic-10tick-scorecard.json) | Latest 1c + Block 3 synthetic scorecard |
+| [data/synthetic-10tick-scorecard.json](./data/synthetic-10tick-scorecard.json) | Latest 1c + Block 3 mark scorecard |
+| [data/verbal-accuracy.json](./data/verbal-accuracy.json) | Block 3 verbal (tubes / dates / others) |
 
 **Live implementation** is `src/med_doc` on git branch **`block1`**. Public API:
 

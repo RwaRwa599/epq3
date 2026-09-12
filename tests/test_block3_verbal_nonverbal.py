@@ -196,7 +196,7 @@ def test_process_from_block1_verbal_only(tmp_path: Path):
 def test_verbal_ink_without_trocr_is_hitl():
     pred = recognize_verbal(_ticked_checkbox(), "others", backend="trocr")
     if not trocr_available():
-        assert pred.source in {"unavailable", "ink-present", "trocr"}
+        assert pred.source in {"unavailable", "ink-present", "trocr", "charset", "lexicon"}
         if pred.source != "trocr":
             assert pred.needs_hitl is True
 
