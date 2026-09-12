@@ -31,7 +31,7 @@ Colab does **not** download `src/` when you open a notebook from GitHub. Use bra
 | Block 4 | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/notebooks/Block_4_KG_Rescoring.ipynb) |
 | Block 5 | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/notebooks/Block_5_Review_and_LIS.ipynb) |
 
-Index: [`notebooks/README.md`](notebooks/README.md). First cell clones `https://github.com/RwaRwa599/epq3.git` (`block1`) and `pip install -e .`. Re-pull:
+Index: [`notebooks/README.md`](notebooks/README.md). First cell prints **`BOOTSTRAP_V3`** and clones branch `block1` onto `sys.path` (Colab does not ship `src/` with the notebook). If `No module named med_doc` persists: **Runtime → Disconnect and delete runtime**, reopen from GitHub `block1`, **Run all**.
 
 ```python
 %cd /content/epq3
