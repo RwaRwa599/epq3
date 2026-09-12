@@ -57,10 +57,11 @@ def test_filled_checkbox_is_marked():
     assert pred.confidence >= 0.9
 
 
-def test_metadata_fallback_without_crop():
+def test_missing_crop_is_not_a_tick():
     pred = classify_mark(None, "cbc", fallback_dark_ratio=0.28, fallback_candidate=True)
-    assert pred.is_marked is True
-    assert pred.source == "metadata_fallback"
+    assert pred.is_marked is False
+    assert pred.needs_hitl is True
+    assert pred.source == "missing-crop"
 
 
 def test_extract_digits_and_date_parse():
@@ -162,9 +163,20 @@ def test_padded_v_tick_is_marked_without_png_frame():
     assert pred.ink_density >= 0.06
 
 
-def test_padded_empty_square_unmarked():
-    pred = classify_mark(_padded_empty_square(), "cea")
+def test_logreg_alone_does_not_commit_printed_noise():
+    """Clinic photos: dark printed boxes must not become trusted ticks."""
+    img = _padded_empty_square()
+    pred = classify_mark(img, "profile_lipid")
     assert pred.is_marked is False
+
+
+def test_many_empty_squares_stay_unmarked():
+    n_fp = 0
+    for pad in (6, 8, 10):
+        for size in (32, 40, 48):
+            if classify_mark(_padded_empty_square(size, pad), "alt").is_marked:
+                n_fp += 1
+    assert n_fp == 0
 
 
 def test_label_strip_is_not_a_tick():

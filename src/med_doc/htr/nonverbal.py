@@ -274,12 +274,13 @@ def classify_marks(
     from med_doc.htr.blank import blank_patch
 
     fallbacks = fallbacks or {}
-    use_blank = (
-        template is not None
-        and canvas_size is not None
-        and int(canvas_size[0]) == int(template.width)
-        and int(canvas_size[1]) == int(template.height)
-    )
+    use_blank = False
+    if template is not None and canvas_size is not None:
+        tw, th = int(template.width), int(template.height)
+        cw, ch = int(canvas_size[0]), int(canvas_size[1])
+        # Same canonical page (allow a few px of resize). Do not subtract a
+        # full-form patch from toy/unit-test crops on a tiny canvas.
+        use_blank = abs(cw - tw) <= max(8, tw // 50) and abs(ch - th) <= max(8, th // 50)
     out: dict[str, MarkPrediction] = {}
     for fid, crop in crops.items():
         info = fallbacks.get(fid) or {}
@@ -297,8 +298,8 @@ def classify_marks(
         out[fid] = classify_mark_nonverbal(
             crop,
             fid,
-            fallback_dark_ratio=info.get("dark_ratio"),
-            fallback_candidate=info.get("is_marked_candidate"),
+            fallback_dark_ratio=None,
+            fallback_candidate=None,
             blank=blank,
             use_paddle=mark_backend == "paddle",
         )

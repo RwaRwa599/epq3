@@ -200,7 +200,7 @@ Dates under JPEG/shadow still drop; that field needs a stronger constrained deco
 
 ## B3.8 — Crop gold + logistic refit; Paddle off ticks (2026-09-12) — **current**
 
-**Ticks:** `mark_backend="geometry"` (default). Paddle fusion is opt-in (`mark_backend="paddle"`); it is the wrong model for checkboxes. TrOCR is verbal-only.
+**Ticks:** `mark_backend="geometry"` (default). A tick is committed only as slash / V / fill — logistic-only scores are HiTL, never trusted LIS ticks (clinic photos IMG_7596 / IMG_7600). Paddle fusion is opt-in. TrOCR is verbal-only. Block 1 `is_marked_candidate` is not a tick.
 
 **Labels:** gold = ticked field ids per sheet (`data/labels/examples/IMG_7596.json` is `ca125` only). `python -m med_doc.eval export` copies Block 1 checkbox PNGs into local `empty/` vs `tick/` (gitignored). `python -m med_doc.eval train` refits `LOGREG_W`/`LOGREG_B` with a heavy empty mix. Clinic weights: `data/labels/mark_weights.json` or `MED_DOC_MARK_WEIGHTS`.
 

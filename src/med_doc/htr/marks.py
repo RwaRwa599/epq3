@@ -149,18 +149,26 @@ def _diagonal_stroke(gray: np.ndarray) -> bool:
     interior = _interior(gray)
     if interior.size == 0 or min(interior.shape[:2]) < 6:
         return False
-    if _ink_blob_count(gray) != 1:
+    blobs = _ink_blob_count(gray)
+    if blobs < 1 or blobs > 2:
         return False
     ink = _ink_mask(interior)
-    if float(ink.mean()) < SLASH_MIN_DENSITY:
+    dens = float(ink.mean())
+    if dens < SLASH_MIN_DENSITY or dens >= FILL_DENSITY:
         return False
     ys, xs = np.where(ink)
-    if len(xs) < 6 or float(xs.std()) < 1e-6 or float(ys.std()) < 1e-6:
+    if len(xs) < 5 or float(xs.std()) < 1e-6 or float(ys.std()) < 1e-6:
         return False
-    if float(xs.std()) > 2.8 * float(ys.std()):
+    if float(xs.std()) > 3.2 * float(ys.std()):
         return False
     corr = abs(float(np.corrcoef(xs.astype(float), ys.astype(float))[0, 1]))
-    return corr >= 0.70
+    span_x = (int(xs.max()) - int(xs.min()) + 1) / float(max(interior.shape[1], 1))
+    span_y = (int(ys.max()) - int(ys.min()) + 1) / float(max(interior.shape[0], 1))
+    if span_x < 0.22 or span_y < 0.22:
+        return False
+    # Printed rings leak into the inset; demand a cleaner diagonal then.
+    need = 0.80 if _annulus_dark_frac(gray) >= 0.10 else 0.58
+    return corr >= need
 
 
 def _v_or_check_stroke(gray: np.ndarray) -> bool:
@@ -202,11 +210,10 @@ def _v_or_check_stroke(gray: np.ndarray) -> bool:
 
     cl = _corr(left_xs, left_ys)
     cr = _corr(right_xs, right_ys)
-    # V / check: arms lean opposite, or one slash plus a short opposing stroke.
+    # V / check: arms lean opposite. Drop loose "lambda" which fires on printed rings.
     opposite = (cl * cr) < -0.05 or (cl > 0.25 and cr < -0.15) or (cl < -0.15 and cr > 0.25)
-    check_long = abs(cr) >= 0.45 and len(right) >= len(left)
-    lambda_like = abs(cl) >= 0.40 and abs(cr) >= 0.15
-    if not (opposite or check_long or lambda_like):
+    check_long = abs(cr) >= 0.45 and len(right) >= len(left) and opposite
+    if not (opposite or check_long):
         return False
     # Global corr of a clean "/" is high; V/lambda is lower. Allow overlap with slash.
     global_corr = abs(_corr(xs.astype(float), ys.astype(float)))
@@ -372,17 +379,15 @@ def classify_mark(
     Geometry features feed a logistic score; slash/V/fill remain the mark kinds.
     """
     if crop is None or (hasattr(crop, "size") and np.asarray(crop).size == 0):
+        # Block 1 dark_ratio / is_marked_candidate is debug, not a tick.
         density = float(fallback_dark_ratio or 0.0)
-        marked = bool(fallback_candidate) if fallback_candidate is not None else density >= density_tau
-        near = abs(density - density_tau) < 0.04
-        conf = float(min(0.95, 0.55 + abs(density - density_tau) * 3.0))
         return MarkPrediction(
             field_id=field_id,
-            is_marked=marked,
-            confidence=round(conf, 3),
+            is_marked=False,
+            confidence=0.4,
             ink_density=round(density, 4),
-            needs_hitl=near,
-            source="metadata_fallback",
+            needs_hitl=True,
+            source="missing-crop",
         )
 
     gray = _working_gray(crop, blank)
@@ -401,7 +406,17 @@ def classify_mark(
             source="shadow-crop",
         )
 
-    if density < SLASH_MIN_DENSITY and p < 0.45:
+    if looks_like_text_line(crop if blank is None else gray):
+        return MarkPrediction(
+            field_id=field_id,
+            is_marked=False,
+            confidence=0.9,
+            ink_density=round(density, 4),
+            needs_hitl=False,
+            source="label-crop",
+        )
+
+    if density < SLASH_MIN_DENSITY:
         source = "hollow-empty" if _hollow_empty(gray) else "density"
         return MarkPrediction(
             field_id=field_id,
@@ -413,33 +428,21 @@ def classify_mark(
         )
 
     kind = interior_mark_class(crop, blank=blank)
-    marked = bool(kind is not None) or p >= 0.55
-    if kind is None and p < 0.55:
+    # Precision: commit only a slash / V / fill. Logistic-only fires on printed boxes
+    # (IMG_7596 / IMG_7600 clinic photos) and must not enter trusted ticks.
+    marked = kind in {"slash", "v_check", "filled"} and density >= SLASH_MIN_DENSITY
+    if kind == "filled" and density < FILL_DENSITY:
         marked = False
-    if kind is not None and p < 0.22:
-        # Logistic strongly disagrees with a weak geometry hit (printed glyph).
-        marked = p >= 0.40
 
     if marked:
-        conf = 0.94 if kind == "filled" else (0.93 if kind else float(min(0.92, 0.55 + p * 0.4)))
-        source = kind if kind is not None else "logreg"
+        conf = 0.94 if kind == "filled" else (0.93 if kind else 0.8)
         return MarkPrediction(
             field_id=field_id,
             is_marked=True,
             confidence=round(float(conf), 3),
             ink_density=round(density, 4),
-            needs_hitl=0.45 <= p <= 0.62 and kind is None,
-            source=source,
-        )
-
-    if _hollow_empty(gray):
-        return MarkPrediction(
-            field_id=field_id,
-            is_marked=False,
-            confidence=0.95,
-            ink_density=round(density, 4),
             needs_hitl=False,
-            source="hollow-empty",
+            source=kind or "logreg",
         )
 
     return MarkPrediction(
@@ -447,6 +450,6 @@ def classify_mark(
         is_marked=False,
         confidence=round(float(max(0.55, 1.0 - p)), 3),
         ink_density=round(density, 4),
-        needs_hitl=0.40 <= p < 0.55,
+        needs_hitl=p >= 0.55 and density >= SLASH_MIN_DENSITY,
         source="logreg" if p >= 0.35 else "density",
     )
