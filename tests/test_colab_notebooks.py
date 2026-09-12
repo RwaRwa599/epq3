@@ -12,17 +12,17 @@ NOTEBOOKS = [
 ]
 
 
-def test_colab_notebooks_zipball_bootstrap_v4():
+def test_colab_notebooks_zipball_bootstrap_v5():
     for path in NOTEBOOKS:
         assert path.exists(), path
         text = path.read_text(encoding="utf-8")
-        assert "BOOTSTRAP_V4" in text, path.name
+        assert "BOOTSTRAP_V5" in text, path.name
+        assert "output_mode" in text
         assert "codeload.github.com/RwaRwa599/epq3/zip/refs/heads/block1" in text
         assert "block1" in text
         assert "PHI" in text or "phi" in text.lower()
         assert "sys.path.insert" in text
         assert "med_doc" in text
-        # First-cell failure mode: %pip -e restarts Colab before import succeeds
         assert "%pip install -q -e" not in text
         assert "pip install -e" not in text
         assert "git clone" not in text
@@ -54,3 +54,8 @@ def test_colab_bootstrap_from_local_zip(tmp_path, monkeypatch):
     import med_doc
 
     assert Path(med_doc.__file__).resolve().is_relative_to(dest_parent.resolve())
+
+    stale = dest_parent / "epq3" / "src" / "med_doc" / "stale_marker.txt"
+    stale.write_text("old", encoding="utf-8")
+    root2 = bootstrap_med_doc(content=dest_parent, url=zip_path.resolve().as_uri())
+    assert not (root2 / "src" / "med_doc" / "stale_marker.txt").exists()

@@ -1,7 +1,8 @@
-"""Colab bootstrap — BOOTSTRAP_V4 (zipball, no git, no pip -e)."""
+"""Colab bootstrap — BOOTSTRAP_V5 (always refresh zipball; drop cached med_doc)."""
 
 from __future__ import annotations
 
+import importlib
 import os
 import shutil
 import sys
@@ -17,14 +18,16 @@ def _content() -> Path:
 DEFAULT_ZIP_URL = "https://codeload.github.com/RwaRwa599/epq3/zip/refs/heads/block1"
 
 
-def bootstrap_med_doc(*, content: Path | None = None, url: str | None = None) -> Path:
-    """Download epq3@block1 zip, put src/ on sys.path, chdir to repo root."""
-    content = content or _content()
-    src = content / "epq3" / "src"
-    if (src / "med_doc" / "__init__.py").is_file():
-        _activate(src.parent)
-        return src.parent
+def _purge_med_doc() -> None:
+    for name in list(sys.modules):
+        if name == "med_doc" or name.startswith("med_doc."):
+            del sys.modules[name]
+    importlib.invalidate_caches()
 
+
+def bootstrap_med_doc(*, content: Path | None = None, url: str | None = None) -> Path:
+    """Download epq3@block1 zip every time, then put src/ on sys.path."""
+    content = content or _content()
     zip_path = content / "epq3-block1.zip"
     url = url or DEFAULT_ZIP_URL
     print("Downloading", url)
@@ -40,7 +43,7 @@ def bootstrap_med_doc(*, content: Path | None = None, url: str | None = None) ->
     found = list(extract_dir.glob("*/src/med_doc/__init__.py"))
     if not found:
         raise RuntimeError(f"zip had no src/med_doc: {list(extract_dir.iterdir())}")
-    unpacked = found[0].parents[2]  # …/epq3-block1
+    unpacked = found[0].parents[2]
     dest = content / "epq3"
     if dest.exists():
         shutil.rmtree(dest)
@@ -52,12 +55,13 @@ def bootstrap_med_doc(*, content: Path | None = None, url: str | None = None) ->
 
 
 def _activate(root: Path) -> None:
-    src = str(root / "src")
+    src = str((root / "src").resolve())
     while src in sys.path:
         sys.path.remove(src)
     sys.path.insert(0, src)
     os.chdir(root)
-    print("BOOTSTRAP_V4")
+    _purge_med_doc()
+    print("BOOTSTRAP_V5")
     print("repo:", root)
     print("cwd:", os.getcwd())
     print("sys.path[0]:", sys.path[0])
@@ -65,12 +69,12 @@ def _activate(root: Path) -> None:
 
 def guard_med_doc() -> None:
     content = _content()
-    hits = list(content.glob("*/src/med_doc/__init__.py"))
-    hits += list(content.glob("epq3/src/med_doc/__init__.py"))
+    hits = list(content.glob("epq3/src/med_doc/__init__.py"))
+    hits += list(content.glob("*/src/med_doc/__init__.py"))
     if not hits:
         bootstrap_med_doc()
         return
-    src = str(hits[0].parents[1])
+    src = str(hits[0].parents[1].resolve())
     if src not in sys.path:
         sys.path.insert(0, src)
     os.chdir(hits[0].parents[2])
