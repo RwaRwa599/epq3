@@ -1,0 +1,12 @@
+Block1) preprocessing
+Block1a) normalisation
+Block1b)layout analysis
+Block1c) validation loop
+
+Block2) frozen knowledge graph
+
+Block3) content extraction
+
+Block4) semantic reconciliation & validation 
+
+Block5) proprocessing (json)
