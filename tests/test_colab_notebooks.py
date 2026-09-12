@@ -1,9 +1,8 @@
-"""Colab notebooks must clone the live tree (GitHub open does not include src/)."""
-
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 NOTEBOOKS = [
+    ROOT / "Run_in_Colab.ipynb",
     ROOT / "Pipeline_Blocks_1_to_5.ipynb",
     ROOT / "notebooks" / "Block_1_Document_Normalization.ipynb",
     ROOT / "notebooks" / "Block_2_Knowledge_Graph.ipynb",
@@ -13,13 +12,45 @@ NOTEBOOKS = [
 ]
 
 
-def test_colab_notebooks_clone_live_branch():
+def test_colab_notebooks_zipball_bootstrap_v4():
     for path in NOTEBOOKS:
         assert path.exists(), path
         text = path.read_text(encoding="utf-8")
-        assert "RwaRwa599/epq3.git" in text
+        assert "BOOTSTRAP_V4" in text, path.name
+        assert "codeload.github.com/RwaRwa599/epq3/zip/refs/heads/block1" in text
         assert "block1" in text
         assert "PHI" in text or "phi" in text.lower()
-        assert "BOOTSTRAP_V3" in text or "bootstrap()" in text
         assert "sys.path.insert" in text
         assert "med_doc" in text
+        # First-cell failure mode: %pip -e restarts Colab before import succeeds
+        assert "%pip install -q -e" not in text
+        assert "pip install -e" not in text
+        assert "git clone" not in text
+
+
+def test_colab_bootstrap_from_local_zip(tmp_path, monkeypatch):
+    import zipfile
+    import sys
+
+    sys.path.insert(0, str(ROOT / "notebooks"))
+    from colab_bootstrap import bootstrap_med_doc  # type: ignore
+
+    zip_path = tmp_path / "tree.zip"
+    pkg = ROOT / "src" / "med_doc"
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        for file in pkg.rglob("*"):
+            if file.is_file() and "__pycache__" not in file.parts:
+                rel = file.relative_to(ROOT)
+                zf.write(file, arcname=f"epq3-block1/{rel.as_posix()}")
+
+    dest_parent = tmp_path / "content"
+    dest_parent.mkdir()
+    workspace_src = str((ROOT / "src").resolve())
+    sys.path[:] = [p for p in sys.path if Path(p).resolve() != Path(workspace_src)]
+    sys.modules.pop("med_doc", None)
+
+    root = bootstrap_med_doc(content=dest_parent, url=zip_path.resolve().as_uri())
+    assert (root / "src" / "med_doc" / "__init__.py").is_file()
+    import med_doc
+
+    assert Path(med_doc.__file__).resolve().is_relative_to(dest_parent.resolve())

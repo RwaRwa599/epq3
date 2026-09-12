@@ -18,27 +18,21 @@ Do not add agent-memory files (`memory/`, `agent-skills/`, `AGENTS.md`, protocol
 
 ## Google Colab (live tree)
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Pipeline_Blocks_1_to_5.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Run_in_Colab.ipynb)
 
-Colab does **not** download `src/` when you open a notebook from GitHub. Use branch **`block1`**:
+Colab does **not** download `src/` when you open a notebook from GitHub. Open **`Run_in_Colab.ipynb`** on branch **`block1`** (new filename so Colab does not reuse a stale copy). **Runtime → Disconnect and delete runtime**, then **Run all**. The first cell must print **`BOOTSTRAP_V4`** and a `med_doc:` path under `src/`. It downloads the public zipball (no git, no `%pip install -e` — editable install restarts Colab before the import can succeed).
 
 | Notebook | Colab |
 |---|---|
-| Blocks 1–5 pipeline | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Pipeline_Blocks_1_to_5.ipynb) |
+| Blocks 1–5 (use this) | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Run_in_Colab.ipynb) |
+| Same pipeline (older name) | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Pipeline_Blocks_1_to_5.ipynb) |
 | Block 1 | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/notebooks/Block_1_Document_Normalization.ipynb) |
 | Block 2 | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/notebooks/Block_2_Knowledge_Graph.ipynb) |
 | Block 3 | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/notebooks/Block_3_Marks_and_HTR.ipynb) |
 | Block 4 | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/notebooks/Block_4_KG_Rescoring.ipynb) |
 | Block 5 | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/notebooks/Block_5_Review_and_LIS.ipynb) |
 
-Index: [`notebooks/README.md`](notebooks/README.md). First cell prints **`BOOTSTRAP_V3`** and clones branch `block1` onto `sys.path` (Colab does not ship `src/` with the notebook). If `No module named med_doc` persists: **Runtime → Disconnect and delete runtime**, reopen from GitHub `block1`, **Run all**.
-
-```python
-%cd /content/epq3
-!git fetch origin block1 && git checkout block1 && git pull --ff-only origin block1
-```
-
-Private repo: Colab secret `GITHUB_TOKEN`. Do not upload clinic PHI.
+Index: [`notebooks/README.md`](notebooks/README.md). Do not upload clinic PHI. The repo is public; no GitHub token is required.
 
 The `block1/`, `block2/`, `block3/` trees are older standalone snapshots (their Open-in-Colab badges point at those snapshot branches, not this live tree).
 
