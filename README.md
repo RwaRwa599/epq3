@@ -2,6 +2,8 @@
 
 `new2` is a modular medical lab-request document pipeline. This branch implements **Block 1 only**: take a raw photo or scan of a laboratory request sheet and emit a rectified canonical canvas plus illumination-normalized field crops.
 
+Do not add agent-memory files (`memory/`, `agent-skills/`, `AGENTS.md`, protocol docs, hooks, or agent-memory CI) to this repository or to new block packages.
+
 ## Pipeline
 
 1. Detect the page quadrilateral and warp it to the canonical canvas (`2048×1754`).
