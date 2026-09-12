@@ -148,3 +148,33 @@ def test_process_from_block4_writes_order_keeps_hypotheses(tmp_path: Path):
         assert "docs/synthetic/hypotheses.json" in names
         assert "docs/synthetic/prediction.json" in names
         assert "docs/synthetic/prediction.committed.json" in names
+
+
+def test_process_from_block4_user_mode_one_json(tmp_path: Path):
+    kg = KnowledgeGraph.load(DEFAULT_KG)
+    hyp = _hyp(ticks=["cbc"])
+    src = tmp_path / "b4" / "docs" / "synthetic"
+    src.mkdir(parents=True)
+    (src / "hypotheses.json").write_text(hyp.model_dump_json(indent=2), encoding="utf-8")
+    pred = rescore_hypotheses(hyp, kg)
+    (src / "prediction.json").write_text(pred.model_dump_json(indent=2), encoding="utf-8")
+
+    out = process_from_block4(
+        tmp_path / "b4",
+        output_dir=tmp_path / "b5",
+        output_zip=tmp_path / "should_not.zip",
+        kg=kg,
+        output_mode="user",
+        reviews={"synthetic": [ReviewPatch(field_id="tube_edta", action="set_tube", value="1")]},
+    )
+    assert out["output_mode"] == "user"
+    assert out["output_zip"] is None
+    assert not (tmp_path / "should_not.zip").exists()
+    json_path = Path(out["output_json"])
+    assert json_path == tmp_path / "b5" / "order.json"
+    names = {p.name for p in (tmp_path / "b5").iterdir()}
+    assert names == {"order.json"}
+    bundle = json.loads(json_path.read_text(encoding="utf-8"))
+    assert bundle["total_documents"] == 1
+    assert bundle["orders"][0]["observed_tubes"]["EDTA"] == 1
+    assert bundle["orders"][0]["doc_id"] == "synthetic"

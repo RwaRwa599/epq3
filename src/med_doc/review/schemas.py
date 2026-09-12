@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
+OutputMode = Literal["dev", "user"]
+
 from pydantic import BaseModel, Field
 
 ReviewAction = Literal[
@@ -67,3 +69,13 @@ class LabOrder(BaseModel):
     discrepancies: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     overall_confidence: float = Field(ge=0.0, le=1.0, default=1.0)
+
+
+class OrderBundle(BaseModel):
+    """User-mode Block 5 artifact: one JSON file, one LabOrder per document."""
+
+    version: str = "1.0"
+    block: str = "block5"
+    output_mode: OutputMode = "user"
+    total_documents: int = 0
+    orders: list[LabOrder] = Field(default_factory=list)

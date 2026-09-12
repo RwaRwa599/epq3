@@ -26,7 +26,12 @@ flowchart LR
 
 ## Output
 
-| Path | Contents |
+`process_from_block4(..., output_mode=...)` and `run_blocks_1_to_5(..., output_mode=...)`:
+
+- **`user` (pipeline default)** — one file, `order.json`: an `OrderBundle` (`orders: [LabOrder, ...]`). No crops, no per-block ZIPs.
+- **`dev`** — Block 1/3/4/5 ZIPs plus the debug tree below.
+
+| Path (dev) | Contents |
 |---|---|
 | `docs/{id}/hypotheses.json` | Copied Block 3 drafts |
 | `docs/{id}/prediction.json` | Copied Block 4 prediction (pre-review) |
@@ -34,6 +39,7 @@ flowchart LR
 | `docs/{id}/prediction.committed.json` | After patches, Block 4 constraints again |
 | `docs/{id}/order.json` | Generic lab-order payload |
 | `manifest.json` | Batch counts (`block: block5`) |
+| `order.json` | Same `OrderBundle` as user mode |
 
 ## Tests
 

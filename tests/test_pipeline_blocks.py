@@ -139,15 +139,54 @@ def test_run_blocks_1_to_5_batch_folder(tmp_path: Path):
 
     shutil.copy2(blank, folder / "form_a.png")
     shutil.copy2(blank, folder / "form_b.png")
-    pipe = run_blocks_1_to_5(folder, output_dir=tmp_path / "out", backend="lexicon")
+    pipe = run_blocks_1_to_5(
+        folder, output_dir=tmp_path / "out", backend="lexicon", output_mode="dev"
+    )
     assert pipe["block1"]["manifest"]["successful_documents"] == 2
     assert pipe["block3"]["manifest"]["total_documents"] == 2
     assert pipe["block4"]["manifest"]["total_documents"] == 2
     assert pipe["block5"]["manifest"]["total_documents"] == 2
     ids = {d["doc_id"] for d in pipe["block5"]["manifest"]["documents"]}
     assert ids == {"form_a", "form_b"}
+    for name in ("block1.zip", "block3.zip", "block4.zip", "block5.zip"):
+        assert (tmp_path / "out" / name).is_file()
     for doc_id in ids:
         hyp = json.loads((tmp_path / "out" / "b3" / "docs" / doc_id / "hypotheses.json").read_text())
         assert hyp["verbal"]["tube_edta"]["source"] != "prior_expected"
         order = json.loads((tmp_path / "out" / "b5" / "docs" / doc_id / "order.json").read_text())
         assert "needs_review" in order
+
+
+def test_run_blocks_1_to_5_user_mode_one_json(tmp_path: Path):
+    from med_doc.pipeline import run_blocks_1_to_5
+
+    blank = SYNTHETIC_DIR / "lab_request_v0_blank.png"
+    assert blank.exists()
+    folder = tmp_path / "photos"
+    folder.mkdir()
+    import shutil
+
+    shutil.copy2(blank, folder / "form_a.png")
+    shutil.copy2(blank, folder / "form_b.png")
+    pipe = run_blocks_1_to_5(folder, output_dir=tmp_path / "out", backend="lexicon")
+    assert pipe["output_mode"] == "user"
+    out = tmp_path / "out"
+    json_path = Path(pipe["output_json"])
+    assert json_path == out / "order.json"
+    assert json_path.is_file()
+    bundle = json.loads(json_path.read_text(encoding="utf-8"))
+    assert bundle["block"] == "block5"
+    assert bundle["output_mode"] == "user"
+    assert bundle["total_documents"] == 2
+    ids = {row["doc_id"] for row in bundle["orders"]}
+    assert ids == {"form_a", "form_b"}
+    for row in bundle["orders"]:
+        assert "needs_review" in row
+        assert "ordered_tests" in row
+    assert pipe["zips"] == {}
+    for name in ("block1.zip", "block3.zip", "block4.zip", "block5.zip"):
+        assert not (out / name).exists()
+    assert not (out / "b1").exists()
+    assert not (out / "b5").exists()
+    leftover = {p.name for p in out.iterdir()}
+    assert leftover == {"order.json"}

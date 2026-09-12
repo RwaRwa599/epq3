@@ -16,7 +16,7 @@ from med_doc.review.apply import commit_hypotheses
 from med_doc.review.lis import order_from_prediction
 from med_doc.review.llm import LlmRanker, attach_llm_suggestions
 from med_doc.review.queue import build_hitl_queue
-from med_doc.review.schemas import DocumentReview, ReviewPatch
+from med_doc.review.schemas import DocumentReview, LabOrder, OrderBundle, OutputMode, ReviewPatch
 
 
 def _iter_docs(base_dir: Path) -> list[Path]:
@@ -55,11 +55,16 @@ def process_from_block4(
     reviews: dict[str, list[ReviewPatch | dict[str, Any]]] | None = None,
     enable_llm: bool = False,
     llm: LlmRanker | None = None,
+    output_mode: OutputMode = "dev",
 ) -> dict[str, Any]:
-    """Ingest a Block 4 ZIP/folder, queue HiTL, apply patches, emit order.json.
+    """Ingest a Block 4 ZIP/folder, queue HiTL, apply patches, emit LIS JSON.
 
-    Leaves hypotheses.json and the original prediction.json unchanged.
-    LLM suggestions (if enabled) are attached to the queue only — never auto-applied.
+    ``output_mode="dev"`` copies crops/drafts and may write a ZIP (developer dump).
+    ``output_mode="user"`` writes one ``order.json`` (an ``OrderBundle``) and nothing else.
+
+    Leaves hypotheses.json and the original prediction.json unchanged on disk in
+    the Block 4 input. LLM suggestions (if enabled) are attached to the queue
+    only — never auto-applied.
     """
     kg = kg or KnowledgeGraph.load(DEFAULT_KG)
     base_in_dir, is_temp_in = unzip_or_dir(input_source)
@@ -72,6 +77,8 @@ def process_from_block4(
         target_dir.mkdir(parents=True, exist_ok=True)
 
     docs_out: list[dict[str, Any]] = []
+    orders: list[LabOrder] = []
+    user_mode = output_mode == "user"
     for doc_dir in _iter_docs(base_in_dir):
         hyp = DocumentHypotheses.model_validate_json(
             (doc_dir / "hypotheses.json").read_text(encoding="utf-8")
@@ -96,23 +103,25 @@ def process_from_block4(
             auto_passed=not queue and not patches,
         )
 
-        doc_dir_out = target_dir / "docs" / hyp.doc_id
-        doc_dir_out.mkdir(parents=True, exist_ok=True)
-        for src in doc_dir.rglob("*"):
-            if not src.is_file():
-                continue
-            rel = src.relative_to(doc_dir)
-            if rel.name in {"order.json", "review.json", "prediction.committed.json"}:
-                continue
-            dest = doc_dir_out / rel
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dest)
+        orders.append(order)
+        if not user_mode:
+            doc_dir_out = target_dir / "docs" / hyp.doc_id
+            doc_dir_out.mkdir(parents=True, exist_ok=True)
+            for src in doc_dir.rglob("*"):
+                if not src.is_file():
+                    continue
+                rel = src.relative_to(doc_dir)
+                if rel.name in {"order.json", "review.json", "prediction.committed.json"}:
+                    continue
+                dest = doc_dir_out / rel
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dest)
 
-        (doc_dir_out / "review.json").write_text(review.model_dump_json(indent=2), encoding="utf-8")
-        (doc_dir_out / "prediction.committed.json").write_text(
-            committed.model_dump_json(indent=2), encoding="utf-8"
-        )
-        (doc_dir_out / "order.json").write_text(order.model_dump_json(indent=2), encoding="utf-8")
+            (doc_dir_out / "review.json").write_text(review.model_dump_json(indent=2), encoding="utf-8")
+            (doc_dir_out / "prediction.committed.json").write_text(
+                committed.model_dump_json(indent=2), encoding="utf-8"
+            )
+            (doc_dir_out / "order.json").write_text(order.model_dump_json(indent=2), encoding="utf-8")
 
         docs_out.append(
             {
@@ -129,9 +138,9 @@ def process_from_block4(
                 "ordered_tests": order.ordered_tests,
                 "observed_tubes": committed.observed_tubes,
                 "expected_tubes": committed.expected_tubes,
-                "review_path": f"docs/{committed.doc_id}/review.json",
-                "order_path": f"docs/{committed.doc_id}/order.json",
-                "committed_path": f"docs/{committed.doc_id}/prediction.committed.json",
+                "review_path": None if user_mode else f"docs/{committed.doc_id}/review.json",
+                "order_path": "order.json" if user_mode else f"docs/{committed.doc_id}/order.json",
+                "committed_path": None if user_mode else f"docs/{committed.doc_id}/prediction.committed.json",
             }
         )
 
@@ -143,14 +152,19 @@ def process_from_block4(
         hitl_documents=sum(1 for d in docs_out if d["needs_review"]),
         documents=docs_out,
     )
-    (target_dir / "manifest.json").write_text(manifest.model_dump_json(indent=2), encoding="utf-8")
+    bundle = OrderBundle(total_documents=len(orders), orders=orders)
+    json_path = target_dir / "order.json"
+    json_path.write_text(bundle.model_dump_json(indent=2), encoding="utf-8")
+    print(f"✓ Block 5 user JSON: {json_path}" if user_mode else f"[Block 5] wrote {json_path}")
 
-    in_manifest = base_in_dir / "manifest.json"
-    if in_manifest.exists():
-        shutil.copy2(in_manifest, target_dir / "block4_manifest.json")
+    if not user_mode:
+        (target_dir / "manifest.json").write_text(manifest.model_dump_json(indent=2), encoding="utf-8")
+        in_manifest = base_in_dir / "manifest.json"
+        if in_manifest.exists():
+            shutil.copy2(in_manifest, target_dir / "block4_manifest.json")
 
     zip_path: Path | None = None
-    if output_zip is not None:
+    if output_zip is not None and not user_mode:
         zip_path = Path(output_zip)
         zip_path.parent.mkdir(parents=True, exist_ok=True)
         print(f"[Block 5] Packaging '{zip_path}'...")
@@ -167,4 +181,7 @@ def process_from_block4(
         "manifest": manifest.model_dump(),
         "output_dir": str(target_dir),
         "output_zip": str(zip_path) if zip_path else None,
+        "output_json": str(json_path),
+        "output_mode": output_mode,
+        "orders": bundle.model_dump()["orders"],
     }

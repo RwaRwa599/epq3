@@ -46,9 +46,11 @@ from med_doc import run_blocks_1_to_5
 
 result = run_blocks_1_to_5(
     "photos/",  # or "photos.zip", or ["a.jpg", "b.png"]
-    output_dir="pipeline_out",
+    output_dir="pipeline_out",  # default output_mode="user" → one order.json
 )
-print(result["block5"]["manifest"]["total_documents"], result["zips"]["block5"])
+print(result["output_json"])  # pipeline_out/order.json
+# Developer dump (crops + per-block ZIPs):
+# run_blocks_1_to_5("photos/", output_dir="pipeline_out", output_mode="dev")
 ```
 
 Warp-only (no crops / HTR): `run_block1a_batch` with the same input shapes.
