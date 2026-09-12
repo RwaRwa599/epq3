@@ -13,7 +13,7 @@ from typing import Any
 import cv2
 import numpy as np
 
-from med_doc.htr.marks import SLASH_MIN_DENSITY, classify_mark, looks_like_text_line
+from med_doc.htr.marks import classify_mark, looks_like_text_line, logreg_mark_prob, mark_features
 from med_doc.htr.schemas import MarkPrediction
 
 logger = logging.getLogger(__name__)
@@ -165,28 +165,54 @@ def _looks_like_mark(text: str) -> bool:
     return False
 
 
+def _geometry_prob(pred) -> float:
+    if pred.source in {"slash", "v_check", "filled"}:
+        return float(max(0.78, pred.confidence))
+    if pred.is_marked:
+        return float(np.clip(pred.confidence, 0.55, 0.95))
+    if pred.source == "logreg":
+        return float(np.clip(1.0 - pred.confidence, 0.05, 0.45))
+    return 0.12
+
+
+def _fuse_probs(p_geom: float, p_paddle: float) -> float:
+    """Weighted average plus noisy-OR so two weak votes can reinforce."""
+    mix = 0.68 * p_geom + 0.32 * p_paddle
+    noisy_or = 1.0 - (1.0 - p_geom) * (1.0 - p_paddle)
+    return float(np.clip(0.55 * mix + 0.45 * noisy_or, 0.0, 1.0))
+
+
 def classify_mark_nonverbal(
     crop: np.ndarray | None,
     field_id: str,
     *,
     fallback_dark_ratio: float | None = None,
     fallback_candidate: bool | None = None,
+    blank: np.ndarray | None = None,
 ) -> MarkPrediction:
-    """Classify one checkbox. Source is `paddle` or `density_fallback`."""
+    """Classify one checkbox. Geometry and Paddle are fused when both exist."""
     density_pred = classify_mark(
         crop,
         field_id,
         fallback_dark_ratio=fallback_dark_ratio,
         fallback_candidate=fallback_candidate,
+        blank=blank,
     )
     density_labeled = density_pred.model_copy(update={"source": "density_fallback"})
 
     if crop is None or (hasattr(crop, "size") and np.asarray(crop).size == 0):
         return density_labeled
 
+    p_geom = _geometry_prob(density_pred)
+    if density_pred.source == "logreg" or density_pred.source in {"slash", "v_check", "filled"}:
+        try:
+            p_geom = max(p_geom, logreg_mark_prob(mark_features(np.asarray(crop), blank=blank)))
+        except Exception:
+            pass
+
     engine = _get_paddle()
     if engine is None:
-        return density_labeled
+        return density_pred.model_copy(update={"source": "density_fallback"})
 
     try:
         hits = _paddle_hits(engine, np.asarray(crop))
@@ -195,38 +221,34 @@ def classify_mark_nonverbal(
         return density_labeled
 
     whitelist = [(t, s) for t, s in hits if _looks_like_mark(t)]
-    dens = float(density_pred.ink_density)
-    in_band = SLASH_MIN_DENSITY <= dens < 0.62
+    p_paddle = float(max((s for _t, s in whitelist), default=0.0))
     text_line = looks_like_text_line(crop)
+    if text_line:
+        p_paddle *= 0.25
 
-    # Geometry alone is enough (Paddle off must still recall V/slash/fill).
-    if density_pred.is_marked and density_pred.source in {"slash", "v_check", "filled"}:
-        if whitelist:
-            best = max(whitelist, key=lambda x: x[1])
-            conf = float(min(0.97, max(density_pred.confidence, best[1])))
-            return density_pred.model_copy(update={"source": "paddle", "confidence": round(conf, 3)})
-        return density_labeled
+    p = _fuse_probs(p_geom, p_paddle)
+    # Precision: a weak Paddle token must not override a clearly empty geometry vote.
+    if p_geom < 0.22 and p_paddle < 0.85:
+        p = min(p, p_geom)
 
-    # Second vote: whitelist token + interior ink + not a label strip (no score≥0.55 loophole).
-    if whitelist and in_band and not text_line:
-        best = max(whitelist, key=lambda x: x[1])
-        conf = float(min(0.97, max(0.6, best[1])))
-        return MarkPrediction(
-            field_id=field_id,
-            is_marked=True,
-            confidence=round(conf, 3),
-            ink_density=density_pred.ink_density,
-            needs_hitl=conf < 0.70,
-            source="paddle",
-        )
+    marked = p >= 0.50
+    if density_pred.source in {"slash", "v_check", "filled"} and p_geom >= 0.70:
+        marked = True
+        p = max(p, p_geom)
+
+    source = "paddle" if p_paddle >= 0.35 and marked else (
+        density_pred.source if density_pred.source not in {"density", "density_fallback"} else "fused"
+    )
+    if not marked and engine is not None:
+        source = "fused" if p_paddle > 0 else density_pred.source
 
     return MarkPrediction(
         field_id=field_id,
-        is_marked=False,
-        confidence=round(max(density_pred.confidence, 0.85), 3),
+        is_marked=bool(marked),
+        confidence=round(float(np.clip(p if marked else max(0.55, 1.0 - p), 0.0, 1.0)), 3),
         ink_density=density_pred.ink_density,
-        needs_hitl=False if not density_pred.is_marked else density_pred.needs_hitl,
-        source="paddle" if engine is not None else "density_fallback",
+        needs_hitl=0.42 <= p <= 0.58 or density_pred.needs_hitl,
+        source=source,
     )
 
 
@@ -234,16 +256,38 @@ def classify_marks(
     crops: dict[str, np.ndarray | None],
     *,
     fallbacks: dict[str, dict[str, Any]] | None = None,
+    template: Any | None = None,
+    canvas_size: tuple[int, int] | list[int] | None = None,
 ) -> dict[str, MarkPrediction]:
     """Classify many checkbox crops. Independent of TrOCR / verbal."""
+    from med_doc.htr.blank import blank_patch
+
     fallbacks = fallbacks or {}
+    use_blank = (
+        template is not None
+        and canvas_size is not None
+        and int(canvas_size[0]) == int(template.width)
+        and int(canvas_size[1]) == int(template.height)
+    )
     out: dict[str, MarkPrediction] = {}
     for fid, crop in crops.items():
         info = fallbacks.get(fid) or {}
+        blank = None
+        if use_blank and crop is not None and getattr(crop, "size", 0):
+            arr = np.asarray(crop)
+            if arr.size:
+                bbox = info.get("bbox") or info.get("canonical_bbox")
+                blank = blank_patch(
+                    template,
+                    fid,
+                    (arr.shape[0], arr.shape[1]),
+                    bbox=bbox if bbox else None,
+                )
         out[fid] = classify_mark_nonverbal(
             crop,
             fid,
             fallback_dark_ratio=info.get("dark_ratio"),
             fallback_candidate=info.get("is_marked_candidate"),
+            blank=blank,
         )
     return out

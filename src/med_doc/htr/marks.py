@@ -5,6 +5,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
+from med_doc.htr.blank import residual_against_blank
 from med_doc.htr.schemas import MarkPrediction
 
 # Interior-only density. Clinic empty boxes sit well below this; a real slash is above.
@@ -41,9 +42,17 @@ def _ink_cut(interior: np.ndarray, threshold: float = 140.0) -> float:
     return float(min(threshold, max(40.0, paper - 40.0)))
 
 
-def ink_density(crop: np.ndarray, threshold: float = 140.0) -> float:
+def _working_gray(crop: np.ndarray, blank: np.ndarray | None) -> np.ndarray:
+    """Dark-on-paper gray. With a blank patch, ink is the residual (printed subtracts out)."""
+    if blank is None:
+        return _as_gray(crop)
+    resid = residual_against_blank(crop, blank)
+    return np.clip(255.0 - resid, 0.0, 255.0)
+
+
+def ink_density(crop: np.ndarray, threshold: float = 140.0, blank: np.ndarray | None = None) -> float:
     """Fraction of dark pixels in the checkbox *interior*, ignoring the printed frame."""
-    gray = _as_gray(crop)
+    gray = _working_gray(crop, blank)
     interior = _interior(gray)
     if interior.size == 0:
         return 0.0
@@ -203,19 +212,83 @@ def _v_or_check_stroke(gray: np.ndarray) -> bool:
     return global_corr <= 0.92
 
 
-def interior_mark_class(crop: np.ndarray) -> str | None:
+def interior_mark_class(crop: np.ndarray, blank: np.ndarray | None = None) -> str | None:
     """`slash`, `v_check`, or `filled` when interior geometry looks like a handwritten mark."""
-    gray = _as_gray(crop)
-    density = ink_density(crop)
+    gray = _working_gray(crop, blank)
+    density = ink_density(crop, blank=blank)
     if density >= FILL_DENSITY:
         return "filled"
-    if looks_like_text_line(crop):
+    if looks_like_text_line(crop if blank is None else gray):
         return None
     if _diagonal_stroke(gray):
         return "slash"
     if _v_or_check_stroke(gray):
         return "v_check"
     return None
+
+
+def mark_features(crop: np.ndarray, blank: np.ndarray | None = None) -> np.ndarray:
+    """Hand-crafted geometry features for the fitted mark classifier."""
+    gray = _working_gray(crop, blank)
+    dens = ink_density(crop, blank=blank)
+    blobs = float(_ink_blob_count(gray))
+    interior = _interior(gray)
+    ink = _ink_mask(interior) if interior.size else np.zeros((0, 0), dtype=bool)
+    corr = 0.0
+    span_x = 0.0
+    span_y = 0.0
+    std_ratio = 0.0
+    if ink.size and float(ink.mean()) > 0:
+        ys, xs = np.where(ink)
+        if len(xs) >= 4 and float(xs.std()) > 1e-6 and float(ys.std()) > 1e-6:
+            corr = abs(float(np.corrcoef(xs.astype(float), ys.astype(float))[0, 1]))
+            ih, iw = interior.shape[:2]
+            span_x = (int(xs.max()) - int(xs.min()) + 1) / float(max(iw, 1))
+            span_y = (int(ys.max()) - int(ys.min()) + 1) / float(max(ih, 1))
+            std_ratio = min(4.0, float(xs.std()) / max(float(ys.std()), 1e-6)) / 4.0
+    text = 1.0 if looks_like_text_line(crop if blank is None else gray) else 0.0
+    annulus = _annulus_dark_frac(gray)
+    return np.array(
+        [dens, blobs / 4.0, corr, span_x, span_y, std_ratio, text, annulus],
+        dtype=np.float64,
+    )
+
+
+# Frozen logistic weights: fit on synthetic empty / slash / V / fill / printed-corner / label.
+# Recalibrate with train_mark_logreg() as photo-realistic labels grow.
+LOGREG_W = np.array(
+    [6.4, 1.1, 2.8, 1.6, 1.7, -1.2, -3.5, 0.4],
+    dtype=np.float64,
+)
+LOGREG_B = -2.35
+
+
+def logreg_mark_prob(feat: np.ndarray, w: np.ndarray = LOGREG_W, b: float = LOGREG_B) -> float:
+    z = float(np.dot(feat, w) + b)
+    z = float(np.clip(z, -20.0, 20.0))
+    return float(1.0 / (1.0 + np.exp(-z)))
+
+
+def train_mark_logreg(
+    X: np.ndarray,
+    y: np.ndarray,
+    *,
+    steps: int = 600,
+    lr: float = 0.35,
+) -> tuple[np.ndarray, float]:
+    """Fit a small logistic model; numpy only (no sklearn)."""
+    X = np.asarray(X, dtype=np.float64)
+    y = np.asarray(y, dtype=np.float64)
+    w = np.zeros(X.shape[1], dtype=np.float64)
+    b = 0.0
+    n = max(len(y), 1)
+    for _ in range(steps):
+        z = np.clip(X @ w + b, -20.0, 20.0)
+        p = 1.0 / (1.0 + np.exp(-z))
+        err = p - y
+        w -= lr * (X.T @ err) / n
+        b -= lr * float(err.mean())
+    return w, b
 
 
 def classify_mark(
@@ -225,12 +298,12 @@ def classify_mark(
     density_tau: float = DENSITY_TAU,
     fallback_dark_ratio: float | None = None,
     fallback_candidate: bool | None = None,
+    blank: np.ndarray | None = None,
 ) -> MarkPrediction:
     """Classify a checkbox crop as marked or empty.
 
-    Precision-first on *interior geometry*: slash, V/check/lambda, or fill.
-    Does not require the PNG edge to be a unit-test printed frame (1b pads).
-    Printed corners, label glyphs, and unstructured density are unmarked.
+    Difference-image residual when ``blank`` is the matching template patch.
+    Geometry features feed a logistic score; slash/V/fill remain the mark kinds.
     """
     if crop is None or (hasattr(crop, "size") and np.asarray(crop).size == 0):
         density = float(fallback_dark_ratio or 0.0)
@@ -246,9 +319,11 @@ def classify_mark(
             source="metadata_fallback",
         )
 
-    gray = _as_gray(crop)
-    density = ink_density(crop)
+    gray = _working_gray(crop, blank)
+    density = ink_density(crop, blank=blank)
     mean = float(gray.mean()) if gray.size else 255.0
+    feat = mark_features(crop, blank=blank)
+    p = logreg_mark_prob(feat)
 
     if mean < 90.0:
         return MarkPrediction(
@@ -260,7 +335,7 @@ def classify_mark(
             source="shadow-crop",
         )
 
-    if density < SLASH_MIN_DENSITY:
+    if density < SLASH_MIN_DENSITY and p < 0.45:
         source = "hollow-empty" if _hollow_empty(gray) else "density"
         return MarkPrediction(
             field_id=field_id,
@@ -271,16 +346,24 @@ def classify_mark(
             source=source,
         )
 
-    kind = interior_mark_class(crop)
-    if kind is not None:
-        conf = 0.94 if kind == "filled" else 0.93
+    kind = interior_mark_class(crop, blank=blank)
+    marked = bool(kind is not None) or p >= 0.55
+    if kind is None and p < 0.55:
+        marked = False
+    if kind is not None and p < 0.22:
+        # Logistic strongly disagrees with a weak geometry hit (printed glyph).
+        marked = p >= 0.40
+
+    if marked:
+        conf = 0.94 if kind == "filled" else (0.93 if kind else float(min(0.92, 0.55 + p * 0.4)))
+        source = kind if kind is not None else "logreg"
         return MarkPrediction(
             field_id=field_id,
             is_marked=True,
-            confidence=conf,
+            confidence=round(float(conf), 3),
             ink_density=round(density, 4),
-            needs_hitl=False,
-            source=kind,
+            needs_hitl=0.45 <= p <= 0.62 and kind is None,
+            source=source,
         )
 
     if _hollow_empty(gray):
@@ -293,12 +376,11 @@ def classify_mark(
             source="hollow-empty",
         )
 
-    # Interior ink that is not a mark class is printed label / mis-crop, not a tick.
     return MarkPrediction(
         field_id=field_id,
         is_marked=False,
-        confidence=0.9,
+        confidence=round(float(max(0.55, 1.0 - p)), 3),
         ink_density=round(density, 4),
-        needs_hitl=False,
-        source="density",
+        needs_hitl=0.40 <= p < 0.55,
+        source="logreg" if p >= 0.35 else "density",
     )

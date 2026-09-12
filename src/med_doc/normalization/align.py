@@ -8,6 +8,8 @@ import cv2
 import numpy as np
 
 from med_doc.normalization.detect import detect_checkboxes_photo
+from med_doc.normalization.illumination import flatten_gray, ink_mask, paper_level, paper_map
+from med_doc.normalization.register import piecewise_register
 from med_doc.schemas import FieldSpec, TemplateSpec
 
 
@@ -87,8 +89,8 @@ def _horizontal_band_shift(
 
 def _column_x_peaks(gray: np.ndarray, n: int = 4) -> list[float]:
     h, w = gray.shape
-    body = gray[int(h * 0.10) : int(h * 0.82)]
-    ink = (body < 210).astype(np.float32)
+    body = flatten_gray(gray[int(h * 0.10) : int(h * 0.82)])
+    ink = ink_mask(body).astype(np.float32)
     proj = ink.mean(axis=0)
     k = max(5, w // 100)
     smooth = np.convolve(proj, np.ones(k) / k, mode="same")
@@ -127,8 +129,8 @@ def column_y_shifts(
             continue
         x0 = max(0, int(min(f.bbox[0] for f in members) * w) - 8)
         x1 = min(w, int(max(f.bbox[2] for f in members) * w) + 8)
-        strip = gray[:, x0:x1]
-        ink = (strip < 200).mean(axis=1)
+        strip = flatten_gray(gray[:, x0:x1])
+        ink = ink_mask(strip).mean(axis=1)
         expected = np.zeros(h, dtype=np.float32)
         for f in members:
             cy = int(round(0.5 * (f.bbox[1] + f.bbox[3]) * h))
@@ -169,9 +171,12 @@ def _checkbox_grid_score(gray: np.ndarray, template: TemplateSpec) -> float:
         center = float(crop[max(0, cy - 1) : cy + 2, max(0, cx - 1) : cx + 2].mean())
         border = np.concatenate([crop[0, :], crop[-1, :], crop[:, 0], crop[:, -1]])
         border_mean = float(border.mean())
-        dark = float((crop < 190).mean())
+        paper = paper_level(crop)
+        dark = float((crop < paper * 0.55).mean())
         # Checkbox signature: center brighter than border, or clear ring
-        if (center > 180 and 0.03 <= dark <= 0.70) or (center - border_mean >= 6.0 and center >= 140):
+        if (center > paper * 0.72 and 0.03 <= dark <= 0.70) or (
+            center - border_mean >= 6.0 and center >= paper * 0.55
+        ):
             hits += 1
     return hits / max(n, 1)
 
@@ -227,6 +232,21 @@ def fine_align(
         col_shifts = {}
         tx, ty = 0.0, 0.0
         after = before
+        aligned_gray = cv2.cvtColor(aligned, cv2.COLOR_RGB2GRAY) if aligned.ndim == 3 else aligned
+
+    piecewise_meta: dict[str, Any] = {}
+    affine = None
+    refined, piecewise_meta, affine = piecewise_register(aligned, template)
+    refined_gray = cv2.cvtColor(refined, cv2.COLOR_RGB2GRAY) if refined.ndim == 3 else refined
+    piecewise_score = _checkbox_grid_score(refined_gray, template)
+    piecewise_meta["grid_score"] = round(float(piecewise_score), 4)
+    if piecewise_meta.get("applied") and piecewise_score >= after + 0.02:
+        aligned = refined
+        after = piecewise_score
+        col_shifts = column_y_shifts(refined_gray, template)
+    else:
+        piecewise_meta["applied"] = False
+
     ncc = float(np.mean(scores)) if scores else 0.5
     col_mag = float(np.mean([abs(v) for v in col_shifts.values()])) if col_shifts else 0.0
     confidence = float(
@@ -239,6 +259,8 @@ def fine_align(
         "grid_score": after,
         "column_shifts": {str(k): v for k, v in col_shifts.items()},
         "confidence": confidence,
+        "piecewise": piecewise_meta,
+        "affine": None if affine is None else [float(v) for v in affine.ravel()],
     }
     return aligned, meta, col_shifts
 
@@ -297,14 +319,15 @@ def _detect_section_bars(
     strip = gray[:, x0:x1]
     if strip.size == 0:
         return []
-    paper = float(np.percentile(strip, 90))
-    row_dark = (strip < paper * 0.55).mean(axis=1)
+    pmap = paper_map(strip, tile=48)
+    row_dark = (strip < pmap * 0.55).mean(axis=1)
     row_mean = strip.mean(axis=1)
     bars: list[float] = []
     in_bar = False
     y0 = 0
     height = strip.shape[0]
     for y in range(height):
+        paper = float(pmap[y].mean())
         is_bar = bool(row_dark[y] > 0.48 and row_mean[y] < paper * 0.62)
         if is_bar and not in_bar:
             in_bar = True

@@ -7,6 +7,7 @@ from typing import Any
 import cv2
 import numpy as np
 
+from med_doc.normalization.illumination import Paper, paper_at
 from med_doc.schemas import FieldSpec, SectionSpec, TemplateSpec
 
 # Black-bar blocks. Nested entries are bold subheads + their JSON groups
@@ -299,7 +300,7 @@ def _snap_subs_in_main(
     return out
 
 
-def _hollow_score(gray: np.ndarray, y: int, x0: int, x1: int, paper: float) -> float:
+def _hollow_score(gray: np.ndarray, y: int, x0: int, x1: int, paper: Paper) -> float:
     best = 0.0
     x_lo = max(0, x0 - 16)
     x_hi = min(gray.shape[1] - 16, x0 + max(28, int(0.30 * max(x1 - x0, 1))))
@@ -307,15 +308,16 @@ def _hollow_score(gray: np.ndarray, y: int, x0: int, x1: int, paper: float) -> f
         crop = gray[max(0, y) : y + 16, x : x + 16]
         if crop.shape[0] < 12 or crop.shape[1] < 12:
             continue
+        p = paper_at(paper, y + crop.shape[0] // 2, x + crop.shape[1] // 2)
         cy, cx = crop.shape[0] // 2, crop.shape[1] // 2
         center = float(crop[cy - 2 : cy + 3, cx - 2 : cx + 3].mean())
-        dark = float((crop < paper * 0.55).mean())
-        if center > paper * 0.70 and 0.07 <= dark <= 0.48:
-            score = dark * (center / max(paper, 1.0))
+        dark = float((crop < p * 0.55).mean())
+        if center > p * 0.70 and 0.07 <= dark <= 0.48:
+            score = dark * (center / max(p, 1.0))
             # Prefer the top of the square (paper just above) so rows don't sit low.
             if y >= 3:
                 above = float(gray[y - 3 : y, x : x + 16].mean())
-                if above > paper * 0.80:
+                if above > p * 0.80:
                     score *= 1.25
             best = max(best, score)
     return best
@@ -483,7 +485,7 @@ def _ink_ring_candidates(
     y1: int,
     x0: int,
     x1: int,
-    paper: float,
+    paper: Paper,
 ) -> list[tuple[int, int, float]]:
     """Printed rings whose interior is dark (pen). Returns (x, y, interior_dark)."""
     found: list[tuple[int, int, float]] = []
@@ -495,15 +497,16 @@ def _ink_ring_candidates(
             if crop.shape[0] < 12 or crop.shape[1] < 12:
                 x += 2
                 continue
+            p = paper_at(paper, y + 8, x + 8)
             cy, cx = crop.shape[0] // 2, crop.shape[1] // 2
             interior = crop[2:-2, 2:-2]
             center = float(crop[max(0, cy - 2) : cy + 3, max(0, cx - 2) : cx + 3].mean())
-            dark = float((crop < paper * 0.55).mean())
-            interior_dark = float((interior < paper * 0.55).mean())
+            dark = float((crop < p * 0.55).mean())
+            interior_dark = float((interior < p * 0.55).mean())
             border = np.concatenate([crop[0, :], crop[-1, :], crop[:, 0], crop[:, -1]])
-            border_dark = float((border < paper * 0.55).mean())
+            border_dark = float((border < p * 0.55).mean())
             has_ring = border_dark >= 0.08 and 0.07 <= dark <= 0.75
-            has_ink = center < paper * 0.70 and interior_dark >= 0.10
+            has_ink = center < p * 0.70 and interior_dark >= 0.10
             if has_ring and has_ink:
                 if not any(abs(x - px) < 14 and abs(y - py) < 14 for px, py, _ in found):
                     found.append((x, y, interior_dark))

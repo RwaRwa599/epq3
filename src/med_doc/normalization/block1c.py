@@ -16,6 +16,8 @@ import numpy as np
 from med_doc.normalization.block1a import Block1aPage
 from med_doc.normalization.block1b import Block1bLayout
 from med_doc.normalization.crops import recrop_pixels
+from med_doc.normalization.illumination import Paper, paper_at, paper_level, paper_map
+from med_doc.normalization.register import predicted_center, ransac_partial_affine
 from med_doc.normalization.sections import _hollow_score, _hollow_xs, _ink_ring_candidates
 from med_doc.normalization.viz import draw_overlay
 from med_doc.schemas import FieldCrop, FieldSpec, TemplateSpec
@@ -37,7 +39,7 @@ def looks_like_text_line(crop: np.ndarray) -> bool:
     if gray.size == 0 or min(gray.shape[:2]) < 8:
         return False
     h, w = gray.shape[:2]
-    paper = float(np.percentile(gray, 90))
+    paper = paper_level(gray)
     cut = paper * 0.55
     dark = gray < cut
     dens = float(dark.mean())
@@ -59,19 +61,19 @@ def has_hollow_ring(crop: np.ndarray) -> bool:
     h, w = gray.shape[:2]
     if max(h, w) / float(min(h, w)) > 1.35:
         return False
-    paper = float(np.percentile(gray, 90))
+    paper = paper_level(gray)
     cy, cx = h // 2, w // 2
     center = float(gray[max(0, cy - 2) : cy + 3, max(0, cx - 2) : cx + 3].mean())
-    dark = float((gray < 190).mean())
+    dark = float((gray < paper * 0.55).mean())
     if min(h, w) <= 24:
         band = 2
         border = np.concatenate(
             [gray[:band].ravel(), gray[-band:].ravel(), gray[:, :band].ravel(), gray[:, -band:].ravel()]
         )
         interior = gray[band:-band, band:-band]
-        border_d = float((border < 190).mean())
-        inn_d = float((interior < 190).mean()) if interior.size else 0.0
-        hollow = center > 210 and border_d >= 0.15 and inn_d <= 0.12
+        border_d = float((border < paper * 0.55).mean())
+        inn_d = float((interior < paper * 0.55).mean()) if interior.size else 0.0
+        hollow = center > paper * 0.82 and border_d >= 0.15 and inn_d <= 0.12
         ink_in = border_d >= 0.15 and inn_d >= 0.08
         if hollow or ink_in:
             return True
@@ -98,7 +100,7 @@ def _interior_dark_frac(crop: np.ndarray) -> float:
     inn = gray[h // 4 : max(h // 4 + 1, 3 * h // 4), w // 4 : max(w // 4 + 1, 3 * w // 4)]
     if inn.size == 0:
         return 0.0
-    paper = float(np.percentile(gray, 90))
+    paper = paper_level(gray)
     return float((inn < paper * 0.55).mean())
 
 
@@ -143,7 +145,7 @@ def _closer_to_other(
     return False
 
 
-def _dark_header(gray: np.ndarray, cx: int, cy: int, paper: float) -> bool:
+def _dark_header(gray: np.ndarray, cx: int, cy: int, paper: Paper) -> bool:
     """Reject rematch onto a section header bar."""
     h, w = gray.shape[:2]
     y0 = max(0, cy - 22)
@@ -153,13 +155,14 @@ def _dark_header(gray: np.ndarray, cx: int, cy: int, paper: float) -> bool:
     if y1 <= y0 or x1 <= x0:
         return False
     strip = gray[y0:y1, x0:x1]
-    return float(strip.mean()) < paper * 0.42 and float((strip < paper * 0.40).mean()) > 0.45
+    p = paper_at(paper, cy, cx)
+    return float(strip.mean()) < p * 0.42 and float((strip < p * 0.40).mean()) > 0.45
 
 
 def _search_candidates(
     gray: np.ndarray,
     bbox: list[int],
-    paper: float,
+    paper: Paper,
     *,
     allow_ink_rings: bool,
 ) -> list[tuple[int, int]]:
@@ -241,11 +244,32 @@ def run_block1c(page: Block1aPage, layout: Block1bLayout, *, draw_debug: bool = 
     template = layout.sectioned
     gray = cv2.cvtColor(canvas, cv2.COLOR_RGB2GRAY) if canvas.ndim == 3 else canvas
     h, w = gray.shape[:2]
-    paper = float(np.percentile(gray, 90))
+    paper = paper_map(gray, tile=64)
 
     crops = dict(result.checkbox_crops)
     centers = {fid: _center(c.canonical_bbox) for fid, c in crops.items()}
+    expected: dict[str, tuple[float, float]] = {}
+    for spec in template.checkbox_fields():
+        x0, y0, x1, y1 = template.pixel_bbox(spec, apply_pad=False)
+        expected[spec.field_id] = ((x0 + x1) / 2.0, (y0 + y1) / 2.0)
     n_ok = n_retry = n_hitl = n_skip = 0
+
+    src_pts: list[list[float]] = []
+    dst_pts: list[list[float]] = []
+    for fid, crop in crops.items():
+        if fid not in expected:
+            continue
+        if window_ok(crop.raw_image):
+            src_pts.append([expected[fid][0], expected[fid][1]])
+            dst_pts.append([centers[fid][0], centers[fid][1]])
+    affine = None
+    if len(src_pts) >= 3:
+        affine, _inn = ransac_partial_affine(
+            np.asarray(src_pts, dtype=np.float32),
+            np.asarray(dst_pts, dtype=np.float32),
+            thresh=14.0,
+            min_inliers=max(3, len(src_pts) // 4),
+        )
 
     for fid, crop in list(crops.items()):
         x0, y0, x1, y1 = crop.canonical_bbox
@@ -263,7 +287,12 @@ def run_block1c(page: Block1aPage, layout: Block1bLayout, *, draw_debug: bool = 
         allow_ink = _interior_dark_frac(crop.raw_image) >= 0.08
         candidates = _search_candidates(gray, crop.canonical_bbox, paper, allow_ink_rings=allow_ink)
         own = _center(crop.canonical_bbox)
-        ranked = sorted(candidates, key=lambda p: _dist((p[0] + 9.0, p[1] + 9.0), own))
+        prior = predicted_center(affine, expected.get(fid, own))
+        ranked = sorted(
+            candidates,
+            key=lambda p: 0.65 * _dist((p[0] + 9.0, p[1] + 9.0), prior)
+            + 0.35 * _dist((p[0] + 9.0, p[1] + 9.0), own),
+        )
         chosen: list[int] | None = None
         for hx, hy in ranked:
             cand_c = (hx + 9.0, hy + 9.0)
@@ -294,6 +323,8 @@ def run_block1c(page: Block1aPage, layout: Block1bLayout, *, draw_debug: bool = 
         "n_retry": n_retry,
         "n_hitl": n_hitl,
         "n_skip": n_skip,
+        "ransac_inliers": len(src_pts),
+        "ransac": affine is not None,
     }
     result.checkbox_crops = crops
     result.extra = extra

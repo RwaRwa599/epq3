@@ -2,17 +2,16 @@
 
 Block 1 **preprocesses only**. Public API stays `normalize_document()`; callers do not choose 1a vs 1b vs 1c.
 
-Version train (architectures B1.1–B1.6): [`docs/blocks/block1-versions.md`](blocks/block1-versions.md).
+Version train (architectures B1.1–B1.7): [`docs/blocks/block1-versions.md`](blocks/block1-versions.md).
 
-## 1a — global normalisation
-
-## 1a — global normalisation
+## 1a — global + piecewise normalisation
 
 `med_doc.normalization.block1a.run_block1a`:
 
 1. Pick print revision (v0 vs v1)
 2. Warp to the canonical canvas
-3. Page-level `fine_align` (tx/ty; orientation is inside warp)
+3. Page-level `fine_align` (tx/ty; local paper / flattened column peaks)
+4. Optional RANSAC partial-affine + piecewise residual warp when grid score improves
 
 Returns a `Block1aPage` (`canvas`, `template`, align/warp meta, `col_shifts`). Column Y shifts stay on 1a (page-column, not section). 1b may override checkbox Y with per-section dy.
 
@@ -33,8 +32,8 @@ Sheet-wide hollow-grid is **not** used to drop section lock. Square placement is
 
 `med_doc.normalization.block1c.run_block1c` (after 1b):
 
-1. Pass if the PNG is a printed square (empty hollow or ink-in-ring) and not a label strip
-2. Else one widened rematch (hollow-only if the field looks empty; neighbour-steal and dark-header guards)
+1. Pass if the PNG is a printed square (empty hollow or ink-in-ring) and not a label strip — **locally adaptive paper**, not a page-global percentile
+2. Else one widened rematch ranked by **RANSAC neighbour prior** plus distance to the 1b center (hollow-only if the field looks empty; neighbour-steal and dark-header guards)
 3. Else keep the 1b bbox and set `crop_needs_hitl`
 
 Does not classify ticks. Overlay-sized cells skip unless they look like a label.

@@ -40,8 +40,6 @@ def _snap_hollow_square_photo(
     side0 = max(8, min(18, (x1 - x0 + y1 - y0) // 2))
     best: list[int] | None = None
     best_score = -1e9
-    int_floor = max(90.0, paper * 0.45)
-    border_floor = max(40.0, paper * 0.25)
     for side in range(max(9, side0 - 2), min(20, side0 + 4)):
         for dy in range(-search, search + 1):
             for dx in range(-search, search + 1):
@@ -55,6 +53,9 @@ def _snap_hollow_square_photo(
                 interior = win[2:-2, 2:-2]
                 if interior.size == 0:
                     continue
+                local_paper = float(np.percentile(win, 90)) if win.size else paper
+                int_floor = max(90.0, local_paper * 0.45)
+                border_floor = max(40.0, local_paper * 0.25)
                 if float(interior.min()) < int_floor or float(border.min()) < border_floor:
                     continue
                 score = float(interior.mean()) - float(border.mean())
@@ -78,9 +79,6 @@ def detect_checkboxes_photo(image: Image.Image | np.ndarray) -> list[list[int]]:
         gray = cv2.cvtColor(np.asarray(image.convert("RGB")), cv2.COLOR_RGB2GRAY)
 
     paper = float(np.percentile(gray, 92))
-    int_min = paper * 0.55
-    int_mean = paper * 0.76
-    border_min = paper * 0.32
     h, w = gray.shape
     y_lo = int(0.08 * h)
     scale = 2.0
@@ -117,6 +115,10 @@ def detect_checkboxes_photo(image: Image.Image | np.ndarray) -> list[list[int]]:
                 work[y : y + bh, x + bw - 1],
             ]
         )
+        local_paper = float(np.percentile(work[y : y + bh, x : x + bw], 90))
+        int_min = local_paper * 0.55
+        int_mean = local_paper * 0.76
+        border_min = local_paper * 0.32
         if float(interior.min()) < int_min or float(interior.mean()) < int_mean:
             continue
         if float(border.min()) < border_min:

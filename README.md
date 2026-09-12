@@ -4,9 +4,9 @@ A modular, agent-assisted medical document intelligence system for laboratory re
 
 ## Architecture
 
-- **Block 1 — Document Normalization & ROI Extraction:** 1a warp/align, 1b section squares + extra-ink, 1c crop-window gate. Does not classify ticks. Version history: [`docs/blocks/block1-versions.md`](docs/blocks/block1-versions.md).
+- **Block 1 — Document Normalization & ROI Extraction:** 1a warp/align + piecewise RANSAC, 1b section squares + extra-ink, 1c adaptive crop-window gate with neighbour prior. Does not classify ticks. Version history: [`docs/blocks/block1-versions.md`](docs/blocks/block1-versions.md).
 - **Block 2 — Clinical Knowledge Graph:** Frozen `kg/lab_request_v1_kg.json`. Status: [`docs/blocks/block2-status.md`](docs/blocks/block2-status.md).
-- **Block 3 — Nonverbal marks & verbal handwriting:** Interior slash / V / fill; optional Paddle whitelist. Ingests a Block 1 ZIP. Version history: [`docs/blocks/block3-versions.md`](docs/blocks/block3-versions.md). Current synthetic scorecard: [`docs/blocks/data/synthetic-10tick-scorecard.json`](docs/blocks/data/synthetic-10tick-scorecard.json).
+- **Block 3 — Nonverbal marks & verbal handwriting:** Residual vs blank template, logistic geometry features, optional Paddle fusion. Ingests a Block 1 ZIP. Version history: [`docs/blocks/block3-versions.md`](docs/blocks/block3-versions.md). Current synthetic scorecard: [`docs/blocks/data/synthetic-10tick-scorecard.json`](docs/blocks/data/synthetic-10tick-scorecard.json).
 
 Hub: [`docs/blocks/README.md`](docs/blocks/README.md).
 

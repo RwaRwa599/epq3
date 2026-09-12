@@ -715,3 +715,21 @@ def test_block1c_no_ring_sets_hitl():
     assert cea.crop_needs_hitl is True
     assert cea.crop_ok is False
     assert cea.canonical_bbox == crop.canonical_bbox
+
+
+def test_has_hollow_ring_under_shadow_gradient():
+    from med_doc.eval.photoreal import shadow_gradient
+    from med_doc.normalization.block1c import has_hollow_ring
+
+    img = np.full((40, 40, 3), 245, dtype=np.uint8)
+    cv2.rectangle(img, (8, 8), (31, 31), (90, 90, 90), 2)
+    shaded = shadow_gradient(img, strength=0.55, axis=1)
+    assert has_hollow_ring(shaded) is True
+
+
+def test_fine_align_records_piecewise_meta():
+    template = load_template()
+    page = render_canonical_form(template)
+    _aligned, meta, _shifts = fine_align(page, template)
+    assert "piecewise" in meta
+    assert "confidence" in meta

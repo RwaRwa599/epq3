@@ -31,6 +31,19 @@ from med_doc.kg.graph import KnowledgeGraph
 Mode = Literal["nonverbal", "verbal", "both"]
 
 
+def _template_for(doc: Block1Document):
+    from med_doc.paths import DEFAULT_TEMPLATE, V1_TEMPLATE
+    from med_doc.template import load_template
+
+    tid = str((doc.metadata or {}).get("template_id") or "")
+    try:
+        if "v1" in tid:
+            return load_template(V1_TEMPLATE)
+        return load_template(DEFAULT_TEMPLATE)
+    except Exception:
+        return None
+
+
 def _ticked_ids(marks: dict[str, MarkPrediction]) -> list[str]:
     return [fid for fid, pred in marks.items() if pred.is_marked]
 
@@ -121,8 +134,16 @@ def process_block1_document(
 
     marks: dict[str, MarkPrediction] = {}
     if run_nv:
-        marks = classify_marks(doc.checkbox_crops, fallbacks=doc.detected_marks)
         cb_meta = (doc.fields.get("checkboxes") or {}) if doc.fields else {}
+        merged = {}
+        for fid in doc.checkbox_crops:
+            merged[fid] = {**(cb_meta.get(fid) or {}), **((doc.detected_marks or {}).get(fid) or {})}
+        marks = classify_marks(
+            doc.checkbox_crops,
+            fallbacks=merged,
+            template=_template_for(doc),
+            canvas_size=(doc.metadata or {}).get("canvas_size"),
+        )
         for fid, pred in list(marks.items()):
             info = cb_meta.get(fid) or {}
             if info.get("crop_needs_hitl"):

@@ -1,6 +1,6 @@
 # Block 1 — version history and architecture
 
-**Current generation: B1.6** (1a warp → 1b layout → 1c crop gate). Public API has always been `normalize_document()`; callers never pick 1a/1b/1c.
+**Current generation: B1.7** (piecewise 1a + adaptive / RANSAC 1c). Public API has always been `normalize_document()`; callers never pick 1a/1b/1c.
 
 Live code: `src/med_doc/normalization/` on branch `block1`. Contract notes: [`docs/engineering-brief.md`](../engineering-brief.md).
 
@@ -118,7 +118,7 @@ flowchart LR
 
 ---
 
-## B1.6 — 1c crop gate (2026-08-31) — **current**
+## B1.6 — 1c crop gate (2026-08-31)
 
 **Fact:** `block1-1c-crop-validate`. Code: `block1c.py`, wired in `pipeline.py`.
 
@@ -160,6 +160,29 @@ Committed inputs (no PHI):
 - `data/samples/synthetic/lab_request_v0_blank.png`
 - `templates/lab_request_canonical.json` (v0)
 - `templates/lab_request_v1_canonical.json` (v1)
+
+---
+
+## B1.7 — piecewise 1a + adaptive 1c (2026-09-12) — **current**
+
+**Intent:** Flash/shadow photos break a single global paper percentile and 1c rematch-by-distance.
+
+**Architecture**
+
+1. **1a** `fine_align`: local paper / flatten for column peaks; RANSAC partial-affine + 4×3 residual flow when it improves grid score (`normalization/register.py`, `illumination.py`).
+2. **1c** `has_hollow_ring` / search: tile Otsu / `paper_map` instead of `percentile(gray, 90)` on the whole canvas.
+3. **1c rematch:** rank candidates by RANSAC-fitted neighbour prior (template→observed from already-OK boxes), mixed with distance to the 1b center.
+
+Does not classify ticks. Photo-realistic distortions (perspective, shadow, blur, JPEG) live in `med_doc.eval.photoreal` and `tests/test_photoreal_marks.py` so registration and mark classification can be scored separately. N=10 gold ticks remains too small for photo accuracy claims.
+
+```mermaid
+flowchart LR
+  warp[Warp]
+  pw[Piecewise RANSAC 1a]
+  b[1b squares]
+  c[Adaptive 1c plus neighbour prior]
+  warp --> pw --> b --> c
+```
 
 ---
 

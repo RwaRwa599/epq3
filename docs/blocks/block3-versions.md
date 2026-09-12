@@ -1,6 +1,6 @@
 # Block 3 — version history and architecture
 
-**Current generation: B3.5** (interior slash / V-check / fill; Paddle whitelist only). Ingests a Block 1 ZIP; does not run Block 2 `assume()` or invent tube priors.
+**Current generation: B3.6** (template residual + logistic features + Paddle fusion). Ingests a Block 1 ZIP; does not run Block 2 `assume()` or invent tube priors.
 
 Live code: `src/med_doc/htr/` on branch `block1`. Standalone `block3/` Colab tree is **B3.2-era** (Paddle + density fallback, fused ZIP runner remnants).
 
@@ -81,7 +81,7 @@ Any OCR snippet on a slightly dark crop became a tick. Demo9: **7–43 ticks/she
 
 ---
 
-## B3.5 — Interior V/slash + whitelist Paddle (2026-08-31) — **current**
+## B3.5 — Interior V/slash + whitelist Paddle (2026-08-31)
 
 **Facts:** `block3-interior-geometry` (supersedes `block3-1ab-synth-recall-zero`). Code: `htr/marks.py`, `htr/nonverbal.py`.
 
@@ -128,6 +128,35 @@ Photo TPs: `afp`, `cbc`, `triglycerides`, `uric_acid`. Photo FNs: `cea`, `ca125`
 Clinic dual-signal dry-run **10 TP / 10 FN / 41 FP** (30% inset, another workspace) is **not** a git tag on this remote and was **not** re-run here (no PHI).
 
 JSON: [data/synthetic-10tick-scorecard.json](./data/synthetic-10tick-scorecard.json).
+
+---
+
+## B3.6 — Template residual + logistic features + Paddle fusion (2026-09-12) — **current**
+
+**After** Block 1 registration, not instead of it.
+
+**Architecture**
+
+1. **Difference image:** register the crop to the matching blank-template patch (`htr/blank.py`); threshold the residual so printed rings/labels subtract to ~0.
+2. **Features stay hand-crafted** (density, blob count, correlation, spans, text-line, annulus) but feed a **logistic score** (`train_mark_logreg`) instead of only nested magic cutoffs. Geometry kinds (`slash` / `v_check` / `filled`) still label a mark.
+3. **Paddle:** noisy-OR / weighted fusion with geometry when a whitelist token is present; weak OCR cannot override a clearly empty geometry vote.
+
+Isolation eval: distort **crops** (classification) vs shadow on a **page** (registration) in `tests/test_photoreal_marks.py`. Do not treat the N=10 photo scorecard as a significant 4/6/5 vs 0/10/0 comparison.
+
+```mermaid
+flowchart TB
+  crop[Checkbox PNG]
+  blank[Blank template patch]
+  resid[Residual ink]
+  feat[Geometry features]
+  logreg[Logistic p]
+  paddle[Paddle whitelist]
+  fuse[Weighted plus noisy-OR]
+  crop --> resid
+  blank --> resid
+  resid --> feat --> logreg --> fuse
+  paddle --> fuse
+```
 
 ---
 
