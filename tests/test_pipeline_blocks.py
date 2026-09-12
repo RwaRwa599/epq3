@@ -126,3 +126,28 @@ def test_rendered_form_blocks_1_to_5(tmp_path: Path):
     assert hyp["verbal"]["tube_edta"]["source"] != "prior_expected"
     assert isinstance(order["ordered_tests"], list)
     assert "needs_review" in order
+
+
+def test_run_blocks_1_to_5_batch_folder(tmp_path: Path):
+    from med_doc.pipeline import run_blocks_1_to_5
+
+    blank = SYNTHETIC_DIR / "lab_request_v0_blank.png"
+    assert blank.exists()
+    folder = tmp_path / "photos"
+    folder.mkdir()
+    import shutil
+
+    shutil.copy2(blank, folder / "form_a.png")
+    shutil.copy2(blank, folder / "form_b.png")
+    pipe = run_blocks_1_to_5(folder, output_dir=tmp_path / "out", backend="lexicon")
+    assert pipe["block1"]["manifest"]["successful_documents"] == 2
+    assert pipe["block3"]["manifest"]["total_documents"] == 2
+    assert pipe["block4"]["manifest"]["total_documents"] == 2
+    assert pipe["block5"]["manifest"]["total_documents"] == 2
+    ids = {d["doc_id"] for d in pipe["block5"]["manifest"]["documents"]}
+    assert ids == {"form_a", "form_b"}
+    for doc_id in ids:
+        hyp = json.loads((tmp_path / "out" / "b3" / "docs" / doc_id / "hypotheses.json").read_text())
+        assert hyp["verbal"]["tube_edta"]["source"] != "prior_expected"
+        order = json.loads((tmp_path / "out" / "b5" / "docs" / doc_id / "order.json").read_text())
+        assert "needs_review" in order

@@ -25,6 +25,7 @@ from med_doc.normalization import (
 )
 from med_doc.rescoring import process_from_block3, rescore_hypotheses
 from med_doc.review import process_from_block4, order_from_prediction
+from med_doc.pipeline import run_blocks_1_to_5
 from med_doc.schemas import FieldCrop, NormalizedDocumentResult, TemplateSpec
 
 __all__ = [
@@ -35,6 +36,7 @@ __all__ = [
     "normalize_batch",
     "run_block1a",
     "run_block1a_batch",
+    "run_blocks_1_to_5",
     "save_normalized_document",
     "KnowledgeGraph",
     "CatalogueItem",

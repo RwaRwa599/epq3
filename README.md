@@ -46,16 +46,18 @@ The `block1/`, `block2/`, `block3/` trees are older standalone snapshots (their 
 
 ## Usage
 
-### Block 1a: Warp a folder or ZIP of photos
+### Blocks 1–5: Batch photos → LIS orders
 ```python
-from med_doc import run_block1a_batch
+from med_doc import run_blocks_1_to_5
 
-result = run_block1a_batch(
+result = run_blocks_1_to_5(
     "photos/",  # or "photos.zip", or ["a.jpg", "b.png"]
-    output_zip="block1a_warped.zip",
+    output_dir="pipeline_out",
 )
-print(result["manifest"]["successful_documents"], result["output_zip"])
+print(result["block5"]["manifest"]["total_documents"], result["zips"]["block5"])
 ```
+
+Warp-only (no crops / HTR): `run_block1a_batch` with the same input shapes.
 
 ### Block 1: Normalize Document & Extract Crops
 ```python
