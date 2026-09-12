@@ -16,11 +16,28 @@ Do not add agent-memory files (`memory/`, `agent-skills/`, `AGENTS.md`, protocol
 
 ---
 
-## Standalone Colab Packages
+## Google Colab (live tree)
 
-- **`block1/`**: Standalone Block 1 package with CLI demo and `Block_1_Document_Normalization.ipynb`
-- **`block2/`**: Standalone Block 2 package with CLI demo and `Block_2_Medical_Knowledge_Graph.ipynb`
-- **`block3/`**: Standalone Block 3 package with CLI demo and `Block_3_Handwriting_Recognition.ipynb`
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Pipeline_Blocks_1_to_5.ipynb)
+
+Colab does **not** download `src/` when you open a notebook from GitHub. Use [`Pipeline_Blocks_1_to_5.ipynb`](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Pipeline_Blocks_1_to_5.ipynb) on branch **`block1`**, or paste:
+
+```python
+!git clone --branch block1 --single-branch https://github.com/RwaRwa599/epq3.git
+%cd epq3
+!pip install -q -e .
+```
+
+Re-pull later in the same runtime:
+
+```python
+%cd /content/epq3
+!git fetch origin block1 && git checkout block1 && git pull --ff-only origin block1
+```
+
+Private repo: Colab secret `GITHUB_TOKEN`, then `git clone https://$GITHUB_TOKEN@github.com/RwaRwa599/epq3.git`. Do not upload clinic PHI.
+
+The `block1/`, `block2/`, `block3/` trees are older standalone snapshots (their Open-in-Colab badges point at those snapshot branches, not this live tree).
 
 ---
 
