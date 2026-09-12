@@ -8,6 +8,7 @@ A modular, agent-assisted medical document intelligence system for laboratory re
 - **Block 2 — Clinical Knowledge Graph:** Frozen `kg/lab_request_v1_kg.json`. Status: [`docs/blocks/block2-status.md`](docs/blocks/block2-status.md).
 - **Block 3 — Nonverbal marks & verbal handwriting:** Residual ticks; tubes = digits, dates = grammar, `others` = charset + visual lexicon (KG match is Block 4). Version history: [`docs/blocks/block3-versions.md`](docs/blocks/block3-versions.md). Marks: [`docs/blocks/data/synthetic-10tick-scorecard.json`](docs/blocks/data/synthetic-10tick-scorecard.json). Verbal: [`docs/blocks/data/verbal-accuracy.json`](docs/blocks/data/verbal-accuracy.json).
 - **Block 4 — KG rescoring:** Trusted ticks + write-in `assume()` + observed tubes vs expected. Does not invent counts from empty crops or HiTL ticks. Status: [`docs/blocks/block4-status.md`](docs/blocks/block4-status.md).
+- **Block 5 — Review and LIS commit:** HiTL queue, human/nurse patches, optional LLM n-best rank (never authority). Status: [`docs/blocks/block5-status.md`](docs/blocks/block5-status.md).
 
 Hub: [`docs/blocks/README.md`](docs/blocks/README.md).
 
@@ -80,6 +81,19 @@ result = process_from_block3(
     kg=KnowledgeGraph.load(),
 )
 print(result["manifest"]["documents"][0]["expected_tubes"])
+```
+
+### Block 5: Review queue + LIS order
+```python
+from med_doc import process_from_block4
+from med_doc.review import ReviewPatch
+
+result = process_from_block4(
+    "block4_predictions_batch.zip",
+    output_zip="block5_orders_batch.zip",
+    reviews={"sample_sheet_01": [ReviewPatch(field_id="tube_edta", action="set_tube", value="1")]},
+)
+print(result["manifest"]["documents"][0]["needs_review"])
 ```
 
 ---

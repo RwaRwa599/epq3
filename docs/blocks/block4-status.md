@@ -28,7 +28,7 @@ flowchart LR
 
 - Does not call `assume()` from live Block 3 `recognize_fields`.
 - Does not ingest Block 1 `detected_marks.dark_ratio` as ticks (`src/med_doc/kg/batch.py` still does that on its own path).
-- Qwen/LLM rescoring, nurse-count overrides, and clinic PHI eval are out of scope for this pairing.
+- Qwen/LLM rescoring, nurse-count overrides, and clinic PHI eval are Block 5 (`docs/blocks/block5-status.md`).
 
 ## Tests
 

@@ -1,4 +1,4 @@
-"""Medical document intelligence — Blocks 1–4 (normalize, KG, HTR, rescoring)."""
+"""Medical document intelligence — Blocks 1–5 (normalize, KG, HTR, rescoring, review)."""
 
 from med_doc.htr import (
     BatchPredictionManifest,
@@ -22,6 +22,7 @@ from med_doc.normalization import (
     save_normalized_document,
 )
 from med_doc.rescoring import process_from_block3, rescore_hypotheses
+from med_doc.review import process_from_block4, order_from_prediction
 from med_doc.schemas import FieldCrop, NormalizedDocumentResult, TemplateSpec
 
 __all__ = [
@@ -43,6 +44,8 @@ __all__ = [
     "process_batch_from_block2",
     "process_from_block1",
     "process_from_block3",
+    "process_from_block4",
+    "order_from_prediction",
     "rescore_hypotheses",
     "DocumentHypotheses",
 ]
