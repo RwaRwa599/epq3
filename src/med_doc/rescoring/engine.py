@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from med_doc.htr.fusion import fuse_handwriting
+from med_doc.htr.marks import MAX_PLAUSIBLE_TUBE_COUNT
 from med_doc.htr.recognizer import extract_digits
 from med_doc.htr.schemas import DocumentHypotheses, DocumentPrediction, HandwritingPrediction
 from med_doc.kg.graph import KnowledgeGraph
@@ -70,11 +71,18 @@ def rescore_hypotheses(
         )
 
     observed: dict[str, int | None] = {}
+    implausible_tubes: list[str] = []
     for fid, field in fused_hw.items():
         if not fid.startswith("tube_"):
             continue
         tube_name = kg.tube_field_to_tube.get(fid, fid)
-        observed[tube_name] = _parse_observed_count(field)
+        count = _parse_observed_count(field)
+        if count is not None and count > MAX_PLAUSIBLE_TUBE_COUNT:
+            observed[tube_name] = None
+            implausible_tubes.append(f"{tube_name}={count}")
+            fused_hw[fid] = field.model_copy(update={"needs_hitl": True, "canonical_value": None})
+        else:
+            observed[tube_name] = count
 
     observed_for_validate = {k: v for k, v in observed.items() if v is not None}
     report = kg.validate_request(
@@ -86,6 +94,8 @@ def rescore_hypotheses(
     discrepancies = list(report.discrepancies)
     warnings = list(report.warnings)
     hitl = list(dict.fromkeys(list(hyp.hitl_fields) + uncertain))
+    for note in implausible_tubes:
+        warnings.append(f"Implausible tube count ignored: {note}")
 
     for fid in uncertain:
         warnings.append(f"Uncertain tick excluded from tube prior: {fid}")

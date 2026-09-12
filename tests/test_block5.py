@@ -176,5 +176,6 @@ def test_process_from_block4_user_mode_one_json(tmp_path: Path):
     assert names == {"order.json"}
     bundle = json.loads(json_path.read_text(encoding="utf-8"))
     assert bundle["total_documents"] == 1
+    assert bundle["tick_policy"] == "slash-v2"
     assert bundle["orders"][0]["observed_tubes"]["EDTA"] == 1
     assert bundle["orders"][0]["doc_id"] == "synthetic"

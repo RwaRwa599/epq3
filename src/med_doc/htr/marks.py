@@ -15,6 +15,16 @@ SLASH_MIN_DENSITY = 0.06
 FILL_DENSITY = 0.62
 HITL_CONFIDENCE = 0.70
 INSET = 0.28
+# Stamp on order.json so a stale Colab zip is obvious (order-5 still had profile expansion).
+TICK_POLICY = "slash-v2"
+CLINIC_CROP_MIN = 36
+MAX_PLAUSIBLE_TUBE_COUNT = 4
+
+
+def field_never_auto_committed(field_id: str) -> bool:
+    """Profiles and body-check plans expand many LIS rows — never trust a crop alone."""
+    fid = (field_id or "").strip().lower()
+    return fid.startswith("profile_") or fid.startswith("body_check_plan_")
 
 
 def _as_gray(crop: np.ndarray) -> np.ndarray:
@@ -152,6 +162,10 @@ def _diagonal_stroke(gray: np.ndarray) -> bool:
     blobs = _ink_blob_count(gray)
     if blobs < 1 or blobs > 2:
         return False
+    large = min(gray.shape[:2]) >= CLINIC_CROP_MIN
+    # Clinic photos: a printed frame often splits into 2 blobs that still look like "/".
+    if large and blobs != 1:
+        return False
     ink = _ink_mask(interior)
     dens = float(ink.mean())
     if dens < SLASH_MIN_DENSITY or dens >= FILL_DENSITY:
@@ -166,8 +180,15 @@ def _diagonal_stroke(gray: np.ndarray) -> bool:
     span_y = (int(ys.max()) - int(ys.min()) + 1) / float(max(interior.shape[0], 1))
     if span_x < 0.22 or span_y < 0.22:
         return False
-    # Printed rings leak into the inset; demand a cleaner diagonal then.
-    need = 0.80 if _annulus_dark_frac(gray) >= 0.10 else 0.58
+    if large and (span_x < 0.32 or span_y < 0.32):
+        return False
+    # Printed rings leak into the inset; clinic crops need a cleaner diagonal.
+    annulus = _annulus_dark_frac(gray)
+    if large and annulus >= 0.14:
+        return False
+    need = 0.80 if annulus >= 0.10 else 0.58
+    if large:
+        need = max(need, 0.82)
     return corr >= need
 
 
@@ -438,6 +459,8 @@ def classify_mark(
         )
 
     kind = interior_mark_class(crop, blank=blank)
+    clinic = min(h, w) >= CLINIC_CROP_MIN
+    annulus = _annulus_dark_frac(gray)
     # Clinic photos (order-5): printed rings look like a V or a faint slash.
     # Commit only a clean `/` (or a truly filled box). V → HiTL, not LIS.
     if kind == "v_check":
@@ -449,11 +472,27 @@ def classify_mark(
             needs_hitl=True,
             source="v_check",
         )
-    marked = kind == "slash" and density >= SLASH_MIN_DENSITY
-    if kind == "filled" and density >= FILL_DENSITY:
+    marked = False
+    slash_tau = 0.11 if clinic else SLASH_MIN_DENSITY
+    if kind == "slash" and density >= slash_tau:
         marked = True
-    if marked and kind == "slash" and blank is not None and density < 0.09:
-        marked = False
+        if clinic and annulus >= 0.12:
+            marked = False
+        if blank is not None and density < (0.12 if clinic else 0.09):
+            marked = False
+    fill_tau = 0.70 if clinic else FILL_DENSITY
+    if kind == "filled" and density >= fill_tau:
+        marked = True
+
+    if marked and field_never_auto_committed(field_id):
+        return MarkPrediction(
+            field_id=field_id,
+            is_marked=True,
+            confidence=0.55,
+            ink_density=round(density, 4),
+            needs_hitl=True,
+            source=kind or "panel-hitl",
+        )
 
     if marked:
         conf = 0.94 if kind == "filled" else (0.93 if kind else 0.8)

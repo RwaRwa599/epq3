@@ -1,4 +1,4 @@
-"""Colab bootstrap — BOOTSTRAP_V5 (always refresh zipball; drop cached med_doc)."""
+"""Colab bootstrap — BOOTSTRAP_V6 (always refresh zipball; drop cached med_doc)."""
 
 from __future__ import annotations
 
@@ -61,10 +61,18 @@ def _activate(root: Path) -> None:
     sys.path.insert(0, src)
     os.chdir(root)
     _purge_med_doc()
-    print("BOOTSTRAP_V5")
+    print("BOOTSTRAP_V6")
     print("repo:", root)
     print("cwd:", os.getcwd())
     print("sys.path[0]:", sys.path[0])
+    from med_doc.htr.marks import TICK_POLICY
+
+    print("tick_policy:", TICK_POLICY)
+    if TICK_POLICY != "slash-v2":
+        raise RuntimeError(
+            f"stale med_doc tick_policy={TICK_POLICY!r}. "
+            "Runtime → Disconnect and delete runtime, re-open Run_in_Colab.ipynb on branch block1."
+        )
 
 
 def guard_med_doc() -> None:

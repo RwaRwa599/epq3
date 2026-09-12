@@ -16,6 +16,7 @@ from med_doc.review.apply import commit_hypotheses
 from med_doc.review.lis import order_from_prediction
 from med_doc.review.llm import LlmRanker, attach_llm_suggestions
 from med_doc.review.queue import build_hitl_queue
+from med_doc.htr.marks import TICK_POLICY
 from med_doc.review.schemas import DocumentReview, LabOrder, OrderBundle, OutputMode, ReviewPatch
 
 
@@ -152,7 +153,7 @@ def process_from_block4(
         hitl_documents=sum(1 for d in docs_out if d["needs_review"]),
         documents=docs_out,
     )
-    bundle = OrderBundle(total_documents=len(orders), orders=orders)
+    bundle = OrderBundle(total_documents=len(orders), orders=orders, tick_policy=TICK_POLICY)
     json_path = target_dir / "order.json"
     json_path.write_text(bundle.model_dump_json(indent=2), encoding="utf-8")
     print(f"✓ Block 5 user JSON: {json_path}" if user_mode else f"[Block 5] wrote {json_path}")

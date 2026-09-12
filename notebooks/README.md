@@ -15,6 +15,6 @@ The pipeline notebook runs **`run_blocks_1_to_5`** on a folder, ZIP, or multi-fi
 | Block 4 — KG rescoring | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/notebooks/Block_4_KG_Rescoring.ipynb) |
 | Block 5 — review + LIS | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/notebooks/Block_5_Review_and_LIS.ipynb) |
 
-First cell prints **`BOOTSTRAP_V5`** and **always** re-downloads `https://codeload.github.com/RwaRwa599/epq3/zip/refs/heads/block1` (a leftover `/content/epq3` is the usual cause of `unexpected keyword argument 'output_mode'`). No git clone and no `%pip install -e`. If imports fail: **Runtime → Disconnect and delete runtime**, then open `Run_in_Colab.ipynb` from GitHub branch `block1`.
+First cell prints **`BOOTSTRAP_V6`** plus **`tick_policy: slash-v2`** and **always** re-downloads `https://codeload.github.com/RwaRwa599/epq3/zip/refs/heads/block1` (a leftover `/content/epq3` is the usual cause of fake ticks / missing `output_mode`). No git clone and no `%pip install -e`. If imports fail: **Runtime → Disconnect and delete runtime**, then open `Run_in_Colab.ipynb` from GitHub branch `block1`.
 
 The `block1/`, `block2/`, `block3/` package trees are older snapshots; their notebooks still point at snapshot branches.

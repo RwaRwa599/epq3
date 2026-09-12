@@ -77,5 +77,6 @@ class OrderBundle(BaseModel):
     version: str = "1.0"
     block: str = "block5"
     output_mode: OutputMode = "user"
+    tick_policy: str = "slash-v2"
     total_documents: int = 0
     orders: list[LabOrder] = Field(default_factory=list)

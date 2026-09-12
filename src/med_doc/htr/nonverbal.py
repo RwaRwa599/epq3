@@ -306,8 +306,5 @@ def classify_marks(
             blank=blank,
             use_paddle=mark_backend == "paddle",
         )
-        # A false profile tick expands a whole panel in Block 4. Never auto-commit.
-        if fid.startswith("profile_") and pred.is_marked:
-            pred = pred.model_copy(update={"needs_hitl": True})
         out[fid] = pred
     return out

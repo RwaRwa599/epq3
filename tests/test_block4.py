@@ -179,6 +179,15 @@ def test_tube_two_vs_expected_one_discrepancy():
     assert pred.is_valid is False
 
 
+def test_implausible_tube_ocr_is_dropped():
+    kg = KnowledgeGraph.load(DEFAULT_KG)
+    hyp = _hyp(ticks=["cbc"], tubes={"tube_edta": "11"})
+    pred = rescore_hypotheses(hyp, kg)
+    assert pred.observed_tubes.get("EDTA") is None
+    assert pred.handwriting_fields["tube_edta"].needs_hitl is True
+    assert any("Implausible tube count" in w for w in pred.warnings)
+
+
 def test_empty_tube_expected_one_hitl_observed_null():
     kg = KnowledgeGraph.load(DEFAULT_KG)
     pred = rescore_hypotheses(_hyp(ticks=["cbc"]), kg)

@@ -20,7 +20,7 @@ Do not add agent-memory files (`memory/`, `agent-skills/`, `AGENTS.md`, protocol
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Run_in_Colab.ipynb)
 
-Colab does **not** download `src/` when you open a notebook from GitHub. Open **`Run_in_Colab.ipynb`** on branch **`block1`** (new filename so Colab does not reuse a stale copy). **Runtime → Disconnect and delete runtime**, then **Run all**. The first cell must print **`BOOTSTRAP_V5`** (it **re-downloads** the zipball every time, so an old `/content/epq3` cannot stick around).
+Colab does **not** download `src/` when you open a notebook from GitHub. Open **`Run_in_Colab.ipynb`** on branch **`block1`** (new filename so Colab does not reuse a stale copy). **Runtime → Disconnect and delete runtime**, then **Run all**. The first cell must print **`BOOTSTRAP_V6`** and **`tick_policy: slash-v2`** (it **re-downloads** the zipball every time, so an old `/content/epq3` cannot stick around). If `order.json` has no `tick_policy` field, Colab is still on stale code.
 
 | Notebook | Colab |
 |---|---|

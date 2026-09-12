@@ -188,3 +188,20 @@ def test_profile_slash_is_hitl_not_trusted():
     assert marks["cbc"].needs_hitl is False
     assert marks["profile_lipid"].is_marked is True
     assert marks["profile_lipid"].needs_hitl is True
+    pred = classify_mark(_ticked_checkbox(), "body_check_plan_1")
+    assert pred.is_marked is True
+    assert pred.needs_hitl is True
+
+
+def test_clinic_printed_ring_corner_is_not_a_tick():
+    """order-5 FPs: amylase/hdl-sized crops are a printed square, not a slash."""
+    img = _padded_empty_square(48, 8)
+    img[9:13, 9:13] = 35
+    pred = classify_mark(img, "amylase")
+    assert pred.is_marked is False
+
+
+def test_tick_policy_constant():
+    from med_doc.htr.marks import TICK_POLICY
+
+    assert TICK_POLICY == "slash-v2"

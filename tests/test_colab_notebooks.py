@@ -12,11 +12,12 @@ NOTEBOOKS = [
 ]
 
 
-def test_colab_notebooks_zipball_bootstrap_v5():
+def test_colab_notebooks_zipball_bootstrap_v6():
     for path in NOTEBOOKS:
         assert path.exists(), path
         text = path.read_text(encoding="utf-8")
-        assert "BOOTSTRAP_V5" in text, path.name
+        assert "BOOTSTRAP_V6" in text, path.name
+        assert "slash-v2" in text, path.name
         assert "output_mode" in text
         assert "codeload.github.com/RwaRwa599/epq3/zip/refs/heads/block1" in text
         assert "block1" in text
@@ -29,9 +30,12 @@ def test_colab_notebooks_zipball_bootstrap_v5():
 
 
 def test_colab_bootstrap_from_local_zip(tmp_path, monkeypatch):
+    import os
     import zipfile
     import sys
 
+    cwd = os.getcwd()
+    path0 = list(sys.path)
     sys.path.insert(0, str(ROOT / "notebooks"))
     from colab_bootstrap import bootstrap_med_doc  # type: ignore
 
@@ -49,13 +53,21 @@ def test_colab_bootstrap_from_local_zip(tmp_path, monkeypatch):
     sys.path[:] = [p for p in sys.path if Path(p).resolve() != Path(workspace_src)]
     sys.modules.pop("med_doc", None)
 
-    root = bootstrap_med_doc(content=dest_parent, url=zip_path.resolve().as_uri())
-    assert (root / "src" / "med_doc" / "__init__.py").is_file()
-    import med_doc
+    try:
+        root = bootstrap_med_doc(content=dest_parent, url=zip_path.resolve().as_uri())
+        assert (root / "src" / "med_doc" / "__init__.py").is_file()
+        import med_doc
 
-    assert Path(med_doc.__file__).resolve().is_relative_to(dest_parent.resolve())
+        assert Path(med_doc.__file__).resolve().is_relative_to(dest_parent.resolve())
 
-    stale = dest_parent / "epq3" / "src" / "med_doc" / "stale_marker.txt"
-    stale.write_text("old", encoding="utf-8")
-    root2 = bootstrap_med_doc(content=dest_parent, url=zip_path.resolve().as_uri())
-    assert not (root2 / "src" / "med_doc" / "stale_marker.txt").exists()
+        stale = dest_parent / "epq3" / "src" / "med_doc" / "stale_marker.txt"
+        stale.write_text("old", encoding="utf-8")
+        root2 = bootstrap_med_doc(content=dest_parent, url=zip_path.resolve().as_uri())
+        assert not (root2 / "src" / "med_doc" / "stale_marker.txt").exists()
+    finally:
+        os.chdir(cwd)
+        sys.path[:] = path0
+        for name in list(sys.modules):
+            if name == "med_doc" or name.startswith("med_doc."):
+                del sys.modules[name]
+        sys.path.insert(0, str((ROOT / "src").resolve()))

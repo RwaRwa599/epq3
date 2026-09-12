@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from med_doc.htr.marks import TICK_POLICY
 from med_doc.htr.nonverbal import paddle_available
 from med_doc.htr.verbal import trocr_available
 
@@ -19,6 +20,7 @@ def models_in_use(*, verbal_backend: str = "lexicon", mark_backend: str = "geome
     if verbal_backend == "lexicon":
         verbal = "glyphs + visual lexicon only (TrOCR not loaded)"
     return {
+        "tick_policy": TICK_POLICY,
         "ticks": ticks,
         "mark_backend": mark_backend,
         "paddle_installed": paddle_available(),
