@@ -20,3 +20,5 @@ def test_colab_notebooks_clone_live_branch():
         assert "RwaRwa599/epq3.git" in text
         assert "block1" in text
         assert "PHI" in text or "phi" in text.lower()
+        assert "sys.path.insert" in text
+        assert "med_doc" in text

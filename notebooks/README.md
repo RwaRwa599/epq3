@@ -1,6 +1,6 @@
 # Colab notebooks (live `src/med_doc`)
 
-These notebooks clone branch **`block1`**. Opening an `.ipynb` from GitHub does **not** download `src/`.
+These notebooks clone branch **`block1`**. Opening an `.ipynb` from GitHub does **not** download `src/`. Use **Runtime → Run all**, or run the first code cell before any `import med_doc`. Each import cell also puts `src/` on `sys.path` (Colab `pip install -e .` often does not see the package until restart).
 
 Do **not** upload clinic PHI. The demos use `data/samples/synthetic/lab_request_v0_blank.png`.
 
