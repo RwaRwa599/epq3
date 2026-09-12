@@ -10,6 +10,8 @@ A modular, agent-assisted medical document intelligence system for laboratory re
 
 Hub: [`docs/blocks/README.md`](docs/blocks/README.md).
 
+Do not add agent-memory files (`memory/`, `agent-skills/`, `AGENTS.md`, protocol docs, hooks, or agent-memory CI) to this repository or to new block packages.
+
 ---
 
 ## Standalone Colab Packages

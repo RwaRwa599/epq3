@@ -43,3 +43,23 @@ artifacts/
 data/samples/private/
 data/testbase/private/
 !data/samples/private/.gitkeep
+
+# Agent-memory must not be committed (repo policy)
+/memory/
+/agent-skills/
+/.agent/
+/.githooks/
+/AGENTS.md
+/CLAUDE.md
+/GEMINI.md
+/DECAY.md
+/REVIEW.md
+/SKILLS.md
+/MERGE.md
+/.cursorrules
+/.windsurfrules
+/.github/copilot-instructions.md
+/.github/workflows/agent-memory.yml
+/.gitlab-ci.yml
+/.gitlab/agent-memory-ci.yml
+/.gitlab/merge_request_templates/
