@@ -1,6 +1,0 @@
-# Archive Index
-
-> One line per archived fact/thread, greppable. Before saying "I have no context on X",
-> grep here. Format: `id — one-line summary — <reason> — quarter file`.
-
-(none yet)
