@@ -1,0 +1,11 @@
+{
+  "version": "1.0",
+  "kind": "checkbox_ticks",
+  "sheets": [
+    {
+      "doc_id": "IMG_7600",
+      "ticked_field_ids": ["ca125"],
+      "notes": "order-3.json listed ~55 ticks plus profile expansions. Treat as the same precision failure as IMG_7596 until a human re-labels. Field ids only; no image."
+    }
+  ]
+}
