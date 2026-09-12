@@ -94,6 +94,7 @@ def attach_kg_priors(
         kg=kg,
         ticked_ids=ticked_ids or [],
         expected_tubes=expected_tubes or {},
+        extra_hypotheses=prediction.hypotheses,
     )
 
 

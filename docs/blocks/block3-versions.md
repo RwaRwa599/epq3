@@ -207,4 +207,4 @@ Dates under JPEG/shadow still drop; that field needs a stronger constrained deco
 | `docs/{id}/annotated_canvas.png` | Overlay |
 | `manifest.json` | Batch counts |
 
-Block 4 (not shipped): KG `assume()`, tubes, rescoring.
+Block 4 (shipped): [`block4-status.md`](./block4-status.md) — KG `assume()`, tubes, rescoring of these drafts.

@@ -33,6 +33,7 @@ def fuse_handwriting(
     kg: KnowledgeGraph | None = None,
     ticked_ids: list[str] | None = None,
     expected_tubes: dict[str, int] | None = None,
+    extra_hypotheses: list[dict[str, Any]] | None = None,
     tau: float = DEFAULT_TAU,
 ) -> HandwritingPrediction:
     """Combine a raw HTR draft with Block 2 priors into a canonical prediction."""
@@ -42,8 +43,11 @@ def fuse_handwriting(
     hypotheses: list[dict[str, Any]] = [
         {"value": draft_text, "score": round(draft_conf, 3), "source": draft_source}
     ]
+    for row in extra_hypotheses or []:
+        if isinstance(row, dict) and row not in hypotheses:
+            hypotheses.append(row)
 
-    # Tube counts: prefer extracted digits, else expected count from KG
+    # Tube counts: digits from Block 3 drafts only — never fill empty crops from KG.
     if field_id.startswith("tube_"):
         return _fuse_tube(
             field_id,
@@ -55,13 +59,14 @@ def fuse_handwriting(
             expected_tubes=expected_tubes,
             priors=priors,
             hypotheses=hypotheses,
+            extra_hypotheses=extra_hypotheses,
             tau=tau,
         )
 
     # Date / received-at fields
     if field_id in {"received_at", "date", "sample_received"}:
         parsed, pconf = parse_datetime(draft_text)
-        if parsed:
+        if parsed and pconf >= 0.8:
             hypotheses.append({"value": parsed, "score": pconf, "source": "date_parse"})
             return HandwritingPrediction(
                 field_id=field_id,
@@ -78,10 +83,10 @@ def fuse_handwriting(
             field_id=field_id,
             raw_text=draft_text,
             canonical_value=draft_text or None,
-            canonical_id=field_id if draft_text else None,
+            canonical_id=None,
             confidence=round(draft_conf if draft_text else 0.85, 3),
             source=draft_source,
-            needs_hitl=not empty and draft_conf < tau,
+            needs_hitl=not empty,
             hypotheses=hypotheses,
         )
 
@@ -110,8 +115,22 @@ def fuse_handwriting(
         ticked_ids=ticked_ids,
         priors=priors,
         hypotheses=hypotheses,
+        extra_hypotheses=extra_hypotheses,
         tau=tau,
     )
+
+
+def _digits_from_drafts(draft_text: str, extra_hypotheses: list[dict[str, Any]] | None) -> str:
+    digits = extract_digits(draft_text)
+    if digits:
+        return digits
+    for row in extra_hypotheses or []:
+        if not isinstance(row, dict):
+            continue
+        alt = extract_digits(str(row.get("value") or row.get("text") or ""))
+        if alt:
+            return alt
+    return ""
 
 
 def _fuse_tube(
@@ -125,9 +144,10 @@ def _fuse_tube(
     expected_tubes: dict[str, int],
     priors: list[RankedCandidate],
     hypotheses: list[dict[str, Any]],
+    extra_hypotheses: list[dict[str, Any]] | None = None,
     tau: float,
 ) -> HandwritingPrediction:
-    digits = extract_digits(draft_text)
+    digits = _digits_from_drafts(draft_text, extra_hypotheses)
     obs: int | None = int(digits) if digits else None
 
     tube_name = ""
@@ -151,19 +171,20 @@ def _fuse_tube(
             conf, source, hitl = 0.70, f"{draft_source}+near_prior", True
         else:
             conf, source, hitl = 0.45, draft_source, True
-    elif expected > 0 and draft_source in {"empty", "ink-present"}:
-        # No readable digit; if the crop was empty, report 0, else use prior
-        if draft_source == "empty":
-            value, conf, source, hitl = "0" if expected == 0 else str(expected), 0.6, "prior_expected", expected > 0
-            if expected == 0:
-                hitl = False
-                conf = 0.9
-                source = "empty"
-                value = ""
-        else:
-            value, conf, source, hitl = str(expected), 0.55, "prior_expected", True
     else:
-        value, conf, source, hitl = digits or "", round(draft_conf, 3), draft_source, bool(digits) and draft_conf < tau
+        # Empty / unreadable crop: observed is missing. Never copy expected into LIS.
+        value = ""
+        source = draft_source or "empty"
+        if source == "empty" and expected <= 0:
+            conf, hitl = 0.9, False
+        else:
+            conf = round(draft_conf, 3) if draft_conf else 0.3
+            hitl = expected > 0 or source in {
+                "ink-present",
+                "unavailable",
+                "trocr-nodigit",
+                "digit-reject",
+            }
 
     hypotheses.append({"value": value, "score": round(conf, 3), "source": source})
     return HandwritingPrediction(
@@ -178,6 +199,20 @@ def _fuse_tube(
     )
 
 
+def _write_in_candidates(draft_text: str, extra_hypotheses: list[dict[str, Any]] | None) -> list[str]:
+    out: list[str] = []
+    raw = (draft_text or "").strip()
+    if raw:
+        out.append(raw)
+    for row in extra_hypotheses or []:
+        if not isinstance(row, dict):
+            continue
+        text = str(row.get("value") or row.get("text") or "").strip()
+        if text and text not in out:
+            out.append(text)
+    return out
+
+
 def _fuse_write_in(
     field_id: str,
     draft_text: str,
@@ -188,9 +223,11 @@ def _fuse_write_in(
     ticked_ids: list[str],
     priors: list[RankedCandidate],
     hypotheses: list[dict[str, Any]],
+    extra_hypotheses: list[dict[str, Any]] | None = None,
     tau: float,
 ) -> HandwritingPrediction:
-    empty = not (draft_text or "").strip()
+    candidates = _write_in_candidates(draft_text, extra_hypotheses)
+    empty = not candidates
     if empty and draft_source == "empty":
         return HandwritingPrediction(
             field_id=field_id,
@@ -215,13 +252,48 @@ def _fuse_write_in(
         )
 
     ranked: list[RankedCandidate] = list(priors)
-    if kg is not None and (draft_text or "").strip():
-        ranked = kg.assume(field_id, draft_text, {"ticked_ids": ticked_ids}, top_k=5)
+    accepted: RankedCandidate | None = None
+    accepted_score = 0.0
+    if kg is not None and candidates:
+        for text in candidates:
+            ranked = kg.assume(field_id, text, {"ticked_ids": ticked_ids}, top_k=5)
+            if not ranked:
+                continue
+            best = ranked[0]
+            hypotheses.append(
+                {
+                    "value": best.value,
+                    "canonical_id": best.canonical_id,
+                    "score": best.score,
+                    "source": best.reason,
+                    "tier": best.tier,
+                    "from_draft": text,
+                }
+            )
+            sim = token_similarity(text, best.value)
+            score = max(best.score, sim)
+            if best.canonical_id and best.tier == 1 and score >= 0.72 and score >= accepted_score:
+                accepted = best
+                accepted_score = score
     elif kg is not None and not ranked:
         ranked = kg.fuzzy_match_catalogue(draft_text or "", top_k=5)
 
-    best: RankedCandidate | None = ranked[0] if ranked else None
-    if best is not None:
+    if accepted is not None:
+        conf = max(draft_conf, accepted_score)
+        return HandwritingPrediction(
+            field_id=field_id,
+            raw_text=draft_text,
+            canonical_value=accepted.value,
+            canonical_id=accepted.canonical_id,
+            confidence=round(min(1.0, conf), 3),
+            source=f"{draft_source}+kg",
+            needs_hitl=conf < tau,
+            hypotheses=hypotheses,
+        )
+
+    best = ranked[0] if ranked else None
+    if best is not None and not empty:
+        # Catalogue hit that is not tier-1: keep raw text, surface the guess, HiTL.
         hypotheses.append(
             {
                 "value": best.value,
@@ -231,30 +303,12 @@ def _fuse_write_in(
                 "tier": best.tier,
             }
         )
-
-    if best is not None and (draft_text or "").strip():
-        sim = token_similarity(draft_text, best.value)
-        score = max(best.score, sim)
-        # High-tier catalogue hit with decent draft confidence
-        if best.tier == 1 and score >= 0.72:
-            conf = max(draft_conf, score)
-            needs_hitl = conf < tau
-            return HandwritingPrediction(
-                field_id=field_id,
-                raw_text=draft_text,
-                canonical_value=best.value,
-                canonical_id=best.canonical_id,
-                confidence=round(min(1.0, conf), 3),
-                source=f"{draft_source}+kg",
-                needs_hitl=needs_hitl,
-                hypotheses=hypotheses,
-            )
         return HandwritingPrediction(
             field_id=field_id,
             raw_text=draft_text,
-            canonical_value=best.value,
-            canonical_id=best.canonical_id,
-            confidence=round(min(1.0, score * 0.9), 3),
+            canonical_value=draft_text or best.value,
+            canonical_id=None,
+            confidence=round(min(1.0, max(best.score, draft_conf) * 0.9), 3),
             source=f"{draft_source}+kg",
             needs_hitl=True,
             hypotheses=hypotheses,
