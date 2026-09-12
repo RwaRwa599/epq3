@@ -6,7 +6,7 @@ Version train (architectures B1.1–B1.7): [`docs/blocks/block1-versions.md`](bl
 
 ## 1a — global + piecewise normalisation
 
-`med_doc.normalization.block1a.run_block1a`:
+`med_doc.normalization.block1a.run_block1a` (single image) and `run_block1a_batch` (folder, ZIP, or list of images):
 
 1. Pick print revision (v0 vs v1)
 2. Warp to the canonical canvas

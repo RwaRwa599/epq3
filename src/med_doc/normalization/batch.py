@@ -12,6 +12,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
+from med_doc.normalization.inputs import collect_image_inputs
 from med_doc.normalization.pipeline import normalize_document
 from med_doc.schemas import NormalizedDocumentResult, TemplateSpec
 
@@ -175,35 +176,7 @@ def normalize_batch(
     save_crops: bool = True,
 ) -> dict[str, Any]:
     """Normalize a batch of document images and optionally package into a standardized ZIP."""
-    # Resolve input list
-    input_items: list[tuple[str, Any]] = []
-    
-    if isinstance(inputs, (str, Path)):
-        inp_path = Path(inputs)
-        if inp_path.is_file() and inp_path.suffix.lower() == ".zip":
-            # Input is a ZIP of raw images
-            temp_in = tempfile.mkdtemp(prefix="raw_batch_")
-            with zipfile.ZipFile(inp_path, "r") as z:
-                z.extractall(temp_in)
-            for p in sorted(Path(temp_in).rglob("*")):
-                if p.suffix.lower() in [".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp"]:
-                    input_items.append((p.stem, p))
-        elif inp_path.is_dir():
-            for p in sorted(inp_path.iterdir()):
-                if p.suffix.lower() in [".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp"]:
-                    input_items.append((p.stem, p))
-        elif inp_path.is_file():
-            input_items.append((inp_path.stem, inp_path))
-    else:
-        for idx, item in enumerate(inputs):
-            if isinstance(item, (str, Path)):
-                p = Path(item)
-                input_items.append((p.stem, p))
-            else:
-                input_items.append((f"doc_{idx+1:03d}", item))
-
-    if not input_items:
-        raise ValueError(f"No valid image files found in input: {inputs}")
+    input_items = collect_image_inputs(inputs)
 
     # Prepare target directory
     is_temp_out = False

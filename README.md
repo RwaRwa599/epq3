@@ -46,6 +46,17 @@ The `block1/`, `block2/`, `block3/` trees are older standalone snapshots (their 
 
 ## Usage
 
+### Block 1a: Warp a folder or ZIP of photos
+```python
+from med_doc import run_block1a_batch
+
+result = run_block1a_batch(
+    "photos/",  # or "photos.zip", or ["a.jpg", "b.png"]
+    output_zip="block1a_warped.zip",
+)
+print(result["manifest"]["successful_documents"], result["output_zip"])
+```
+
 ### Block 1: Normalize Document & Extract Crops
 ```python
 from med_doc import normalize_document

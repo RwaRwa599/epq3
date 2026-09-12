@@ -273,6 +273,46 @@ def test_run_block1a_returns_canonical_size():
     assert result.template.template_id == template.template_id
 
 
+def test_run_block1a_batch_folder_and_zip(tmp_path: Path):
+    import zipfile
+
+    from med_doc.normalization.block1a import run_block1a_batch
+
+    template = load_template()
+    page = render_canonical_form(template)
+    folder = tmp_path / "raw"
+    folder.mkdir()
+    for name, tilt in (("sheet_a.png", 0.08), ("sheet_b.png", 0.14)):
+        rgb = photograph(page, tilt=tilt)
+        cv2.imwrite(str(folder / name), cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
+
+    out_dir = tmp_path / "b1a"
+    zip_path = tmp_path / "block1a.zip"
+    batch = run_block1a_batch(folder, output_dir=out_dir, output_zip=zip_path, template=template)
+    assert batch["manifest"]["block"] == "block1a"
+    assert batch["manifest"]["successful_documents"] == 2
+    assert (out_dir / "docs" / "sheet_a" / "canonical.png").exists()
+    assert (out_dir / "docs" / "sheet_b" / "block1a.json").exists()
+    assert zip_path.exists()
+    assert set(batch["pages"]) == {"sheet_a", "sheet_b"}
+    for page_out in batch["pages"].values():
+        assert page_out.canvas.shape[1] == template.width
+
+    listed = run_block1a_batch(
+        [folder / "sheet_a.png", folder / "sheet_b.png"],
+        output_dir=tmp_path / "b1a_list",
+        template=template,
+    )
+    assert listed["manifest"]["successful_documents"] == 2
+
+    raw_zip = tmp_path / "raw_photos.zip"
+    with zipfile.ZipFile(raw_zip, "w") as zf:
+        zf.write(folder / "sheet_a.png", arcname="sheet_a.png")
+        zf.write(folder / "sheet_b.png", arcname="sheet_b.png")
+    zipped = run_block1a_batch(raw_zip, output_dir=tmp_path / "from_zip", template=template)
+    assert zipped["manifest"]["successful_documents"] == 2
+
+
 def test_run_block1b_emits_section_crops():
     from med_doc.normalization.block1a import run_block1a
     from med_doc.normalization.block1b import run_block1b

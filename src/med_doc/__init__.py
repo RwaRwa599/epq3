@@ -19,6 +19,8 @@ from med_doc.kg import (
 from med_doc.normalization import (
     normalize_batch,
     normalize_document,
+    run_block1a,
+    run_block1a_batch,
     save_normalized_document,
 )
 from med_doc.rescoring import process_from_block3, rescore_hypotheses
@@ -31,6 +33,8 @@ __all__ = [
     "TemplateSpec",
     "normalize_document",
     "normalize_batch",
+    "run_block1a",
+    "run_block1a_batch",
     "save_normalized_document",
     "KnowledgeGraph",
     "CatalogueItem",
