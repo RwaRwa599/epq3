@@ -20,7 +20,7 @@ This folder is the **GitHub-facing record** of Blocks 1–5: what shipped in eac
 - Block 4: `process_from_block3()` on that ZIP + frozen KG → `prediction.json`
 - Block 5: `process_from_block4()` → `review.json` + `order.json`
 
-Standalone Colab trees `block1/`, `block2/`, `block3/` are **older snapshots** for notebooks. They do not contain Block 1c or interior V/slash geometry. Prefer `src/med_doc` via [`Pipeline_Blocks_1_to_5.ipynb`](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Pipeline_Blocks_1_to_5.ipynb) (clone branch `block1`; Colab does not fetch `src/` with the notebook alone).
+Standalone Colab trees `block1/`, `block2/`, `block3/` are **older snapshots** for notebooks. They do not contain Block 1c or interior V/slash geometry. Prefer `src/med_doc` via [`notebooks/`](../../notebooks/README.md) and [`Pipeline_Blocks_1_to_5.ipynb`](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Pipeline_Blocks_1_to_5.ipynb) (clone branch `block1`; Colab does not fetch `src/` with the notebook alone).
 
 Clinic photos stay in gitignored `data/samples/private/`. They are not part of this upload.
 

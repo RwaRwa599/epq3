@@ -20,22 +20,25 @@ Do not add agent-memory files (`memory/`, `agent-skills/`, `AGENTS.md`, protocol
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Pipeline_Blocks_1_to_5.ipynb)
 
-Colab does **not** download `src/` when you open a notebook from GitHub. Use [`Pipeline_Blocks_1_to_5.ipynb`](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Pipeline_Blocks_1_to_5.ipynb) on branch **`block1`**, or paste:
+Colab does **not** download `src/` when you open a notebook from GitHub. Use branch **`block1`**:
 
-```python
-!git clone --branch block1 --single-branch https://github.com/RwaRwa599/epq3.git
-%cd epq3
-!pip install -q -e .
-```
+| Notebook | Colab |
+|---|---|
+| Blocks 1–5 pipeline | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Pipeline_Blocks_1_to_5.ipynb) |
+| Block 1 | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/notebooks/Block_1_Document_Normalization.ipynb) |
+| Block 2 | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/notebooks/Block_2_Knowledge_Graph.ipynb) |
+| Block 3 | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/notebooks/Block_3_Marks_and_HTR.ipynb) |
+| Block 4 | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/notebooks/Block_4_KG_Rescoring.ipynb) |
+| Block 5 | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/notebooks/Block_5_Review_and_LIS.ipynb) |
 
-Re-pull later in the same runtime:
+Index: [`notebooks/README.md`](notebooks/README.md). First cell clones `https://github.com/RwaRwa599/epq3.git` (`block1`) and `pip install -e .`. Re-pull:
 
 ```python
 %cd /content/epq3
 !git fetch origin block1 && git checkout block1 && git pull --ff-only origin block1
 ```
 
-Private repo: Colab secret `GITHUB_TOKEN`, then `git clone https://$GITHUB_TOKEN@github.com/RwaRwa599/epq3.git`. Do not upload clinic PHI.
+Private repo: Colab secret `GITHUB_TOKEN`. Do not upload clinic PHI.
 
 The `block1/`, `block2/`, `block3/` trees are older standalone snapshots (their Open-in-Colab badges point at those snapshot branches, not this live tree).
 
