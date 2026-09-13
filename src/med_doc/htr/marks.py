@@ -22,9 +22,13 @@ MAX_PLAUSIBLE_TUBE_COUNT = 4
 
 
 def field_never_auto_committed(field_id: str) -> bool:
-    """Profiles and body-check plans expand many LIS rows — never trust a crop alone."""
+    """Body-check plans expand a large panel — never trust a crop alone.
+
+    Named ``profile_*`` rows (lipid / renal / thyroid) are ordinary ticks when
+    the crop is a real box; order-7 had those ticked and they must be allowed.
+    """
     fid = (field_id or "").strip().lower()
-    return fid.startswith("profile_") or fid.startswith("body_check_plan_")
+    return fid.startswith("body_check_plan_")
 
 
 def _as_gray(crop: np.ndarray) -> np.ndarray:
@@ -154,9 +158,9 @@ def looks_like_text_line(crop: np.ndarray) -> bool:
     return float(col.std()) < 0.14 and float(wide.mean()) >= 0.10
 
 
-def _diagonal_stroke(gray: np.ndarray) -> bool:
+def _diagonal_stroke(gray: np.ndarray, *, inset: float = INSET) -> bool:
     """True when *interior* dark pixels form a single slash."""
-    interior = _interior(gray)
+    interior = _interior(gray, inset)
     if interior.size == 0 or min(interior.shape[:2]) < 6:
         return False
     blobs = _ink_blob_count(gray)
@@ -192,9 +196,9 @@ def _diagonal_stroke(gray: np.ndarray) -> bool:
     return corr >= need
 
 
-def _v_or_check_stroke(gray: np.ndarray) -> bool:
+def _v_or_check_stroke(gray: np.ndarray, *, inset: float = INSET) -> bool:
     """V / check / lambda: two arms in the interior, not a single diagonal and not a glyph line."""
-    interior = _interior(gray)
+    interior = _interior(gray, inset)
     if interior.size == 0 or min(interior.shape[:2]) < 6:
         return False
     blobs = _ink_blob_count(gray)
@@ -247,11 +251,9 @@ def interior_mark_class(crop: np.ndarray, blank: np.ndarray | None = None) -> st
     density = ink_density(crop, blank=blank)
     if density >= FILL_DENSITY:
         return "filled"
-    if looks_like_text_line(crop if blank is None else gray):
-        return None
-    if _diagonal_stroke(gray):
+    if _diagonal_stroke(gray) or _diagonal_stroke(gray, inset=0.10):
         return "slash"
-    if _v_or_check_stroke(gray):
+    if _v_or_check_stroke(gray) or _v_or_check_stroke(gray, inset=0.10):
         return "v_check"
     return None
 
@@ -437,7 +439,11 @@ def classify_mark(
             source="shadow-crop",
         )
 
-    if looks_like_text_line(crop if blank is None else gray):
+    # Residual vs a blank box still leaves printed letters (order-7 ALP="ck").
+    # A dense handwritten check can trip the same heuristic (lipid on that sheet).
+    kind_probe = interior_mark_class(crop, blank=blank)
+    texty = looks_like_text_line(crop) or looks_like_text_line(gray)
+    if texty and not (kind_probe in {"slash", "v_check", "filled"} and density >= 0.20):
         return MarkPrediction(
             field_id=field_id,
             is_marked=False,
@@ -458,12 +464,20 @@ def classify_mark(
             source=source,
         )
 
-    kind = interior_mark_class(crop, blank=blank)
+    kind = kind_probe
     clinic = min(h, w) >= CLINIC_CROP_MIN
     annulus = _annulus_dark_frac(gray)
-    # Clinic photos (order-5): printed rings look like a V or a faint slash.
-    # Commit only a clean `/` (or a truly filled box). V → HiTL, not LIS.
+    # Printed rings look like a V. A real handwritten check is denser.
     if kind == "v_check":
+        if density >= 0.10 and annulus < 0.14:
+            return MarkPrediction(
+                field_id=field_id,
+                is_marked=True,
+                confidence=0.88,
+                ink_density=round(density, 4),
+                needs_hitl=field_never_auto_committed(field_id),
+                source="v_check",
+            )
         return MarkPrediction(
             field_id=field_id,
             is_marked=False,

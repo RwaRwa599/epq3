@@ -138,11 +138,18 @@ def column_y_shifts(
                 expected[max(0, cy - 2) : min(h, cy + 3)] = 1.0
         if expected.sum() < 1:
             continue
+        score0 = float(np.dot(ink, expected))
         best_dy = 0
-        best = -1e9
+        best = score0
         for dy in range(-search_px, search_px + 1):
+            if dy == 0:
+                continue
             score = float(np.dot(np.roll(ink, dy), expected))
-            if score > best:
+            # One checkbox row is ~22–24 px. Labels win the correlation at that
+            # lag; ignore anything near the search bound (order-7 chemistry).
+            if abs(dy) >= max(16, search_px - 2):
+                continue
+            if score > best + 0.08 * max(abs(score0), 1.0):
                 best = score
                 best_dy = dy
         shifts[col] = float(best_dy)

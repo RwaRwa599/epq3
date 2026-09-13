@@ -591,7 +591,18 @@ def test_checkbox_squares_centered_after_photograph():
     assert centered / n >= 0.95, f"centered {centered}/{n} after warp"
 
 
-def test_section_bar_pairing_prefers_consistent_window():
+def test_column_y_shifts_ignore_search_bound():
+    """order-7: chemistry/immunology ±24 was one row of labels, not the boxes."""
+    from med_doc.normalization.align import column_y_shifts
+    from med_doc.paths import V1_TEMPLATE
+
+    template = load_template(V1_TEMPLATE)
+    page = render_canonical_form(template)
+    gray = cv2.cvtColor(page, cv2.COLOR_RGB2GRAY)
+    shifts = column_y_shifts(gray, template, search_px=24)
+    assert all(abs(v) < 16 for v in shifts.values()), shifts
+    # Perfect grid must not invent a one-row offset.
+    assert all(abs(v) <= 2 for v in shifts.values()), shifts
     from med_doc.normalization.align import _fit_affine_y, _pair_section_bars
 
     expected = [608.0, 888.0, 1032.0]

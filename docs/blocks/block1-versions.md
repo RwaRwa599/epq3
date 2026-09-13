@@ -169,7 +169,7 @@ Committed inputs (no PHI):
 
 **Architecture**
 
-1. **1a** `fine_align`: local paper / flatten for column peaks; RANSAC partial-affine + 4×3 residual flow when it improves grid score (`normalization/register.py`, `illumination.py`).
+1. **1a** `fine_align`: local paper / flatten for column peaks; RANSAC partial-affine + 4×3 residual flow when it improves grid score (`normalization/register.py`, `illumination.py`). `column_y_shifts` must beat dy=0 by a margin and **must not use the search bound** (±24 px is one label row — that put order-7 chemistry/immunology on the wrong row).
 2. **1c** `has_hollow_ring` / search: tile Otsu / `paper_map` instead of `percentile(gray, 90)` on the whole canvas.
 3. **1c rematch:** rank candidates by RANSAC-fitted neighbour prior (template→observed from already-OK boxes), mixed with distance to the 1b center.
 

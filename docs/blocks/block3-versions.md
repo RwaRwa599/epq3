@@ -200,7 +200,7 @@ Dates under JPEG/shadow still drop; that field needs a stronger constrained deco
 
 ## B3.8 — Crop gold + logistic refit; Paddle off ticks (2026-09-12) — **current**
 
-**Ticks (`tick_policy=slash-v2`):** `mark_backend="geometry"` (default). A tick is committed only as a **clean slash** (clinic crops: density ≥ 0.11, one blob, high diagonal corr, no heavy printed ring). V-geometry is HiTL. Logistic-only scores are not LIS ticks. `profile_*` and `body_check_plan_*` ticks are always HiTL so a false box cannot expand a whole panel. Tube OCR counts above 4 are dropped. Paddle is opt-in. TrOCR is verbal-only. Block 1 `is_marked_candidate` is not a tick.
+**Ticks (`tick_policy=slash-v2`):** `mark_backend="geometry"` (default). A tick is committed as a **clean slash** or a **dense handwritten check**. Sparse V-geometry (printed corners) is HiTL. Logistic-only scores are not LIS ticks. `body_check_plan_*` ticks are always HiTL. Named `profile_*` ticks (lipid/renal/thyroid) may auto-commit when the crop is a real box. Column Y-shifts at the search bound (±one row of labels) are ignored — that was order-7 ALP. Tube OCR counts above 4 are dropped. Paddle is opt-in. TrOCR is verbal-only. Block 1 `is_marked_candidate` is not a tick.
 
 **Labels:** gold = ticked field ids per sheet (`data/labels/examples/IMG_7596.json` is `ca125` only). `python -m med_doc.eval export` copies Block 1 checkbox PNGs into local `empty/` vs `tick/` (gitignored). `python -m med_doc.eval train` refits `LOGREG_W`/`LOGREG_B` with a heavy empty mix. Clinic weights: `data/labels/mark_weights.json` or `MED_DOC_MARK_WEIGHTS`.
 

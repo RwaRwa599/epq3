@@ -1,0 +1,19 @@
+{
+  "version": "1.0",
+  "kind": "checkbox_ticks",
+  "sheets": [
+    {
+      "doc_id": "IMG_7598",
+      "ticked_field_ids": [
+        "cbc",
+        "hav_ab_igg",
+        "hba1c",
+        "profile_lipid",
+        "profile_renal",
+        "profile_thyroid",
+        "uric_acid"
+      ],
+      "notes": "order-7.json (slash-v2) committed only ALP (label crop). Photo: HbA1c, Lipid / Renal / Thyroid function, CBC, Uric Acid, HAV Ab IgG. Field ids only; no image."
+    }
+  ]
+}
