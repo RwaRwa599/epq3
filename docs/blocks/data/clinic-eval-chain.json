@@ -1,0 +1,117 @@
+{
+  "eval_id": "clinic-eval-chain-2026-09-13",
+  "colab": "https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Run_in_Colab.ipynb",
+  "branch": "block1",
+  "tick_policy_current": "slash-v2",
+  "bootstrap": "BOOTSTRAP_V6",
+  "caveat": "Clinic photos not in git. N is tiny. Not a formal test set. Committed accuracy uses LIS ticked ids vs gold field ids; HiTL/uncertain is not TP.",
+  "gold": {
+    "IMG_7596": {"ticked_field_ids": ["ca125"], "n": 1, "source": "data/labels/examples/IMG_7596.json"},
+    "IMG_7600": {"ticked_field_ids": ["ca125"], "n": 1, "stub": true, "source": "data/labels/examples/IMG_7600.json"},
+    "IMG_7598": {
+      "ticked_field_ids": ["cbc", "hav_ab_igg", "hba1c", "profile_lipid", "profile_renal", "profile_thyroid", "uric_acid"],
+      "n": 7,
+      "source": "data/labels/examples/IMG_7598.json"
+    }
+  },
+  "synthetic_non_phi": {
+    "marks_10tick_b1.6_b3.5": {
+      "json": "docs/blocks/data/synthetic-10tick-scorecard.json",
+      "digital_10tick": {"tp": 10, "fn": 0, "fp": 0, "precision": 1.0, "recall": 1.0},
+      "photo_10tick": {"tp": 4, "fn": 6, "fp": 5, "precision": 0.444, "recall": 0.4},
+      "pre_geometry_digital_10tick": {"tp": 0, "fn": 10, "fp": 0, "recall": 0.0}
+    },
+    "verbal_b3.7": {
+      "json": "docs/blocks/data/verbal-accuracy.json",
+      "tubes": {"n": 40, "clean": 1.0, "photoreal": 1.0},
+      "dates": {"n": 6, "clean": 1.0, "photoreal": 0.5},
+      "others": {"n": 6, "clean": 1.0, "photoreal": 1.0}
+    }
+  },
+  "versions": [
+    {
+      "id": "V0-paddle-ticks",
+      "generation": "B3.4",
+      "result": "7-43 ticks/sheet on demo9; dual-signal 10 TP / 10 FN / 41 FP",
+      "precision": null,
+      "recall": 0.5,
+      "failed_because": "Printed glyphs counted as ticks",
+      "next": "Geometry default; Paddle opt-in"
+    },
+    {
+      "id": "V1-interior-geometry",
+      "generation": "B3.3-B3.5",
+      "result": "Photo 10-tick precision 0.44 recall 0.40; clinic 5-sheet 1 TP 0 FP on four blanks (B3.3)",
+      "precision": 0.44,
+      "recall": 0.4,
+      "failed_because": "Wrong Block 1 windows; later logreg/metadata still committed label crops",
+      "next": "Stop logreg-only and Block 1 metadata ticks"
+    },
+    {
+      "id": "V2-order-2-3",
+      "dumps": ["order-2", "order-3"],
+      "git": "6878824",
+      "IMG_7596_order2": {"tp": 0, "fn": 1, "fp_approx": 21, "precision": 0.0, "recall": 0.0, "notes": "missed ca125; invented EDTA=1"},
+      "IMG_7600_order3": {"tp": 0, "fn": 1, "fp_approx": 55, "precision": 0.0, "recall": 0.0, "stub_gold": true},
+      "failed_because": "Logreg/metadata ticks plus profile expansion plus invented tubes",
+      "next": "Slash-only commit; no invented EDTA"
+    },
+    {
+      "id": "V3-slash-hitl-profiles",
+      "git": ["d8c1a68", "a67ef8c"],
+      "result": "User order-5 still had profiles+implied_tests",
+      "accuracy": "not measured — dump was stale Colab",
+      "failed_because": "Colab /content/epq3 cache; notebook open does not fetch src/",
+      "next": "BOOTSTRAP_V6 + tick_policy stamp"
+    },
+    {
+      "id": "V4-slash-v2-order-7",
+      "git": "9af79a9",
+      "tick_policy": "slash-v2",
+      "sheet": "IMG_7598",
+      "tp": 0,
+      "fn": 7,
+      "fp": 1,
+      "fp_ids": ["alp"],
+      "precision": 0.0,
+      "recall": 0.0,
+      "failed_because": "column_y_shifts at search bound (±24 px = one label row); ALP crop was letters ck",
+      "next": "80233a4 ignore bound Y-shift"
+    },
+    {
+      "id": "V5-bound-lag-order-8",
+      "git": "80233a4",
+      "sheet": "IMG_7598",
+      "tp": 0,
+      "fn": 7,
+      "fp": 0,
+      "precision": null,
+      "recall": 0.0,
+      "failed_because": "1b on names/blank; 1c skipped ink-in-ring; crop_needs_hitl blocked true hba1c. Empty worse than ALP-only.",
+      "next": "786156f left rematch + always ink-in-ring"
+    },
+    {
+      "id": "V6-left-rematch-order-9-10",
+      "git": "786156f",
+      "current": true,
+      "order9_IMG_7598": {
+        "committed": 10,
+        "tp": 2,
+        "tp_ids": ["hba1c", "cbc"],
+        "fp": 8,
+        "fn": 5,
+        "precision": 0.2,
+        "recall": 0.286
+      },
+      "order10_batch": {
+        "n_sheets": 9,
+        "ticked_per_sheet": "19-37 except sample3 empty",
+        "ordered_after_profiles": "40-50+",
+        "unlabeled": true,
+        "lis": "do_not_send"
+      },
+      "failed_because": "Rematch trusted wrong windows. Tube/date OCR unconstrained aside from tube count >4 drop.",
+      "next": "Do not auto-commit rematch unless hollow ring + slash/check; constrain verbal; TrOCR after ticks stabilize"
+    }
+  ]
+}

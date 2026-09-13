@@ -10,7 +10,7 @@ A modular, agent-assisted medical document intelligence system for laboratory re
 - **Block 4 — KG rescoring:** Trusted ticks + write-in `assume()` + observed tubes vs expected. Does not invent counts from empty crops or HiTL ticks. Status: [`docs/blocks/block4-status.md`](docs/blocks/block4-status.md).
 - **Block 5 — Review and LIS commit:** HiTL queue, human/nurse patches, optional LLM n-best rank (never authority). Status: [`docs/blocks/block5-status.md`](docs/blocks/block5-status.md).
 
-Hub: [`docs/blocks/README.md`](docs/blocks/README.md).
+Hub: [`docs/blocks/README.md`](docs/blocks/README.md). **Version history, Colab, per-version accuracy, and why each failed:** [`CHANGELOG.md`](CHANGELOG.md) and [`docs/blocks/clinic-eval-chain.md`](docs/blocks/clinic-eval-chain.md).
 
 Do not add agent-memory files (`memory/`, `agent-skills/`, `AGENTS.md`, protocol docs, hooks, or agent-memory CI) to this repository or to new block packages.
 

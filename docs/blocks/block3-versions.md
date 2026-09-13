@@ -208,6 +208,8 @@ Dates under JPEG/shadow still drop; that field needs a stronger constrained deco
 
 **CNN:** `htr/crop_cnn.py` exists but is not wired; use only if logreg plateaus on labeled clinic empties.
 
+**Clinic dumps (not in git as images):** order-2 ~21 FP missed CA125; order-3 ~55 ticks; slash-v2 order-7 **0 TP / 7 FN / 1 FP (ALP)**; bound-lag order-8 **empty** (recall 0); rematch order-9 precision **0.20** recall **~0.29**; order-10 **19–37 ticks/sheet**. Narrative: [`clinic-eval-chain.md`](./clinic-eval-chain.md).
+
 ---
 
 ## ZIP outputs (current)

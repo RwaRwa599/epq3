@@ -175,6 +175,8 @@ Committed inputs (no PHI):
 
 Does not classify ticks. Photo-realistic distortions (perspective, shadow, blur, JPEG) live in `med_doc.eval.photoreal` and `tests/test_photoreal_marks.py` so registration and mark classification can be scored separately. N=10 gold ticks remains too small for photo accuracy claims.
 
+**Clinic follow-on (2026-09-13), same B1.7 generation:** bound Y-shift ignore (`80233a4`, order-7 ALP-only → order-8 empty) then left rematch + ink-in-ring (`786156f`, order-9 **2 TP / 8 FP / 5 FN**, precision **0.20**, recall **~0.29**). Full chain + Colab: [`clinic-eval-chain.md`](./clinic-eval-chain.md).
+
 ```mermaid
 flowchart LR
   warp[Warp]
