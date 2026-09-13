@@ -735,6 +735,42 @@ def test_block1c_rematch_label_onto_ring_without_stealing_neighbour():
     assert abs(afp.canonical_bbox[0] - crop_b.canonical_bbox[0]) <= 2
 
 
+def test_block1c_rematch_label_far_left_of_box():
+    """order-8: 1b sat on the printed name ~60 px right of the square."""
+    from med_doc.normalization.block1a import Block1aPage
+    from med_doc.normalization.block1b import Block1bLayout
+    from med_doc.normalization.block1c import run_block1c
+    from med_doc.normalization.crops import recrop_pixels
+    from med_doc.schemas import FieldSpec, NormalizedDocumentResult, TemplateSpec
+
+    canvas = np.full((120, 280, 3), 245, dtype=np.uint8)
+    cv2.rectangle(canvas, (40, 48), (58, 66), (90, 90, 90), 2)
+    cv2.putText(canvas, "HbA1c", (100, 64), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (20, 20, 20), 1)
+    spec = FieldSpec(field_id="hba1c", field_type="checkbox", bbox=[0.35, 0.38, 0.55, 0.58])
+    template = TemplateSpec(template_id="t", canvas_size=[280, 120], fields=[spec])
+    crop = recrop_pixels(canvas, "hba1c", [96, 44, 170, 78])
+    result = NormalizedDocumentResult(
+        document_id="t",
+        canonical_canvas=canvas,
+        alignment_confidence=0.7,
+        checkbox_crops={"hba1c": crop},
+        handwriting_crops={},
+    )
+    page = Block1aPage(
+        canvas=canvas,
+        template=template,
+        warp_meta={},
+        align_meta={},
+        col_shifts={},
+        document_id="t",
+    )
+    gated = run_block1c(page, Block1bLayout(result=result, sectioned=template), draw_debug=False)
+    got = gated.result.checkbox_crops["hba1c"]
+    assert got.crop_needs_hitl is False
+    cx = 0.5 * (got.canonical_bbox[0] + got.canonical_bbox[2])
+    assert cx < 80, got.canonical_bbox
+
+
 def test_block1c_no_ring_sets_hitl():
     from med_doc.normalization.block1a import Block1aPage
     from med_doc.normalization.block1b import Block1bLayout

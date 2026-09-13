@@ -178,18 +178,18 @@ def piecewise_register(
     flat = flatten_gray(gray)
     detected = detect_checkboxes_photo(flat)
     expected, _ids = _expected_centers(template)
-    src, dst = match_expected_to_detected(expected, detected, max_dist=42.0)
+    src, dst = match_expected_to_detected(expected, detected, max_dist=64.0)
     meta: dict[str, Any] = {
         "n_detected": len(detected),
         "n_paired": int(src.shape[0]),
         "n_inliers": 0,
         "applied": False,
     }
-    if src.shape[0] < 8:
+    if src.shape[0] < 6:
         return canvas, meta, None
-    m, inn = ransac_partial_affine(src, dst, thresh=12.0, min_inliers=8)
+    m, inn = ransac_partial_affine(src, dst, thresh=14.0, min_inliers=6)
     meta["n_inliers"] = int(inn.sum()) if inn.size else 0
-    if m is None or meta["n_inliers"] < 8:
+    if m is None or meta["n_inliers"] < 6:
         return canvas, meta, m
     pred = apply_affine(m, src[inn])
     residual = dst[inn] - pred

@@ -13,7 +13,7 @@
         "profile_thyroid",
         "uric_acid"
       ],
-      "notes": "order-7.json (slash-v2) committed only ALP (label crop). Photo: HbA1c, Lipid / Renal / Thyroid function, CBC, Uric Acid, HAV Ab IgG. Field ids only; no image."
+      "notes": "Photo ticks: HbA1c, Lipid / Renal / Thyroid function, CBC, Uric Acid, HAV Ab IgG. order-7 committed ALP (label). order-8 committed nothing and listed those as uncertain plus FPs. Field ids only; no image."
     }
   ]
 }

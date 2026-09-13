@@ -171,7 +171,7 @@ Committed inputs (no PHI):
 
 1. **1a** `fine_align`: local paper / flatten for column peaks; RANSAC partial-affine + 4×3 residual flow when it improves grid score (`normalization/register.py`, `illumination.py`). `column_y_shifts` must beat dy=0 by a margin and **must not use the search bound** (±24 px is one label row — that put order-7 chemistry/immunology on the wrong row).
 2. **1c** `has_hollow_ring` / search: tile Otsu / `paper_map` instead of `percentile(gray, 90)` on the whole canvas.
-3. **1c rematch:** rank candidates by RANSAC-fitted neighbour prior (template→observed from already-OK boxes), mixed with distance to the 1b center.
+3. **1c rematch:** rank candidates by RANSAC-fitted neighbour prior (template→observed from already-OK boxes), mixed with distance to the 1b center. If the 1b window is a **label strip**, snap to the **same-row box on the left** (order-8 empty order: crops sat on printed names). Search always includes ink-in-ring so a ticked box is not skipped because the 1b crop was blank paper.
 
 Does not classify ticks. Photo-realistic distortions (perspective, shadow, blur, JPEG) live in `med_doc.eval.photoreal` and `tests/test_photoreal_marks.py` so registration and mark classification can be scored separately. N=10 gold ticks remains too small for photo accuracy claims.
 

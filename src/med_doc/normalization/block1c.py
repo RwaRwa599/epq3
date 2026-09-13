@@ -1,8 +1,9 @@
 """Block 1c: crop-window gate after 1b. Does not classify ticks.
 
 A checkbox PNG must be a printed square (empty hollow or ink-in-ring), never a
-label, neighbour, or header. One widen+rematch with steal and dark-header guards;
-else keep the 1b bbox and set ``crop_needs_hitl``. Overlay cells ≥36 px are skipped.
+label, neighbour, or header. Rematch searches left of a label strip (clinic
+names sit to the right of the box) and always considers ink-in-ring so a ticked
+box is not skipped because the 1b window was blank paper.
 """
 
 from __future__ import annotations
@@ -23,7 +24,9 @@ from med_doc.normalization.viz import draw_overlay
 from med_doc.schemas import FieldCrop, FieldSpec, TemplateSpec
 
 OVERLAY_SKIP_PX = 36
-SEARCH_PAD_PX = 28
+SEARCH_PAD_LEFT = 80
+SEARCH_PAD_RIGHT = 48
+SEARCH_PAD_Y = 36
 SQUARE = 18
 
 
@@ -90,6 +93,14 @@ def has_hollow_ring(crop: np.ndarray) -> bool:
 
 def window_ok(crop: np.ndarray) -> bool:
     return has_hollow_ring(crop) and not looks_like_text_line(crop)
+
+
+def crop_window_ok(crop: FieldCrop) -> bool:
+    """True when raw or illumination-normalized pixels look like a printed square."""
+    if window_ok(crop.raw_image):
+        return True
+    norm = getattr(crop, "normalized_image", None)
+    return norm is not None and window_ok(norm)
 
 
 def _interior_dark_frac(crop: np.ndarray) -> float:
@@ -168,10 +179,11 @@ def _search_candidates(
 ) -> list[tuple[int, int]]:
     h, w = gray.shape[:2]
     x0, y0, x1, y1 = bbox
-    sx0 = max(0, x0 - SEARCH_PAD_PX)
-    sy0 = max(0, y0 - SEARCH_PAD_PX)
-    sx1 = min(w, x1 + SEARCH_PAD_PX)
-    sy1 = min(h, y1 + SEARCH_PAD_PX)
+    # Clinic labels sit to the right of the box; empty 1b windows sit to the left.
+    sx0 = max(0, x0 - SEARCH_PAD_LEFT)
+    sy0 = max(0, y0 - SEARCH_PAD_Y)
+    sx1 = min(w, x1 + SEARCH_PAD_RIGHT)
+    sy1 = min(h, y1 + SEARCH_PAD_Y)
     out: list[tuple[int, int]] = []
     if allow_ink_rings:
         for hx, hy, _ in _ink_ring_candidates(gray, sy0, sy1, sx0, sx1, paper):
@@ -259,7 +271,7 @@ def run_block1c(page: Block1aPage, layout: Block1bLayout, *, draw_debug: bool = 
     for fid, crop in crops.items():
         if fid not in expected:
             continue
-        if window_ok(crop.raw_image):
+        if crop_window_ok(crop):
             src_pts.append([expected[fid][0], expected[fid][1]])
             dst_pts.append([centers[fid][0], centers[fid][1]])
     affine = None
@@ -273,7 +285,7 @@ def run_block1c(page: Block1aPage, layout: Block1bLayout, *, draw_debug: bool = 
 
     for fid, crop in list(crops.items()):
         x0, y0, x1, y1 = crop.canonical_bbox
-        if window_ok(crop.raw_image):
+        if crop_window_ok(crop):
             crops[fid] = _tag(crop, ok=True, hitl=False, status="ok", attempts=0)
             n_ok += 1
             continue
@@ -284,19 +296,30 @@ def run_block1c(page: Block1aPage, layout: Block1bLayout, *, draw_debug: bool = 
             n_skip += 1
             continue
 
-        allow_ink = _interior_dark_frac(crop.raw_image) >= 0.08
-        candidates = _search_candidates(gray, crop.canonical_bbox, paper, allow_ink_rings=allow_ink)
+        # Always hunt ink-in-ring (ticked boxes). Gating on the 1b crop being dark
+        # missed gold ticks whose window was blank paper (order-8 CBC / HAV).
+        candidates = _search_candidates(gray, crop.canonical_bbox, paper, allow_ink_rings=True)
         own = _center(crop.canonical_bbox)
         prior = predicted_center(affine, expected.get(fid, own))
-        ranked = sorted(
-            candidates,
-            key=lambda p: 0.65 * _dist((p[0] + 9.0, p[1] + 9.0), prior)
-            + 0.35 * _dist((p[0] + 9.0, p[1] + 9.0), own),
-        )
+        on_label = looks_like_text_line(crop.raw_image) or (x1 - x0) > int((y1 - y0) * 1.3)
+
+        def _rank(p: tuple[int, int]) -> float:
+            cand_c = (p[0] + 9.0, p[1] + 9.0)
+            if on_label:
+                # 1b landed on the printed name; the box is the same row, further left.
+                return abs(cand_c[1] - own[1]) * 3.0 + cand_c[0]
+            left_pen = max(0.0, cand_c[0] - own[0]) * 0.25
+            return (
+                0.55 * _dist(cand_c, prior)
+                + 0.25 * _dist(cand_c, own)
+                + left_pen
+            )
+
+        ranked = sorted(candidates, key=_rank)
         chosen: list[int] | None = None
         for hx, hy in ranked:
             cand_c = (hx + 9.0, hy + 9.0)
-            if _closer_to_other(cand_c, fid, centers) or _too_close_to_other(cand_c, fid, centers):
+            if _too_close_to_other(cand_c, fid, centers):
                 continue
             if _dark_header(gray, int(cand_c[0]), int(cand_c[1]), paper):
                 continue
