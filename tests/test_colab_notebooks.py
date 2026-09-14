@@ -9,6 +9,7 @@ NOTEBOOKS = [
     ROOT / "notebooks" / "Block_3_Marks_and_HTR.ipynb",
     ROOT / "notebooks" / "Block_4_KG_Rescoring.ipynb",
     ROOT / "notebooks" / "Block_5_Review_and_LIS.ipynb",
+    ROOT / "notebooks" / "Layout_Crop_Batch.ipynb",
 ]
 
 

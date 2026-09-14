@@ -31,6 +31,7 @@ Colab does **not** download `src/` when you open a notebook from GitHub. Open **
 | Block 3 | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/notebooks/Block_3_Marks_and_HTR.ipynb) |
 | Block 4 | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/notebooks/Block_4_KG_Rescoring.ipynb) |
 | Block 5 | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/notebooks/Block_5_Review_and_LIS.ipynb) |
+| Layout crop (PHI strip) | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/notebooks/Layout_Crop_Batch.ipynb) |
 
 Index: [`notebooks/README.md`](notebooks/README.md). Do not upload clinic PHI. The repo is public; no GitHub token is required.
 
@@ -39,6 +40,24 @@ The `block1/`, `block2/`, `block3/` trees are older standalone snapshots (their 
 ---
 
 ## Usage
+
+### Crop header/footer off a batch (before Blocks 1–5)
+
+Config: [`configs/layout_crop.json`](configs/layout_crop.json). How-to: [`docs/blocks/layout-crop.md`](docs/blocks/layout-crop.md).
+
+```bash
+python -m med_doc.privacy photos/ --out cropped/
+python -m med_doc.privacy photos/ --out cropped/ --backend layoutparser_then_template \
+  --keep Table Text List --drop Title Figure
+```
+
+```python
+from med_doc.privacy import crop_batch, load_crop_config
+
+cfg = load_crop_config()
+cfg.template.top, cfg.template.bottom = 0.10, 0.88  # keep this band for the whole batch
+crop_batch("photos/", "cropped/", config=cfg)
+```
 
 ### Blocks 1–5: Batch photos → LIS orders
 ```python

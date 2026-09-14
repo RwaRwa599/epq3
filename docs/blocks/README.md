@@ -8,7 +8,7 @@ This folder is the **GitHub-facing record** of Blocks 1–5: what shipped in eac
 | [block3-versions.md](./block3-versions.md) | Every Block 3 architecture generation + current data |
 | [block2-status.md](./block2-status.md) | Frozen Block 2 KG (no separate version train in this pass) |
 | [block4-status.md](./block4-status.md) | KG rescoring of Block 3 drafts (trusted ticks, tubes, write-ins) |
-| [block5-status.md](./block5-status.md) | HiTL review, nurse/LLM-assist patches, LIS `order.json` |
+| [layout-crop.md](./layout-crop.md) | Batch crop header/footer (template or LayoutParser); not redaction |
 | [clinic-eval-chain.md](./clinic-eval-chain.md) | Colab + why each version failed + accuracy (synthetic and clinic dumps) |
 | [data/clinic-eval-chain.json](./data/clinic-eval-chain.json) | Same chain, machine-readable |
 | [data/synthetic-10tick-scorecard.json](./data/synthetic-10tick-scorecard.json) | Latest 1c + Block 3 mark scorecard |

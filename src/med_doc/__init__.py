@@ -26,6 +26,7 @@ from med_doc.normalization import (
 from med_doc.rescoring import process_from_block3, rescore_hypotheses
 from med_doc.review import process_from_block4, order_from_prediction
 from med_doc.pipeline import run_blocks_1_to_5
+from med_doc.privacy import CropConfig, crop_batch, load_crop_config
 from med_doc.schemas import FieldCrop, NormalizedDocumentResult, TemplateSpec
 
 __all__ = [
@@ -54,4 +55,7 @@ __all__ = [
     "order_from_prediction",
     "rescore_hypotheses",
     "DocumentHypotheses",
+    "CropConfig",
+    "crop_batch",
+    "load_crop_config",
 ]
