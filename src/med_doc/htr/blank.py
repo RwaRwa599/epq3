@@ -92,7 +92,7 @@ def residual_against_blank(crop: np.ndarray, blank: np.ndarray) -> np.ndarray:
         b = cv2.resize(b, (g.shape[1], g.shape[0]), interpolation=cv2.INTER_LINEAR)
     # Small translational register (crop vs printed patch).
     if min(g.shape) >= 8 and min(b.shape) >= 8:
-        pad = 4
+        pad = 6
         padded = cv2.copyMakeBorder(b, pad, pad, pad, pad, cv2.BORDER_REPLICATE)
         if padded.shape[0] > g.shape[0] and padded.shape[1] > g.shape[1]:
             ncc = cv2.matchTemplate(padded.astype(np.float32), g.astype(np.float32), cv2.TM_CCOEFF_NORMED)

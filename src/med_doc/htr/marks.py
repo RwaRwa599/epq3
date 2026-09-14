@@ -15,6 +15,10 @@ SLASH_MIN_DENSITY = 0.06
 FILL_DENSITY = 0.62
 HITL_CONFIDENCE = 0.70
 INSET = 0.28
+INSET_RETRY = 0.34
+INSET_HITL = 0.36
+SLIVER_MAX_THICKNESS = 2
+SLIVER_SPAN_FRAC = 0.85
 # Stamp on order.json so a stale Colab zip is obvious (order-5 still had profile expansion).
 TICK_POLICY = "slash-v2"
 CLINIC_CROP_MIN = 36
@@ -29,6 +33,21 @@ def field_never_auto_committed(field_id: str) -> bool:
     """
     fid = (field_id or "").strip().lower()
     return fid.startswith("body_check_plan_")
+
+
+def adaptive_inset(
+    crop_validate_status: str = "",
+    quality_score: float | None = None,
+) -> float:
+    """Larger interior cut when 1c already said the window was off-center."""
+    st = (crop_validate_status or "").strip().lower()
+    if st in {"hitl", "skip"}:
+        return INSET_HITL
+    if st == "retry":
+        return INSET_RETRY
+    if quality_score is not None and quality_score < 0.55:
+        return INSET_RETRY
+    return INSET
 
 
 def _as_gray(crop: np.ndarray) -> np.ndarray:
@@ -65,10 +84,15 @@ def _working_gray(crop: np.ndarray, blank: np.ndarray | None) -> np.ndarray:
     return np.clip(255.0 - resid, 0.0, 255.0)
 
 
-def ink_density(crop: np.ndarray, threshold: float = 140.0, blank: np.ndarray | None = None) -> float:
+def ink_density(
+    crop: np.ndarray,
+    threshold: float = 140.0,
+    blank: np.ndarray | None = None,
+    inset: float = INSET,
+) -> float:
     """Fraction of dark pixels in the checkbox *interior*, ignoring the printed frame."""
     gray = _working_gray(crop, blank)
-    interior = _interior(gray)
+    interior = _interior(gray, inset)
     if interior.size == 0:
         return 0.0
     cut = _ink_cut(interior, threshold)
@@ -86,7 +110,7 @@ def _hollow_empty(gray: np.ndarray) -> bool:
     return float(interior.mean()) - float(border.mean()) > 12.0 and float(interior.mean()) > 150.0
 
 
-def _annulus_dark_frac(gray: np.ndarray) -> float:
+def _annulus_dark_frac(gray: np.ndarray, inset: float = INSET) -> float:
     """Dark fraction of a ring around the inset interior — not the PNG edge.
 
     1b pads the square with paper, so the printed frame sits inside the crop.
@@ -94,8 +118,8 @@ def _annulus_dark_frac(gray: np.ndarray) -> float:
     if gray.size == 0 or min(gray.shape[:2]) < 10:
         return 0.0
     h, w = gray.shape[:2]
-    outer = 0.12
-    inner = INSET
+    outer = max(0.06, float(inset) - 0.16)
+    inner = float(inset)
     y0, y1 = int(h * outer), int(h * (1.0 - outer))
     x0, x1 = int(w * outer), int(w * (1.0 - outer))
     iy0, iy1 = int(h * inner), int(h * (1.0 - inner))
@@ -127,14 +151,65 @@ def _ink_mask(interior: np.ndarray) -> np.ndarray:
     return interior < cut
 
 
-def _ink_blob_count(gray: np.ndarray) -> int:
-    """How many interior ink blobs (specks ignored). A handwritten tick is one or two strokes."""
-    interior = _interior(gray)
-    if interior.size == 0:
+def _is_border_sliver(comp: np.ndarray, h: int, w: int) -> bool:
+    """Thin full-span strip glued to one interior edge = printed-frame leak, not a stroke."""
+    ys, xs = np.where(comp)
+    if xs.size == 0:
+        return True
+    x0, x1 = int(xs.min()), int(xs.max())
+    y0, y1 = int(ys.min()), int(ys.max())
+    bw = x1 - x0 + 1
+    bh = y1 - y0 + 1
+    touches = x0 <= 0 or y0 <= 0 or x1 >= w - 1 or y1 >= h - 1
+    thin_v = bw <= SLIVER_MAX_THICKNESS and bh >= int(SLIVER_SPAN_FRAC * h)
+    thin_h = bh <= SLIVER_MAX_THICKNESS and bw >= int(SLIVER_SPAN_FRAC * w)
+    return bool(touches and (thin_v or thin_h))
+
+
+def _is_border_frame(comp: np.ndarray, h: int, w: int) -> bool:
+    """Hollow printed ring: almost all ink sits on the 2px interior rim."""
+    if h < 6 or w < 6:
+        return False
+    rim = np.zeros_like(comp, dtype=bool)
+    rim[:2, :] = True
+    rim[-2:, :] = True
+    rim[:, :2] = True
+    rim[:, -2:] = True
+    total = int(comp.sum())
+    if total < 8:
+        return False
+    return float((comp & rim).sum()) / float(total) >= 0.70
+
+
+def _clean_ink_mask(interior: np.ndarray) -> np.ndarray:
+    """Ink mask after morph-close and dropping border-hugging slivers."""
+    raw = _ink_mask(interior).astype(np.uint8)
+    if raw.size == 0:
+        return np.zeros((0, 0), dtype=bool)
+    h, w = raw.shape[:2]
+    if min(h, w) >= 10:
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        raw = cv2.morphologyEx(raw, cv2.MORPH_CLOSE, kernel, iterations=1)
+    n, labels = cv2.connectedComponents(raw)
+    out = np.zeros_like(raw, dtype=np.uint8)
+    for i in range(1, n):
+        comp = labels == i
+        if int(comp.sum()) < 5:
+            continue
+        if _is_border_sliver(comp, h, w) or _is_border_frame(comp, h, w):
+            continue
+        out[comp] = 1
+    return out.astype(bool)
+
+
+def _ink_blob_count(gray: np.ndarray, inset: float = INSET) -> int:
+    """Interior ink blobs after close + sliver strip. A tick is one or two strokes."""
+    interior = _interior(gray, inset)
+    ink = _clean_ink_mask(interior)
+    if ink.size == 0 or not ink.any():
         return 0
-    ink = _ink_mask(interior).astype(np.uint8)
-    n, labels = cv2.connectedComponents(ink)
-    return sum(1 for i in range(1, n) if int((labels == i).sum()) >= 5)
+    n, _labels = cv2.connectedComponents(ink.astype(np.uint8))
+    return max(0, int(n) - 1)
 
 
 def looks_like_text_line(crop: np.ndarray) -> bool:
@@ -163,15 +238,15 @@ def _diagonal_stroke(gray: np.ndarray, *, inset: float = INSET) -> bool:
     interior = _interior(gray, inset)
     if interior.size == 0 or min(interior.shape[:2]) < 6:
         return False
-    blobs = _ink_blob_count(gray)
+    blobs = _ink_blob_count(gray, inset)
     if blobs < 1 or blobs > 2:
         return False
     large = min(gray.shape[:2]) >= CLINIC_CROP_MIN
     # Clinic photos: a printed frame often splits into 2 blobs that still look like "/".
     if large and blobs != 1:
         return False
-    ink = _ink_mask(interior)
-    dens = float(ink.mean())
+    ink = _clean_ink_mask(interior)
+    dens = float(ink.mean()) if ink.size else 0.0
     if dens < SLASH_MIN_DENSITY or dens >= FILL_DENSITY:
         return False
     ys, xs = np.where(ink)
@@ -186,12 +261,14 @@ def _diagonal_stroke(gray: np.ndarray, *, inset: float = INSET) -> bool:
         return False
     if large and (span_x < 0.32 or span_y < 0.32):
         return False
-    # Printed rings leak into the inset; clinic crops need a cleaner diagonal.
-    annulus = _annulus_dark_frac(gray)
-    if large and annulus >= 0.14:
+    # Printed rings leak into the inset. After sliver-strip, a single remaining
+    # blob is the stroke — don't let the leftover ring veto it. Multi-blob
+    # "slashes" that still look like a frame still fail here.
+    annulus = _annulus_dark_frac(gray, inset)
+    if large and annulus >= 0.14 and blobs != 1:
         return False
-    need = 0.80 if annulus >= 0.10 else 0.58
-    if large:
+    need = 0.80 if annulus >= 0.10 and blobs != 1 else 0.58
+    if large and blobs != 1:
         need = max(need, 0.82)
     return corr >= need
 
@@ -201,11 +278,11 @@ def _v_or_check_stroke(gray: np.ndarray, *, inset: float = INSET) -> bool:
     interior = _interior(gray, inset)
     if interior.size == 0 or min(interior.shape[:2]) < 6:
         return False
-    blobs = _ink_blob_count(gray)
+    blobs = _ink_blob_count(gray, inset)
     if blobs < 1 or blobs > 2:
         return False
-    ink = _ink_mask(interior)
-    dens = float(ink.mean())
+    ink = _clean_ink_mask(interior)
+    dens = float(ink.mean()) if ink.size else 0.0
     if dens < SLASH_MIN_DENSITY or dens >= FILL_DENSITY:
         return False
     ys, xs = np.where(ink)
@@ -245,26 +322,40 @@ def _v_or_check_stroke(gray: np.ndarray, *, inset: float = INSET) -> bool:
     return global_corr <= 0.92
 
 
-def interior_mark_class(crop: np.ndarray, blank: np.ndarray | None = None) -> str | None:
+def interior_mark_class(
+    crop: np.ndarray,
+    blank: np.ndarray | None = None,
+    inset: float = INSET,
+) -> str | None:
     """`slash`, `v_check`, or `filled` when interior geometry looks like a handwritten mark."""
     gray = _working_gray(crop, blank)
-    density = ink_density(crop, blank=blank)
+    density = ink_density(crop, blank=blank, inset=inset)
     if density >= FILL_DENSITY:
         return "filled"
-    if _diagonal_stroke(gray) or _diagonal_stroke(gray, inset=0.10):
+    if _diagonal_stroke(gray, inset=inset):
         return "slash"
-    if _v_or_check_stroke(gray) or _v_or_check_stroke(gray, inset=0.10):
+    # Looser inset only when 1c already called the window clean — retry crops
+    # leak the printed ring if we shrink the margin.
+    if inset <= INSET + 1e-9 and _diagonal_stroke(gray, inset=0.10):
+        return "slash"
+    if _v_or_check_stroke(gray, inset=inset):
+        return "v_check"
+    if inset <= INSET + 1e-9 and _v_or_check_stroke(gray, inset=0.10):
         return "v_check"
     return None
 
 
-def mark_features(crop: np.ndarray, blank: np.ndarray | None = None) -> np.ndarray:
+def mark_features(
+    crop: np.ndarray,
+    blank: np.ndarray | None = None,
+    inset: float = INSET,
+) -> np.ndarray:
     """Hand-crafted geometry features for the fitted mark classifier."""
     gray = _working_gray(crop, blank)
-    dens = ink_density(crop, blank=blank)
-    blobs = float(_ink_blob_count(gray))
-    interior = _interior(gray)
-    ink = _ink_mask(interior) if interior.size else np.zeros((0, 0), dtype=bool)
+    dens = ink_density(crop, blank=blank, inset=inset)
+    blobs = float(_ink_blob_count(gray, inset))
+    interior = _interior(gray, inset)
+    ink = _clean_ink_mask(interior) if interior.size else np.zeros((0, 0), dtype=bool)
     corr = 0.0
     span_x = 0.0
     span_y = 0.0
@@ -278,7 +369,7 @@ def mark_features(crop: np.ndarray, blank: np.ndarray | None = None) -> np.ndarr
             span_y = (int(ys.max()) - int(ys.min()) + 1) / float(max(ih, 1))
             std_ratio = min(4.0, float(xs.std()) / max(float(ys.std()), 1e-6)) / 4.0
     text = 1.0 if looks_like_text_line(crop if blank is None else gray) else 0.0
-    annulus = _annulus_dark_frac(gray)
+    annulus = _annulus_dark_frac(gray, inset)
     return np.array(
         [dens, blobs / 4.0, corr, span_x, span_y, std_ratio, text, annulus],
         dtype=np.float64,
@@ -395,12 +486,17 @@ def classify_mark(
     fallback_dark_ratio: float | None = None,
     fallback_candidate: bool | None = None,
     blank: np.ndarray | None = None,
+    crop_validate_status: str = "",
+    quality_score: float | None = None,
 ) -> MarkPrediction:
     """Classify a checkbox crop as marked or empty.
 
     Difference-image residual when ``blank`` is the matching template patch.
     Geometry features feed a logistic score; slash/V/fill remain the mark kinds.
+    Border-hugging 1–2px slivers are stripped before blob count. INSET grows when
+    1c marked the crop ``retry`` / ``hitl``.
     """
+    inset = adaptive_inset(crop_validate_status, quality_score)
     if crop is None or (hasattr(crop, "size") and np.asarray(crop).size == 0):
         # Block 1 dark_ratio / is_marked_candidate is debug, not a tick.
         density = float(fallback_dark_ratio or 0.0)
@@ -414,9 +510,9 @@ def classify_mark(
         )
 
     gray = _working_gray(crop, blank)
-    density = ink_density(crop, blank=blank)
+    density = ink_density(crop, blank=blank, inset=inset)
     mean = float(gray.mean()) if gray.size else 255.0
-    feat = mark_features(crop, blank=blank)
+    feat = mark_features(crop, blank=blank, inset=inset)
     p = logreg_mark_prob(feat)
     h, w = gray.shape[:2]
     if min(h, w) > 0 and max(h, w) / float(min(h, w)) > 1.45:
@@ -441,7 +537,7 @@ def classify_mark(
 
     # Residual vs a blank box still leaves printed letters (order-7 ALP="ck").
     # A dense handwritten check can trip the same heuristic (lipid on that sheet).
-    kind_probe = interior_mark_class(crop, blank=blank)
+    kind_probe = interior_mark_class(crop, blank=blank, inset=inset)
     texty = looks_like_text_line(crop) or looks_like_text_line(gray)
     if texty and not (kind_probe in {"slash", "v_check", "filled"} and density >= 0.20):
         return MarkPrediction(
@@ -466,7 +562,7 @@ def classify_mark(
 
     kind = kind_probe
     clinic = min(h, w) >= CLINIC_CROP_MIN
-    annulus = _annulus_dark_frac(gray)
+    annulus = _annulus_dark_frac(gray, inset)
     # Printed rings look like a V. A real handwritten check is denser.
     if kind == "v_check":
         if density >= 0.10 and annulus < 0.14:
@@ -490,8 +586,8 @@ def classify_mark(
     slash_tau = 0.11 if clinic else SLASH_MIN_DENSITY
     if kind == "slash" and density >= slash_tau:
         marked = True
-        if clinic and annulus >= 0.12:
-            marked = False
+        # Annulus veto is inside _diagonal_stroke for multi-blob frames.
+        # A clinic slash that already passed sliver-strip (blobs==1) must stand.
         if blank is not None and density < (0.12 if clinic else 0.09):
             marked = False
     fill_tau = 0.70 if clinic else FILL_DENSITY

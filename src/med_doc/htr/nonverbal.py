@@ -192,6 +192,8 @@ def classify_mark_nonverbal(
     fallback_candidate: bool | None = None,
     blank: np.ndarray | None = None,
     use_paddle: bool = False,
+    crop_validate_status: str = "",
+    quality_score: float | None = None,
 ) -> MarkPrediction:
     """Classify one checkbox. Default is geometry + logistic (not Paddle/TrOCR).
 
@@ -204,6 +206,8 @@ def classify_mark_nonverbal(
         fallback_dark_ratio=fallback_dark_ratio,
         fallback_candidate=fallback_candidate,
         blank=blank,
+        crop_validate_status=crop_validate_status,
+        quality_score=quality_score,
     )
     if not use_paddle:
         return density_pred
@@ -305,6 +309,8 @@ def classify_marks(
             fallback_candidate=None,
             blank=blank,
             use_paddle=mark_backend == "paddle",
+            crop_validate_status=str(info.get("crop_validate_status") or ""),
+            quality_score=float(info["quality_score"]) if info.get("quality_score") is not None else None,
         )
         out[fid] = pred
     return out

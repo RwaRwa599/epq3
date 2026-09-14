@@ -206,3 +206,52 @@ def test_tick_policy_constant():
     from med_doc.htr.marks import TICK_POLICY
 
     assert TICK_POLICY == "slash-v2"
+
+
+def _offcenter_ring(size: int = 48, slash: bool = False) -> np.ndarray:
+    """Printed square sitting a few px into the default 0.28 inset (border leak)."""
+    img = np.full((size, size, 3), 245, dtype=np.uint8)
+    cv2.rectangle(img, (11, 11), (40, 40), (90, 90, 90), 2)
+    if slash:
+        cv2.line(img, (18, 18), (34, 34), (18, 18, 18), 2)
+    return img
+
+
+def test_border_sliver_does_not_inflate_blob_count():
+    from med_doc.htr.marks import _ink_blob_count, _working_gray
+
+    gray = _working_gray(_offcenter_ring(slash=True), None)
+    assert _ink_blob_count(gray) == 1
+
+
+def test_offcenter_ring_empty_stays_unmarked():
+    pred = classify_mark(_offcenter_ring(slash=False), "amylase")
+    assert pred.is_marked is False
+
+
+def test_offcenter_ring_slash_is_marked():
+    pred = classify_mark(_offcenter_ring(slash=True), "hba1c")
+    assert pred.is_marked is True
+    assert pred.source == "slash"
+
+
+def test_retry_inset_is_larger_than_ok():
+    from med_doc.htr.marks import INSET, adaptive_inset
+
+    assert adaptive_inset("ok") == INSET
+    assert adaptive_inset("retry") > INSET
+    assert adaptive_inset("hitl") > adaptive_inset("retry")
+
+
+def test_blank_residual_kills_printed_ring_blobs():
+    from med_doc.htr.marks import _ink_blob_count, _working_gray
+
+    blank = _offcenter_ring(slash=False)
+    tick = _offcenter_ring(slash=True)
+    raw = _ink_blob_count(_working_gray(tick, None))
+    resid = _ink_blob_count(_working_gray(tick, blank))
+    assert resid <= raw
+    pred = classify_mark(tick, "cbc", blank=blank)
+    assert pred.is_marked is True
+    empty = classify_mark(blank, "alt", blank=blank)
+    assert empty.is_marked is False
