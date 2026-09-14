@@ -16,6 +16,7 @@ class MarkPrediction(BaseModel):
     ink_density: float = Field(ge=0.0, le=1.0, default=0.0)
     needs_hitl: bool = False
     source: str = "density"
+    crop_validate_status: str = ""
 
 
 class HandwritingPrediction(BaseModel):
@@ -46,6 +47,7 @@ class DocumentPrediction(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     overall_confidence: float = Field(ge=0.0, le=1.0, default=1.0)
     hitl_fields: list[str] = Field(default_factory=list)
+    crop_validate: dict[str, Any] = Field(default_factory=dict)
 
 
 class DocumentHypotheses(BaseModel):
@@ -60,6 +62,7 @@ class DocumentHypotheses(BaseModel):
     implied_tests: list[str] = Field(default_factory=list)
     overall_confidence: float = Field(ge=0.0, le=1.0, default=1.0)
     hitl_fields: list[str] = Field(default_factory=list)
+    crop_validate: dict[str, Any] = Field(default_factory=dict)
 
 
 class BatchPredictionManifest(BaseModel):

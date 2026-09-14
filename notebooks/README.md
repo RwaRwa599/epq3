@@ -4,7 +4,7 @@ Same input shapes as Block 1a: a **folder**, a **ZIP of photos**, a **list of pa
 
 Do **not** upload clinic PHI. The demos use `data/samples/synthetic/lab_request_v0_blank.png`.
 
-The pipeline notebook runs **`run_blocks_1_to_5`** on a folder, ZIP, or multi-file upload (same input shapes as Block 1a). Default **`output_mode="user"`** writes one Block 5 file, `order.json`. Set `OUTPUT_MODE = "dev"` for per-block ZIPs.
+The pipeline notebook runs **`run_blocks_1_to_5`** on a folder, ZIP, or multi-file upload (same input shapes as Block 1a). Cell 8 defaults to **`OUTPUT_MODE = "dev"`** so Colab downloads Block 1/3 overlay ZIPs (`overlay.png` = checkbox windows on the canvas). Set `"user"` for a single `order.json` only.
 
 | Notebook | Open in Colab |
 |---|---|

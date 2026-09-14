@@ -32,6 +32,7 @@ def apply_patches(
                 ink_density=prev.ink_density if prev else (0.2 if marked else 0.0),
                 needs_hitl=False,
                 source="hitl",
+                crop_validate_status=prev.crop_validate_status if prev else "",
             )
             hitl = [x for x in hitl if x != fid]
             continue

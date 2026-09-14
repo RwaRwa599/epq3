@@ -31,7 +31,7 @@ class HitlItem(BaseModel):
     """One field the LIS must not commit without a look."""
 
     field_id: str
-    kind: Literal["tick", "tube", "write_in", "date", "other"] = "other"
+    kind: Literal["tick", "tube", "write_in", "date", "other", "registration"] = "other"
     reason: str = ""
     crop_path: str | None = None
     raw_text: str = ""
@@ -69,6 +69,11 @@ class LabOrder(BaseModel):
     discrepancies: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     overall_confidence: float = Field(ge=0.0, le=1.0, default=1.0)
+    review_reasons: list[str] = Field(default_factory=list)
+    registration_failure_suspected: bool = False
+    crop_retry_rate: float = Field(ge=0.0, le=1.0, default=0.0)
+    crop_hitl_rate: float = Field(ge=0.0, le=1.0, default=0.0)
+    empty_crop_rate: float = Field(ge=0.0, le=1.0, default=0.0)
 
 
 class OrderBundle(BaseModel):

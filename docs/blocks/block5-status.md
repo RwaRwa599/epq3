@@ -22,7 +22,9 @@ flowchart LR
 2. **Review patches** — `confirm_tick` / `reject_tick` / `set_tube` / `set_text` / `accept_write_in` written to `review.json`. Patches edit **drafts**, then re-enter `rescore_hypotheses`. Original `hypotheses.json` stays auditable.
 3. **LLM assist (optional, default off)** — may rank write-in/date n-best only. A suggestion not already in n-best is dropped. Never auto-applied; never emits ticks or tube counts.
 4. **LIS commit** — `order.json` from the committed prediction: ordered tests = ticked ∪ implied, tubes = **observed** (null stays null), `needs_review` if HiTL remains.
-5. Clinic PHI eval stays gitignored / out of CI.
+5. **Registration sanity (independent of CV)** — if ticked ids are ≥45% of `ordered_tests` (and ≥8 ticks), or ≥40 ordered tests, or ticks exist but every tube crop is empty, set `needs_review=True`, `registration_failure_suspected=True`, reason `registration_failure_suspected`. Stops a 19–37 tick dump looking like a committed LIS order.
+6. **`overall_confidence`** — from Block 1c retry/HITL rates and empty handwriting-crop rate (plus a tick-flood penalty). Do not triage on the old mean of mark/HTR p-values; those were ~flat for 0-tick vs 37-tick sheets.
+7. Clinic PHI eval stays gitignored / out of CI.
 
 ## Output
 

@@ -16,8 +16,9 @@ from med_doc.review.apply import commit_hypotheses
 from med_doc.review.lis import order_from_prediction
 from med_doc.review.llm import LlmRanker, attach_llm_suggestions
 from med_doc.review.queue import build_hitl_queue
+from med_doc.review.sanity import REGISTRATION_FAILURE
 from med_doc.htr.marks import TICK_POLICY
-from med_doc.review.schemas import DocumentReview, LabOrder, OrderBundle, OutputMode, ReviewPatch
+from med_doc.review.schemas import DocumentReview, HitlItem, LabOrder, OrderBundle, OutputMode, ReviewPatch
 
 
 def _iter_docs(base_dir: Path) -> list[Path]:
@@ -95,8 +96,15 @@ def process_from_block4(
         queue = attach_llm_suggestions(queue, ranker=llm, enabled=enable_llm, kg=kg)
         patches = _load_patches(reviews, hyp.doc_id)
         patched, committed = commit_hypotheses(hyp, patches, kg)
-        _ = patched
-        order = order_from_prediction(committed)
+        order = order_from_prediction(committed, patched)
+        if order.registration_failure_suspected:
+            queue = [
+                HitlItem(
+                    field_id="_document",
+                    kind="registration",
+                    reason=REGISTRATION_FAILURE,
+                )
+            ] + list(queue)
         review = DocumentReview(
             doc_id=hyp.doc_id,
             patches=patches,

@@ -150,6 +150,47 @@ def test_process_from_block4_writes_order_keeps_hypotheses(tmp_path: Path):
         assert "docs/synthetic/prediction.committed.json" in names
 
 
+def test_registration_gate_flood_and_empty_tubes():
+    kg = KnowledgeGraph.load(DEFAULT_KG)
+    flood = [f"tick_{i}" for i in range(20)]
+    hyp = _hyp(ticks=["cbc", "alt", "hba1c"] + flood[:17])
+    # Pretend a full form so catalogue math is defined; 20 ticks / 20 ordered trips the ratio.
+    pred = rescore_hypotheses(hyp, kg)
+    order = order_from_prediction(pred, hyp)
+    assert order.registration_failure_suspected is True
+    assert order.needs_review is True
+    assert any("registration_failure_suspected" in w for w in order.warnings)
+    assert order.review_reasons == ["registration_failure_suspected"]
+    assert order.is_valid is False
+
+
+def test_registration_gate_spares_small_valid_order():
+    kg = KnowledgeGraph.load(DEFAULT_KG)
+    hyp = _hyp(ticks=["cbc"], tubes={"tube_edta": "1"})
+    pred = rescore_hypotheses(hyp, kg)
+    order = order_from_prediction(pred, hyp)
+    assert order.registration_failure_suspected is False
+    assert order.needs_review is False
+
+
+def test_overall_confidence_tracks_1c_and_empty_crops_not_mark_p():
+    quiet = _hyp(ticks=["cbc"], tubes={"tube_edta": "1"})
+    quiet = quiet.model_copy(
+        update={"crop_validate": {"n_ok": 120, "n_retry": 4, "n_hitl": 0, "n_skip": 0}}
+    )
+    noisy = _hyp(ticks=[f"x{i}" for i in range(30)])
+    noisy = noisy.model_copy(
+        update={"crop_validate": {"n_ok": 10, "n_retry": 80, "n_hitl": 40, "n_skip": 8}}
+    )
+    from med_doc.review.sanity import diagnostic_confidence
+
+    c_quiet = diagnostic_confidence(quiet)
+    c_noisy = diagnostic_confidence(noisy)
+    assert c_quiet > 0.6
+    assert c_noisy <= 0.2
+    assert c_quiet - c_noisy > 0.4
+
+
 def test_process_from_block4_user_mode_one_json(tmp_path: Path):
     kg = KnowledgeGraph.load(DEFAULT_KG)
     hyp = _hyp(ticks=["cbc"])

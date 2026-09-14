@@ -8,6 +8,7 @@ from med_doc.htr.recognizer import extract_digits
 from med_doc.htr.schemas import DocumentHypotheses, DocumentPrediction, HandwritingPrediction
 from med_doc.kg.graph import KnowledgeGraph
 from med_doc.rescoring.ticks import split_nonverbal_ticks
+from med_doc.htr.quality import crop_quality
 
 _WRITE_IN_FIELDS = {"others"}
 _DATE_FIELDS = {"received_at", "date", "sample_received"}
@@ -127,11 +128,17 @@ def rescore_hypotheses(
         if field.needs_hitl and fid not in hitl:
             hitl.append(fid)
 
-    confs = [m.confidence for m in hyp.nonverbal.values()] + [h.confidence for h in fused_hw.values()]
-    overall = float(sum(confs) / len(confs)) if confs else report.confidence
-    overall = min(overall, report.confidence)
-    if hitl or discrepancies:
-        overall = min(overall, 0.74)
+    quality = crop_quality(
+        hyp=hyp.model_copy(
+            update={
+                "nonverbal": hyp.nonverbal,
+                "verbal": fused_hw,
+                "ticked_test_ids": ticked,
+                "crop_validate": hyp.crop_validate,
+            }
+        )
+    )
+    overall = float(quality["overall_confidence"])
 
     is_valid = len(discrepancies) == 0
 
@@ -148,6 +155,7 @@ def rescore_hypotheses(
         warnings=warnings,
         overall_confidence=round(overall, 3),
         hitl_fields=hitl,
+        crop_validate=dict(hyp.crop_validate or {}),
     )
 
 

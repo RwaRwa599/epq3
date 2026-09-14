@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
-from med_doc.htr.schemas import DocumentPrediction
+from med_doc.htr.quality import crop_quality
+from med_doc.htr.schemas import DocumentHypotheses, DocumentPrediction
+from med_doc.review.sanity import REGISTRATION_FAILURE, registration_failure_reasons
 from med_doc.review.schemas import LabOrder
 
 
-def order_from_prediction(pred: DocumentPrediction) -> LabOrder:
+def order_from_prediction(
+    pred: DocumentPrediction,
+    hyp: DocumentHypotheses | None = None,
+) -> LabOrder:
     received = None
     rec = pred.handwriting_fields.get("received_at")
     if rec is not None and rec.source == "date_parse" and rec.canonical_value:
@@ -14,7 +19,20 @@ def order_from_prediction(pred: DocumentPrediction) -> LabOrder:
 
     others = pred.handwriting_fields.get("others")
     ordered = sorted(set(pred.ticked_test_ids) | set(pred.implied_tests))
-    needs_review = bool(pred.hitl_fields) or (not pred.is_valid)
+    quality = crop_quality(hyp=hyp, pred=pred)
+    reasons = registration_failure_reasons(
+        ticked_test_ids=list(pred.ticked_test_ids),
+        ordered_tests=ordered,
+        observed_tubes=dict(pred.observed_tubes),
+        n_checkbox=int(quality.get("n_checkbox") or len(pred.checkbox_marks) or 0),
+        all_tube_crops_empty=bool(quality.get("all_tube_crops_empty")),
+    )
+    failed = bool(reasons)
+    needs_review = bool(pred.hitl_fields) or (not pred.is_valid) or failed
+    warnings = list(pred.warnings)
+    for line in reasons:
+        if line not in warnings:
+            warnings.append(line)
     return LabOrder(
         doc_id=pred.doc_id,
         ordered_tests=ordered,
@@ -26,8 +44,13 @@ def order_from_prediction(pred: DocumentPrediction) -> LabOrder:
         others_raw=(others.raw_text or None) if others else None,
         others_canonical_id=others.canonical_id if others else None,
         needs_review=needs_review,
-        is_valid=pred.is_valid,
+        is_valid=False if failed else pred.is_valid,
         discrepancies=list(pred.discrepancies),
-        warnings=list(pred.warnings),
-        overall_confidence=pred.overall_confidence,
+        warnings=warnings,
+        overall_confidence=float(quality["overall_confidence"]),
+        review_reasons=[REGISTRATION_FAILURE] if failed else [],
+        registration_failure_suspected=failed,
+        crop_retry_rate=float(quality["retry_rate"]),
+        crop_hitl_rate=float(quality["hitl_rate"]),
+        empty_crop_rate=float(quality["empty_crop_rate"]),
     )

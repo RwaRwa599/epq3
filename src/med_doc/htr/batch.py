@@ -76,11 +76,6 @@ def _ticked_ids(marks: dict[str, MarkPrediction]) -> list[str]:
     return [fid for fid, pred in marks.items() if pred.is_marked]
 
 
-def _overall(marks: dict[str, MarkPrediction], hw: dict[str, HandwritingPrediction]) -> float:
-    confs = [m.confidence for m in marks.values()] + [h.confidence for h in hw.values()]
-    return float(sum(confs) / len(confs)) if confs else 1.0
-
-
 def _hitl(marks: dict[str, MarkPrediction], hw: dict[str, HandwritingPrediction]) -> list[str]:
     return [fid for fid, m in marks.items() if m.needs_hitl] + [
         fid for fid, h in hw.items() if h.needs_hitl
@@ -93,21 +88,22 @@ def hypotheses_from_parts(
     hw: dict[str, HandwritingPrediction],
     *,
     implied: list[str] | None = None,
+    crop_validate: dict | None = None,
 ) -> DocumentHypotheses:
+    from med_doc.htr.quality import diagnostic_confidence
+
     ticked = _ticked_ids(marks)
     hitl = _hitl(marks, hw)
-    overall = _overall(marks, hw)
-    if hitl:
-        overall = min(overall, 0.74)
-    return DocumentHypotheses(
+    hyp = DocumentHypotheses(
         doc_id=doc_id,
         nonverbal=marks,
         verbal=hw,
         ticked_test_ids=ticked,
         implied_tests=list(implied or []),
-        overall_confidence=round(overall, 3),
         hitl_fields=hitl,
+        crop_validate=dict(crop_validate or {}),
     )
+    return hyp.model_copy(update={"overall_confidence": diagnostic_confidence(hyp)})
 
 
 def prediction_from_hypotheses(
@@ -127,6 +123,7 @@ def prediction_from_hypotheses(
         handwriting_fields=hyp.verbal,
         ticked_test_ids=hyp.ticked_test_ids,
         implied_tests=implied,
+        crop_validate=dict(hyp.crop_validate or {}),
         expected_tubes=expected,
         observed_tubes=observed_tubes or {},
         overall_confidence=hyp.overall_confidence,
@@ -176,8 +173,13 @@ def process_block1_document(
         )
         for fid, pred in list(marks.items()):
             info = cb_meta.get(fid) or {}
+            patch: dict = {}
+            if info.get("crop_validate_status"):
+                patch["crop_validate_status"] = str(info["crop_validate_status"])
             if info.get("crop_needs_hitl"):
-                marks[fid] = pred.model_copy(update={"needs_hitl": True})
+                patch["needs_hitl"] = True
+            if patch:
+                marks[fid] = pred.model_copy(update=patch)
 
     # KG scoring (assume / tubes / implied tests) is Block 4. Block 3 emits drafts only.
     hw: dict[str, HandwritingPrediction] = {}
@@ -191,7 +193,8 @@ def process_block1_document(
             blanks=_verbal_blanks(doc),
         )
 
-    return hypotheses_from_parts(doc.doc_id, marks, hw)
+    crop_validate = dict((doc.metadata or {}).get("crop_validate") or {})
+    return hypotheses_from_parts(doc.doc_id, marks, hw, crop_validate=crop_validate)
 
 
 def process_from_block1(
