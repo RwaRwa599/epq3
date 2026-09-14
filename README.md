@@ -55,7 +55,7 @@ python -m med_doc.privacy photos/ --out cropped/ \
 from med_doc.privacy import crop_batch, load_crop_config
 
 cfg = load_crop_config()
-cfg.template.top, cfg.template.bottom = 0.10, 0.88  # keep this band for the whole batch
+cfg.template.top, cfg.template.bottom = 0.10, 0.82  # columns only; header cropped off
 crop_batch("photos/", "cropped/", config=cfg)
 ```
 

@@ -26,10 +26,13 @@ PUBLAYNET_LABELS = {0: "Text", 1: "Title", 2: "List", 3: "Table", 4: "Figure"}
 
 
 class TemplateBand(BaseModel):
-    """Keep this fraction of the page. 0–1 relative to image width/height."""
+    """Keep this fraction of the page. 0–1 relative to image width/height.
+
+    v1 columns run y≈0.10–0.82 (gutters + first checkbox). Header bar is ~0–0.08.
+    """
 
     top: float = Field(ge=0.0, le=1.0, default=0.10)
-    bottom: float = Field(ge=0.0, le=1.0, default=0.88)
+    bottom: float = Field(ge=0.0, le=1.0, default=0.82)
     left: float = Field(ge=0.0, le=1.0, default=0.0)
     right: float = Field(ge=0.0, le=1.0, default=1.0)
 
@@ -48,9 +51,9 @@ class CropConfig(BaseModel):
     """What to keep for a whole batch. Load from configs/layout_crop.json."""
 
     backend: Backend = "template"
-    keep_types: list[str] = Field(default_factory=lambda: ["Table", "Text", "List"])
-    drop_types: list[str] = Field(default_factory=lambda: ["Title", "Figure"])
-    combine: Combine = "vertical_span"
+    keep_types: list[str] = Field(default_factory=lambda: ["Table", "List"])
+    drop_types: list[str] = Field(default_factory=lambda: ["Title", "Figure", "Text"])
+    combine: Combine = "largest"
     score_threshold: float = Field(ge=0.0, le=1.0, default=0.5)
     min_area_frac: float = Field(ge=0.0, le=1.0, default=0.08)
     padding_px: int = Field(ge=0, default=0)

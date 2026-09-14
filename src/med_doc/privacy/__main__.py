@@ -6,7 +6,7 @@ Examples::
     python -m med_doc.privacy photos/ --out cropped/ \\
         --config configs/layout_crop.layoutparser.json --debug
     python -m med_doc.privacy photos/ --out cropped/ --backend layoutparser_then_template \\
-        --keep Table Text List --drop Title Figure --combine vertical_span --debug
+        --keep Table List --drop Title Figure Text --combine largest --debug
 """
 
 from __future__ import annotations

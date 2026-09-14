@@ -1,8 +1,8 @@
 {
   "backend": "template",
-  "keep_types": ["Table", "Text", "List"],
-  "drop_types": ["Title", "Figure"],
-  "combine": "vertical_span",
+  "keep_types": ["Table", "List"],
+  "drop_types": ["Title", "Figure", "Text"],
+  "combine": "largest",
   "score_threshold": 0.5,
   "min_area_frac": 0.08,
   "padding_px": 0,
@@ -20,9 +20,9 @@
     "enforce_cpu": true
   },
   "template": {
-    "comment": "Fractions of image height/width after you have a full page. Matches v1 header_bar (~0–0.08) and footer (~0.90–1). Edit these to change the batch crop.",
+    "comment": "Four test columns only (v1 gutters y=0.10–0.82). Header / clinical_info (0–0.08) cropped off. Tubes and office footer (y≥0.90) cropped off.",
     "top": 0.10,
-    "bottom": 0.88,
+    "bottom": 0.82,
     "left": 0.0,
     "right": 1.0
   }

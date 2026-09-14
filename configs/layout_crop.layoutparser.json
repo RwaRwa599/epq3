@@ -1,11 +1,11 @@
 {
   "backend": "layoutparser_then_template",
-  "keep_types": ["Table", "Text", "List"],
-  "drop_types": ["Title", "Figure"],
-  "combine": "vertical_span",
+  "keep_types": ["Table", "List"],
+  "drop_types": ["Title", "Figure", "Text"],
+  "combine": "largest",
   "score_threshold": 0.5,
   "min_area_frac": 0.08,
-  "padding_px": 8,
+  "padding_px": 0,
   "layoutparser": {
     "engine": "paddle",
     "config_path": "lp://PubLayNet/ppyolov2_r50vd_dcn_365e",
@@ -20,9 +20,9 @@
     "enforce_cpu": true
   },
   "template": {
-    "comment": "Fallback band if LayoutParser keeps nothing. Fractions of page height/width.",
+    "comment": "Fallback: four test columns only. Header (y<0.10) off. Tubes/office (y>0.82) off. Text is dropped so a Title/header block is not merged into the crop.",
     "top": 0.10,
-    "bottom": 0.88,
+    "bottom": 0.82,
     "left": 0.0,
     "right": 1.0
   }

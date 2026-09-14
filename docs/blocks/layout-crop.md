@@ -9,10 +9,10 @@ PubLayNet labels (this is the layout you set): **Text, Title, List, Table, Figur
 
 | You set | Effect |
 |---|---|
-| `keep_types` | Boxes **kept** and merged into the crop. For this form: `Table`, `Text`, `List` (the checkbox grid). |
-| `drop_types` | Boxes **thrown away**. `Title` is usually the patient header; `Figure` is noise. |
-| `combine` | `vertical_span` = full page width, min–max Y of kept boxes (cuts header/footer). `union` = tight box. `largest` = one box only. |
-| `template.top` / `.bottom` | Fallback band if LayoutParser finds nothing (phone photos of this sheet often do). Default **0.10–0.88**. |
+| `keep_types` | Boxes **kept**. Columns look like `Table` / `List`. **Do not keep `Text`** — the patient header is usually Text and `vertical_span` would pull it in. |
+| `drop_types` | Boxes **thrown away**: `Title`, `Figure`, `Text`. |
+| `combine` | `largest` = the biggest kept box (the column grid). Avoid `vertical_span` if a header Text box is kept. |
+| `template.top` / `.bottom` | Column band if LayoutParser finds nothing. Default **0.10–0.82** (v1 gutters). Header ~0–0.08 is cropped off. |
 
 Green / red / orange on `--debug` overlays: **keep / drop / final crop**.
 
@@ -40,9 +40,9 @@ Or override without editing JSON:
 ```bash
 python -m med_doc.privacy /path/to/photos --out cropped/ \
   --backend layoutparser_then_template \
-  --keep Table Text List \
-  --drop Title Figure \
-  --combine vertical_span \
+  --keep Table List \
+  --drop Title Figure Text \
+  --combine largest \
   --score 0.5 \
   --debug
 ```
@@ -54,7 +54,7 @@ python -m med_doc.privacy /path/to/photos --out cropped/ \
 `layoutparser_then_template` falls back to the JSON band (`top`/`bottom`). Tune that instead:
 
 ```bash
-python -m med_doc.privacy /path/to/photos --out cropped/ --top 0.12 --bottom 0.86 --debug
+python -m med_doc.privacy /path/to/photos --out cropped/ --top 0.10 --bottom 0.82 --debug
 ```
 
 That needs **no** LayoutParser install.
