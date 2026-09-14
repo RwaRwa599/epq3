@@ -1,68 +1,68 @@
-# Layout crop — batch PHI strip (not redaction)
+# Layout crop — local batch with LayoutParser
 
-Crops the **header and office footer off the page**. Pixels are removed, not blacked out. Config for a whole batch: [`configs/layout_crop.json`](../../configs/layout_crop.json).
+Crops **header/footer pixels off the page**. Not redaction. One config applies to **every** image in a folder.
 
-**Colab:** [Layout_Crop_Batch.ipynb](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/notebooks/Layout_Crop_Batch.ipynb)
+- Default band (no extra packages): [`configs/layout_crop.json`](../../configs/layout_crop.json) — `backend: template`
+- LayoutParser preset: [`configs/layout_crop.layoutparser.json`](../../configs/layout_crop.layoutparser.json)
 
-Do this **locally** if the goal is not uploading names. Then point `run_blocks_1_to_5` at the cropped folder.
+PubLayNet labels (this is the layout you set): **Text, Title, List, Table, Figure**.
 
-## Set the crop for a batch
-
-Edit `configs/layout_crop.json` (or pass CLI flags). One file applies to every image in the folder/ZIP.
-
-| Field | What it does |
+| You set | Effect |
 |---|---|
-| `backend` | `template` (default) · `layoutparser` · `layoutparser_then_template` |
-| `template.top` / `.bottom` / `.left` / `.right` | Keep this **fraction of the page** (0–1). Default **0.10–0.88** drops v1 `header_bar` (~0–0.08) and footer (~0.90–1). |
-| `keep_types` | LayoutParser PubLayNet labels to **keep**: `Table`, `Text`, `List` |
-| `drop_types` | Labels to **throw away**: `Title`, `Figure` |
-| `combine` | How to merge kept boxes: `vertical_span` (full width, min–max Y — best for “cut header/footer”), `union`, `largest` |
-| `score_threshold` | Ignore LayoutParser boxes below this |
-| `min_area_frac` | Ignore tiny boxes |
-| `padding_px` | Extra pixels around the kept box (0 for template so the band stays exact) |
+| `keep_types` | Boxes **kept** and merged into the crop. For this form: `Table`, `Text`, `List` (the checkbox grid). |
+| `drop_types` | Boxes **thrown away**. `Title` is usually the patient header; `Figure` is noise. |
+| `combine` | `vertical_span` = full page width, min–max Y of kept boxes (cuts header/footer). `union` = tight box. `largest` = one box only. |
+| `template.top` / `.bottom` | Fallback band if LayoutParser finds nothing (phone photos of this sheet often do). Default **0.10–0.88**. |
 
-## Template (no extra packages)
+Green / red / orange on `--debug` overlays: **keep / drop / final crop**.
+
+## 1. Install (once, local)
 
 ```bash
-python -m med_doc.privacy photos/ --out cropped/
-python -m med_doc.privacy photos.zip --out cropped/ --top 0.12 --bottom 0.86
+pip install -e ".[layoutparser]"
+pip install paddlepaddle
 ```
 
-```python
-from med_doc.privacy import crop_batch, CropConfig, load_crop_config
+Detectron2 is optional. The preset uses LayoutParser’s **Paddle** PubLayNet model (`lp://PubLayNet/ppyolov2_r50vd_dcn_365e`).
 
-cfg = load_crop_config()           # configs/layout_crop.json
-cfg.template.top = 0.12            # cut more header
-cfg.template.bottom = 0.86         # cut more footer
-crop_batch("photos/", "cropped/", config=cfg)
-```
+## 2. Point at a folder and set the layout
 
-Then `run_blocks_1_to_5("cropped/", output_dir="pipeline_out", output_mode="dev")`.
-
-## LayoutParser ([Layout-Parser/layout-parser](https://github.com/Layout-Parser/layout-parser))
-
-PubLayNet types: **Text, Title, List, Table, Figure**. For this form the checkbox grid is usually `Table` or `Text`; the patient header is often `Title`. Keep table/text, drop title, combine with `vertical_span`.
+Edit `configs/layout_crop.layoutparser.json` (keep/drop/combine), then:
 
 ```bash
-pip install layoutparser paddlepaddle
-python -m med_doc.privacy photos/ --out cropped/ \
+python -m med_doc.privacy /path/to/photos --out cropped/ \
+  --config configs/layout_crop.layoutparser.json \
+  --debug
+```
+
+Or override without editing JSON:
+
+```bash
+python -m med_doc.privacy /path/to/photos --out cropped/ \
   --backend layoutparser_then_template \
-  --keep Table Text List --drop Title Figure \
-  --combine vertical_span
+  --keep Table Text List \
+  --drop Title Figure \
+  --combine vertical_span \
+  --score 0.5 \
+  --debug
 ```
 
-`layoutparser_then_template` falls back to the JSON band if LayoutParser finds nothing (typical on phone photos of this sheet). Detectron2 (`layoutparser.engine: detectron2`) is optional and heavier.
+`--debug` writes `cropped/debug/<id>_boxes.png`. Open those first. If the orange box still includes the name header, add that label to `--drop` (often `Title`). If the test grid is missing, add the printed type from `detected_types` in `cropped/manifest.json` to `--keep`, or lower `--score`.
 
-```python
-from med_doc.privacy import CropConfig, crop_batch
+## 3. If LayoutParser misses the grid
 
-cfg = CropConfig(
-    backend="layoutparser_then_template",
-    keep_types=["Table", "Text", "List"],
-    drop_types=["Title", "Figure"],
-    combine="vertical_span",
-)
-crop_batch("photos/", "cropped/", config=cfg)
+`layoutparser_then_template` falls back to the JSON band (`top`/`bottom`). Tune that instead:
+
+```bash
+python -m med_doc.privacy /path/to/photos --out cropped/ --top 0.12 --bottom 0.86 --debug
 ```
 
-This is **not** NER de-identification. Write-in `others` in the grid stays in the crop if it sits in the kept band.
+That needs **no** LayoutParser install.
+
+## 4. Then run Blocks 1–5 on the cropped folder
+
+```bash
+python -c "from med_doc import run_blocks_1_to_5; run_blocks_1_to_5('cropped/', output_dir='pipeline_out', output_mode='dev')"
+```
+
+Do this **before** Colab if you do not want names uploaded. Write-in `others` inside the grid stays in the crop.

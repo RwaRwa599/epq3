@@ -126,24 +126,70 @@ def combine_boxes(
     return x1, y1, x2, y2
 
 
+def _block_records(layout: Any) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for block in layout or []:
+        kind = str(getattr(block, "type", "") or "").strip() or "unknown"
+        score = float(getattr(block, "score", 1.0) or 1.0)
+        x1, y1, x2, y2 = _xyxy(block)
+        rows.append({"type": kind, "score": round(score, 3), "bbox_xyxy": [x1, y1, x2, y2]})
+    return rows
+
+
 def boxes_from_layout(layout: Any, cfg: CropConfig, *, w: int, h: int) -> list[tuple[int, int, int, int]]:
     keep = {t.lower() for t in cfg.keep_types}
     drop = {t.lower() for t in cfg.drop_types}
     out: list[tuple[int, int, int, int]] = []
-    for block in layout or []:
-        kind = str(getattr(block, "type", "") or "").strip()
-        score = float(getattr(block, "score", 1.0) or 1.0)
+    for rec in _block_records(layout):
+        kind = rec["type"]
+        score = float(rec["score"])
         if score < cfg.score_threshold:
             continue
         if kind.lower() in drop:
             continue
         if keep and kind.lower() not in keep:
             continue
-        box = _xyxy(block)
+        box = tuple(int(v) for v in rec["bbox_xyxy"])
         if _area(box) < cfg.min_area_frac * w * h:
             continue
         out.append(box)
     return out
+
+
+def draw_layout_debug(
+    image: np.ndarray,
+    records: list[dict[str, Any]],
+    cfg: CropConfig,
+    crop_box: tuple[int, int, int, int],
+) -> np.ndarray:
+    """BGR overlay: green = keep, red = drop, gray = ignored, blue = final crop."""
+    vis = image.copy()
+    keep = {t.lower() for t in cfg.keep_types}
+    drop = {t.lower() for t in cfg.drop_types}
+    for rec in records:
+        x1, y1, x2, y2 = rec["bbox_xyxy"]
+        kind = str(rec["type"])
+        key = kind.lower()
+        if key in drop:
+            color = (0, 0, 220)
+        elif keep and key in keep:
+            color = (0, 200, 0)
+        else:
+            color = (160, 160, 160)
+        cv2.rectangle(vis, (x1, y1), (x2, y2), color, 2)
+        cv2.putText(
+            vis,
+            f"{kind} {rec['score']}",
+            (x1, max(16, y1 - 6)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            color,
+            1,
+            cv2.LINE_AA,
+        )
+    x1, y1, x2, y2 = crop_box
+    cv2.rectangle(vis, (x1, y1), (x2, y2), (255, 128, 0), 3)
+    return vis
 
 
 def load_layoutparser_model(cfg: CropConfig):
@@ -198,20 +244,22 @@ def crop_array(
     h, w = image.shape[:2]
     used = cfg.backend
     box: tuple[int, int, int, int] | None = None
-    n_blocks = 0
+    detected: list[dict[str, Any]] = []
 
     if cfg.backend in ("layoutparser", "layoutparser_then_template"):
         if model is None:
             model = load_layoutparser_model(cfg)
         rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         layout = model.detect(rgb)
-        n_blocks = len(list(layout or []))
+        detected = _block_records(layout)
         kept = boxes_from_layout(layout, cfg, w=w, h=h)
         box = combine_boxes(kept, combine=cfg.combine, w=w, h=h)
         if box is None and cfg.backend == "layoutparser":
             raise RuntimeError(
-                "LayoutParser kept no blocks. Set keep_types to match detected "
-                "labels, lower score_threshold, or use backend=layoutparser_then_template."
+                "LayoutParser kept no blocks. Detected types: "
+                f"{sorted({r['type'] for r in detected}) or 'none'}. "
+                "Edit keep_types in configs/layout_crop.json to match those labels, "
+                "lower score_threshold, or use backend=layoutparser_then_template."
             )
         if box is None:
             used = "template"
@@ -228,10 +276,13 @@ def crop_array(
     return crop, {
         "backend_used": used,
         "bbox_xyxy": [x1, y1, x2, y2],
-        "n_layout_blocks": n_blocks,
+        "n_layout_blocks": len(detected),
+        "detected_types": [r["type"] for r in detected],
+        "detected": detected,
         "keep_types": list(cfg.keep_types),
         "drop_types": list(cfg.drop_types),
         "combine": cfg.combine,
+        "debug_bgr": draw_layout_debug(image, detected, cfg, box),
     }
 
 
@@ -241,11 +292,15 @@ def crop_batch(
     *,
     config: str | Path | CropConfig | None = None,
     model: Any | None = None,
+    debug: bool = False,
 ) -> dict[str, Any]:
     """Crop a folder, ZIP, file, or list of images. Writes PNGs + manifest.json."""
     cfg = config if isinstance(config, CropConfig) else load_crop_config(config)
     target = Path(output_dir)
     target.mkdir(parents=True, exist_ok=True)
+    debug_dir = target / "debug"
+    if debug:
+        debug_dir.mkdir(parents=True, exist_ok=True)
     items = collect_image_inputs(inputs)
     loaded_model = model
     if cfg.backend.startswith("layoutparser") and loaded_model is None:
@@ -256,10 +311,15 @@ def crop_batch(
         try:
             bgr = _bgr(item)
             cropped, meta = crop_array(bgr, cfg, model=loaded_model)
+            debug_img = meta.pop("debug_bgr", None)
             out_name = f"{doc_id}.png"
-            out_path = target / out_name
-            cv2.imwrite(str(out_path), cropped)
-            documents.append({"doc_id": doc_id, "status": "success", "path": out_name, **meta})
+            cv2.imwrite(str(target / out_name), cropped)
+            row = {"doc_id": doc_id, "status": "success", "path": out_name, **meta}
+            if debug and debug_img is not None:
+                dbg_name = f"{doc_id}_boxes.png"
+                cv2.imwrite(str(debug_dir / dbg_name), debug_img)
+                row["debug_path"] = f"debug/{dbg_name}"
+            documents.append(row)
         except Exception as exc:
             documents.append({"doc_id": doc_id, "status": "error", "error": str(exc)})
 

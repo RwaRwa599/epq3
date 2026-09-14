@@ -1,0 +1,29 @@
+{
+  "backend": "layoutparser_then_template",
+  "keep_types": ["Table", "Text", "List"],
+  "drop_types": ["Title", "Figure"],
+  "combine": "vertical_span",
+  "score_threshold": 0.5,
+  "min_area_frac": 0.08,
+  "padding_px": 8,
+  "layoutparser": {
+    "engine": "paddle",
+    "config_path": "lp://PubLayNet/ppyolov2_r50vd_dcn_365e",
+    "detectron2_config_path": "lp://PubLayNet/faster_rcnn_R_50_FPN_3x/config",
+    "label_map": {
+      "0": "Text",
+      "1": "Title",
+      "2": "List",
+      "3": "Table",
+      "4": "Figure"
+    },
+    "enforce_cpu": true
+  },
+  "template": {
+    "comment": "Fallback band if LayoutParser keeps nothing. Fractions of page height/width.",
+    "top": 0.10,
+    "bottom": 0.88,
+    "left": 0.0,
+    "right": 1.0
+  }
+}

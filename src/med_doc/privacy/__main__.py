@@ -3,9 +3,10 @@
 Examples::
 
     python -m med_doc.privacy photos/ --out cropped/
-    python -m med_doc.privacy photos.zip --out cropped/ --config configs/layout_crop.json
+    python -m med_doc.privacy photos/ --out cropped/ \\
+        --config configs/layout_crop.layoutparser.json --debug
     python -m med_doc.privacy photos/ --out cropped/ --backend layoutparser_then_template \\
-        --keep Table Text List --drop Title Figure --combine vertical_span
+        --keep Table Text List --drop Title Figure --combine vertical_span --debug
 """
 
 from __future__ import annotations
@@ -33,6 +34,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--bottom", type=float, default=None, help="Template band bottom (0–1)")
     p.add_argument("--left", type=float, default=None)
     p.add_argument("--right", type=float, default=None)
+    p.add_argument("--score", type=float, default=None, help="LayoutParser min score")
+    p.add_argument("--min-area", type=float, default=None, dest="min_area", help="Min box area as fraction of page")
+    p.add_argument("--debug", action="store_true", help="Write debug/<id>_boxes.png (keep=green, drop=red)")
     args = p.parse_args(argv)
 
     cfg = load_crop_config(args.config)
@@ -45,6 +49,10 @@ def main(argv: list[str] | None = None) -> int:
         updates["drop_types"] = args.drop
     if args.combine:
         updates["combine"] = args.combine
+    if args.score is not None:
+        updates["score_threshold"] = args.score
+    if args.min_area is not None:
+        updates["min_area_frac"] = args.min_area
     tmpl = dict(cfg.template.model_dump())
     for key in ("top", "bottom", "left", "right"):
         val = getattr(args, key)
@@ -53,7 +61,7 @@ def main(argv: list[str] | None = None) -> int:
     updates["template"] = tmpl
     cfg = CropConfig.model_validate({**cfg.model_dump(), **updates})
 
-    out = crop_batch(args.inputs, args.out, config=cfg)
+    out = crop_batch(args.inputs, args.out, config=cfg, debug=args.debug)
     print(json.dumps(out["manifest"], indent=2))
     return 0 if out["manifest"]["successful"] else 1
 

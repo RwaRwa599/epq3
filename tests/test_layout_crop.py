@@ -88,3 +88,12 @@ def test_crop_batch_writes_pngs(tmp_path):
     assert result["manifest"]["successful"] == 2
     assert (out / "a.png").is_file()
     assert (out / "manifest.json").is_file()
+
+    dbg = crop_batch(
+        src,
+        tmp_path / "dbg",
+        config=CropConfig(template=TemplateBand(top=0.1, bottom=0.9)),
+        debug=True,
+    )
+    assert (tmp_path / "dbg" / "debug" / "a_boxes.png").is_file()
+    assert dbg["manifest"]["documents"][0]["debug_path"] == "debug/a_boxes.png"

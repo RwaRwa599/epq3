@@ -43,12 +43,12 @@ The `block1/`, `block2/`, `block3/` trees are older standalone snapshots (their 
 
 ### Crop header/footer off a batch (before Blocks 1–5)
 
-Config: [`configs/layout_crop.json`](configs/layout_crop.json). How-to: [`docs/blocks/layout-crop.md`](docs/blocks/layout-crop.md).
+Config: [`configs/layout_crop.json`](configs/layout_crop.json) (template band) or [`configs/layout_crop.layoutparser.json`](configs/layout_crop.layoutparser.json) (`keep_types` / `drop_types`). How-to: [`docs/blocks/layout-crop.md`](docs/blocks/layout-crop.md).
 
 ```bash
 python -m med_doc.privacy photos/ --out cropped/
-python -m med_doc.privacy photos/ --out cropped/ --backend layoutparser_then_template \
-  --keep Table Text List --drop Title Figure
+python -m med_doc.privacy photos/ --out cropped/ \
+  --config configs/layout_crop.layoutparser.json --debug
 ```
 
 ```python
