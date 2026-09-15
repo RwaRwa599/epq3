@@ -1,6 +1,6 @@
 # Block 1 — version history and architecture
 
-**Current generation: B1.7** (piecewise 1a + adaptive / RANSAC 1c). Public API has always been `normalize_document()`; callers never pick 1a/1b/1c.
+**Current generation: B1.8** (handwriting 1c + page alignment gate). Public API has always been `normalize_document()`; callers never pick 1a/1b/1c.
 
 Live code: `src/med_doc/normalization/` on branch `block1`. Contract notes: [`docs/engineering-brief.md`](../engineering-brief.md).
 
@@ -184,6 +184,33 @@ flowchart LR
   b[1b squares]
   c[Adaptive 1c plus neighbour prior]
   warp --> pw --> b --> c
+```
+
+---
+
+## B1.8 — handwriting 1c + page alignment gate (2026-09-15) — **current**
+
+**Intent:** Phase 1 of the clinic dump post-mortem. 1c only gated checkboxes; tubes sat on NT-proBNP / Lipoprotein (a); pages at alignment 0.36 still said `success`; `skip` was `ok=True`; rematch wrote boxes into the shared template.
+
+**Architecture**
+
+1. **v1 overlay:** tube / office / clinical_info bboxes moved to the footer (and below the header bar). Tubes no longer overlap cardiovascular labels.
+2. **1b** `snap_handwriting_fields`: footer/header landmark dy applied to write-ins; handwriting crops come from the section-shifted template, not the pre-section overlay.
+3. **1c** validates handwriting: tubes = short underline/blank, not body text; text boxes = bounded blank, not a header bar. Fail → `crop_needs_hitl`.
+4. **Page gate:** `alignment_confidence < 0.6` → `needs_review`, status `page_align`, no rematch, batch `status` is not `success`.
+5. **Skip:** large unverified checkbox cells rematch or HITL — never `ok=True` without a hollow ring.
+6. **Rematch** is per-document (`bbox_overrides` in extra); it does **not** persist into the template.
+7. **Template pick** scores (v0 vs v1, checkbox counts) are logged; a batch that resolves identical-looking sheets to different `template_id`s is flagged.
+
+Phase 2 (ECC, RANSAC neighbour fill, local thresholds) and Phase 3–4 (template-difference, TrOCR ink gate, date hallucination) are still later work.
+
+```mermaid
+flowchart LR
+  pick[pick_revision logged]
+  a[1a warp plus align gate]
+  b[1b squares plus footer HW]
+  c[1c checkbox and handwriting]
+  pick --> a --> b --> c
 ```
 
 ---

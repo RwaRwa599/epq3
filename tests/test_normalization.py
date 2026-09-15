@@ -785,7 +785,7 @@ def test_block1c_no_ring_sets_hitl():
     result = NormalizedDocumentResult(
         document_id="t",
         canonical_canvas=canvas,
-        alignment_confidence=0.5,
+        alignment_confidence=0.72,
         checkbox_crops={"cea": crop},
         handwriting_crops={},
     )

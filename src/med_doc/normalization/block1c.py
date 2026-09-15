@@ -17,13 +17,13 @@ import numpy as np
 from med_doc.normalization.block1a import Block1aPage
 from med_doc.normalization.block1b import Block1bLayout
 from med_doc.normalization.crops import recrop_pixels
+from med_doc.normalization.gates import MIN_ALIGNMENT_CONFIDENCE, alignment_gate
 from med_doc.normalization.illumination import Paper, paper_at, paper_level, paper_map
 from med_doc.normalization.register import predicted_center, ransac_partial_affine
 from med_doc.normalization.sections import _hollow_score, _hollow_xs, _ink_ring_candidates
 from med_doc.normalization.viz import draw_overlay
-from med_doc.schemas import FieldCrop, FieldSpec, TemplateSpec
+from med_doc.schemas import FieldCrop, TemplateSpec
 
-OVERLAY_SKIP_PX = 36
 SEARCH_PAD_LEFT = 80
 SEARCH_PAD_RIGHT = 48
 SEARCH_PAD_Y = 36
@@ -46,7 +46,7 @@ def looks_like_text_line(crop: np.ndarray) -> bool:
     cut = paper * 0.55
     dark = gray < cut
     dens = float(dark.mean())
-    if dens < 0.05:
+    if dens < 0.03:
         return False
     if w >= int(h * 1.45):
         return True
@@ -103,16 +103,111 @@ def crop_window_ok(crop: FieldCrop) -> bool:
     return norm is not None and window_ok(norm)
 
 
-def _interior_dark_frac(crop: np.ndarray) -> float:
+def _ink_density(crop: np.ndarray) -> float:
     gray = _as_gray(crop)
     if gray.size == 0:
         return 0.0
-    h, w = gray.shape[:2]
-    inn = gray[h // 4 : max(h // 4 + 1, 3 * h // 4), w // 4 : max(w // 4 + 1, 3 * w // 4)]
-    if inn.size == 0:
-        return 0.0
     paper = paper_level(gray)
-    return float((inn < paper * 0.55).mean())
+    return float((gray < paper * 0.55).mean())
+
+
+def _dark_bands(row: np.ndarray, *, on_t: float = 0.18, off_t: float = 0.08) -> list[tuple[int, int]]:
+    bands: list[tuple[int, int]] = []
+    start: int | None = None
+    for i, v in enumerate(row):
+        if v >= on_t and start is None:
+            start = i
+        elif v < off_t and start is not None:
+            bands.append((start, i))
+            start = None
+    if start is not None:
+        bands.append((start, len(row)))
+    return bands
+
+
+def looks_like_body_text(crop: np.ndarray) -> bool:
+    """Printed test names / paragraph — not a write-in blank or a single rule."""
+    gray = _as_gray(crop)
+    if gray.size == 0 or min(gray.shape[:2]) < 8:
+        return False
+    dens = _ink_density(gray)
+    if dens < 0.07:
+        return False
+    paper = paper_level(gray)
+    row = (gray < paper * 0.55).mean(axis=1)
+    text_bands = [b for b in _dark_bands(row) if (b[1] - b[0]) >= 6]
+    if len(text_bands) >= 3 and dens >= 0.08:
+        return True
+    return len(text_bands) >= 2 and dens >= 0.08 and looks_like_text_line(crop)
+
+
+def has_underline(crop: np.ndarray) -> bool:
+    """Thin horizontal rule — not a band of printed letters."""
+    gray = _as_gray(crop)
+    if gray.size == 0 or min(gray.shape[:2]) < 6:
+        return False
+    h, w = gray.shape[:2]
+    paper = paper_level(gray)
+    y0 = int(h * 0.20)
+    band = gray[y0:, :]
+    if band.size == 0:
+        return False
+    row_dark = (band < paper * 0.55).mean(axis=1)
+    peak_i = int(np.argmax(row_dark))
+    peak = float(row_dark[peak_i])
+    n_thick = int((row_dark >= 0.22).sum())
+    rule = band[peak_i]
+    rule_frac = float((rule < paper * 0.55).mean())
+    return peak >= 0.40 and n_thick <= 8 and rule_frac >= 0.40
+
+
+def tube_window_ok(crop: np.ndarray) -> bool:
+    """Short underline / blank with a printed tube label nearby — not body text."""
+    gray = _as_gray(crop)
+    if gray.size == 0 or min(gray.shape[:2]) < 6:
+        return False
+    dens = _ink_density(gray)
+    if looks_like_body_text(crop):
+        return False
+    # Label tails (e.g. "NT-proBNP") are a text line without an underline.
+    if looks_like_text_line(crop) and not has_underline(crop):
+        return False
+    h, w = gray.shape[:2]
+    if max(h, w) / float(min(h, w)) < 1.35 and has_hollow_ring(crop):
+        return False
+    if dens <= 0.22:
+        return True
+    return bool(has_underline(crop) and dens <= 0.36)
+
+
+def text_box_ok(crop: np.ndarray) -> bool:
+    """Bounded blank / sparse ink — not a header bar or a stack of printed labels."""
+    gray = _as_gray(crop)
+    if gray.size == 0 or min(gray.shape[:2]) < 8:
+        return False
+    if float(gray.mean()) < 110:
+        return False
+    dens = _ink_density(gray)
+    if dens > 0.42:
+        return False
+    if looks_like_body_text(crop) and dens > 0.12:
+        return False
+    return dens <= 0.30
+
+
+def handwriting_window_ok(crop: FieldCrop) -> bool:
+    img = crop.raw_image
+    fid = crop.field_id
+    ftype = crop.field_type
+    if fid.startswith("tube_") or ftype == "handwriting_line":
+        ok = tube_window_ok(img)
+        if not ok and getattr(crop, "normalized_image", None) is not None:
+            ok = tube_window_ok(crop.normalized_image)
+        return ok
+    ok = text_box_ok(img)
+    if not ok and getattr(crop, "normalized_image", None) is not None:
+        ok = text_box_ok(crop.normalized_image)
+    return ok
 
 
 def _center(bbox: list[int]) -> tuple[float, float]:
@@ -208,27 +303,6 @@ def _bbox_from_xy(hx: int, hy: int, w: int, h: int) -> list[int]:
     ]
 
 
-def _update_template_bbox(
-    template: TemplateSpec,
-    field_id: str,
-    pixel_bbox: list[int],
-) -> TemplateSpec:
-    w, h = float(template.width), float(template.height)
-    rel = [
-        round(pixel_bbox[0] / w, 6),
-        round(pixel_bbox[1] / h, 6),
-        round(pixel_bbox[2] / w, 6),
-        round(pixel_bbox[3] / h, 6),
-    ]
-    fields: list[FieldSpec] = []
-    for spec in template.fields:
-        if spec.field_id == field_id and spec.field_type == "checkbox":
-            fields.append(spec.model_copy(update={"bbox": rel, "pad": 0.0}))
-        else:
-            fields.append(spec)
-    return template.model_copy(update={"fields": fields})
-
-
 def _tag(crop: FieldCrop, *, ok: bool, hitl: bool, status: str, attempts: int) -> FieldCrop:
     return crop.model_copy(
         update={
@@ -250,7 +324,10 @@ class Block1cLayout:
 
 
 def run_block1c(page: Block1aPage, layout: Block1bLayout, *, draw_debug: bool = True) -> Block1cLayout:
-    """Validate 1b checkbox windows. One rematch; else HiTL. No tick labels."""
+    """Validate 1b windows. Checkboxes: printed square. Handwriting: type-specific.
+
+    Does not classify ticks. Does not write rematches back into the shared template.
+    """
     canvas = page.canvas
     result = layout.result
     template = layout.sectioned
@@ -258,7 +335,53 @@ def run_block1c(page: Block1aPage, layout: Block1bLayout, *, draw_debug: bool = 
     h, w = gray.shape[:2]
     paper = paper_map(gray, tile=64)
 
+    extra = dict(result.extra or {})
+    extra["template_pick"] = extra.get("template_pick") or page.extra.get("template_pick") or {}
+    extra["n_checkbox"] = extra.get("n_checkbox") or len(page.template.checkbox_fields())
+    scores = [float(result.alignment_confidence)]
+    if page.align_meta.get("confidence") is not None:
+        scores.append(float(page.align_meta.get("confidence") or 0.0))
+    gate = alignment_gate(min(scores))
+    if page.extra.get("needs_review"):
+        gate = {**gate, "ok": False, "reason": gate.get("reason") or "alignment_confidence"}
+    extra["page_gate"] = gate
+    extra["needs_review"] = not bool(gate["ok"])
+
     crops = dict(result.checkbox_crops)
+    hw = dict(result.handwriting_crops)
+
+    if not gate["ok"]:
+        for fid, crop in list(crops.items()):
+            crops[fid] = _tag(crop, ok=False, hitl=True, status="page_align", attempts=0)
+        for fid, crop in list(hw.items()):
+            hw[fid] = _tag(crop, ok=False, hitl=True, status="page_align", attempts=0)
+        extra["crop_validate"] = {
+            "n_ok": 0,
+            "n_retry": 0,
+            "n_hitl": len(crops),
+            "n_skip": 0,
+            "n_hw_ok": 0,
+            "n_hw_hitl": len(hw),
+            "page_align_fail": True,
+            "alignment_confidence": round(float(result.alignment_confidence), 4),
+            "threshold": MIN_ALIGNMENT_CONFIDENCE,
+        }
+        result.checkbox_crops = crops
+        result.handwriting_crops = hw
+        result.extra = extra
+        if draw_debug:
+            result.debug_overlay = draw_overlay(canvas, result, template)
+        return Block1cLayout(result=result, sectioned=template)
+
+    n_hw_ok = n_hw_hitl = 0
+    for fid, crop in list(hw.items()):
+        if handwriting_window_ok(crop):
+            hw[fid] = _tag(crop, ok=True, hitl=False, status="ok", attempts=0)
+            n_hw_ok += 1
+        else:
+            hw[fid] = _tag(crop, ok=False, hitl=True, status="hitl", attempts=0)
+            n_hw_hitl += 1
+
     centers = {fid: _center(c.canonical_bbox) for fid, c in crops.items()}
     expected: dict[str, tuple[float, float]] = {}
     for spec in template.checkbox_fields():
@@ -283,21 +406,14 @@ def run_block1c(page: Block1aPage, layout: Block1bLayout, *, draw_debug: bool = 
             min_inliers=max(3, len(src_pts) // 4),
         )
 
+    bbox_overrides: dict[str, list[int]] = {}
     for fid, crop in list(crops.items()):
         x0, y0, x1, y1 = crop.canonical_bbox
         if crop_window_ok(crop):
             crops[fid] = _tag(crop, ok=True, hitl=False, status="ok", attempts=0)
             n_ok += 1
             continue
-        # Large overlay cells (label + box) are not 1b squares; skip unless they look like a label we can rematch.
-        large = min(x1 - x0, y1 - y0) >= OVERLAY_SKIP_PX
-        if large and not looks_like_text_line(crop.raw_image):
-            crops[fid] = _tag(crop, ok=True, hitl=False, status="skip", attempts=0)
-            n_skip += 1
-            continue
 
-        # Always hunt ink-in-ring (ticked boxes). Gating on the 1b crop being dark
-        # missed gold ticks whose window was blank paper (order-8 CBC / HAV).
         candidates = _search_candidates(gray, crop.canonical_bbox, paper, allow_ink_rings=True)
         own = _center(crop.canonical_bbox)
         prior = predicted_center(affine, expected.get(fid, own))
@@ -306,7 +422,6 @@ def run_block1c(page: Block1aPage, layout: Block1bLayout, *, draw_debug: bool = 
         def _rank(p: tuple[int, int]) -> float:
             cand_c = (p[0] + 9.0, p[1] + 9.0)
             if on_label:
-                # 1b landed on the printed name; the box is the same row, further left.
                 return abs(cand_c[1] - own[1]) * 3.0 + cand_c[0]
             left_pen = max(0.0, cand_c[0] - own[0]) * 0.25
             return (
@@ -334,22 +449,29 @@ def run_block1c(page: Block1aPage, layout: Block1bLayout, *, draw_debug: bool = 
             new_crop = recrop_pixels(canvas, fid, chosen)
             crops[fid] = _tag(new_crop, ok=True, hitl=False, status="retry", attempts=1)
             centers[fid] = _center(chosen)
-            template = _update_template_bbox(template, fid, chosen)
+            bbox_overrides[fid] = chosen
             n_retry += 1
         else:
             crops[fid] = _tag(crop, ok=False, hitl=True, status="hitl", attempts=1)
             n_hitl += 1
 
-    extra = dict(result.extra or {})
     extra["crop_validate"] = {
         "n_ok": n_ok,
         "n_retry": n_retry,
         "n_hitl": n_hitl,
         "n_skip": n_skip,
+        "n_hw_ok": n_hw_ok,
+        "n_hw_hitl": n_hw_hitl,
         "ransac_inliers": len(src_pts),
         "ransac": affine is not None,
+        "page_align_fail": False,
+        "template_persist": False,
+        "n_bbox_overrides": len(bbox_overrides),
     }
+    extra["bbox_overrides"] = bbox_overrides
+    extra["needs_review"] = not bool(gate["ok"])
     result.checkbox_crops = crops
+    result.handwriting_crops = hw
     result.extra = extra
     if draw_debug:
         result.debug_overlay = draw_overlay(canvas, result, template)

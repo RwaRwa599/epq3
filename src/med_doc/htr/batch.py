@@ -192,6 +192,11 @@ def process_block1_document(
             backend=verbal_backend,
             blanks=_verbal_blanks(doc),
         )
+        hw_meta = (doc.fields.get("handwriting") or {}) if doc.fields else {}
+        for fid, pred in list(hw.items()):
+            info = hw_meta.get(fid) or {}
+            if info.get("crop_needs_hitl"):
+                hw[fid] = pred.model_copy(update={"needs_hitl": True})
 
     crop_validate = dict((doc.metadata or {}).get("crop_validate") or {})
     return hypotheses_from_parts(doc.doc_id, marks, hw, crop_validate=crop_validate)

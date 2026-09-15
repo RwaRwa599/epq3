@@ -34,9 +34,9 @@
       "kind": "footer_rule",
       "bbox": [
         0.02,
-        0.9,
+        0.94,
         0.98,
-        0.96
+        0.985
       ]
     },
     {
@@ -1879,14 +1879,14 @@
       "field_id": "clinical_info",
       "field_type": "handwriting_box",
       "bbox": [
-        0.019531,
-        0.007982,
-        0.299805,
-        0.082098
+        0.02,
+        0.081,
+        0.28,
+        0.099
       ],
       "label": "Clinical Information",
       "group": "write_in",
-      "pad": 0.004
+      "pad": 0.001
     },
     {
       "field_id": "others",
@@ -1905,131 +1905,131 @@
       "field_id": "tube_edta",
       "field_type": "handwriting_line",
       "bbox": [
-        0.039062,
-        0.899658,
-        0.119141,
-        0.933865
+        0.055,
+        0.948,
+        0.1,
+        0.975
       ],
       "label": "EDTA x",
       "group": "tube",
-      "pad": 0.004
+      "pad": 0.002
     },
     {
       "field_id": "tube_cb",
       "field_type": "handwriting_line",
       "bbox": [
-        0.125,
-        0.899658,
-        0.204102,
-        0.933865
+        0.135,
+        0.948,
+        0.18,
+        0.975
       ],
       "label": "CB x",
       "group": "tube",
-      "pad": 0.004
+      "pad": 0.002
     },
     {
       "field_id": "tube_fl",
       "field_type": "handwriting_line",
       "bbox": [
-        0.209961,
-        0.899658,
-        0.289062,
-        0.933865
+        0.215,
+        0.948,
+        0.26,
+        0.975
       ],
       "label": "Fl x",
       "group": "tube",
-      "pad": 0.004
+      "pad": 0.002
     },
     {
       "field_id": "tube_cit",
       "field_type": "handwriting_line",
       "bbox": [
-        0.294922,
-        0.899658,
-        0.374023,
-        0.933865
+        0.295,
+        0.948,
+        0.34,
+        0.975
       ],
       "label": "Cit x",
       "group": "tube",
-      "pad": 0.004
+      "pad": 0.002
     },
     {
       "field_id": "tube_urine",
       "field_type": "handwriting_line",
       "bbox": [
-        0.379883,
-        0.899658,
-        0.458984,
-        0.933865
+        0.375,
+        0.948,
+        0.42,
+        0.975
       ],
       "label": "Urine x",
       "group": "tube",
-      "pad": 0.004
+      "pad": 0.002
     },
     {
       "field_id": "tube_stool",
       "field_type": "handwriting_line",
       "bbox": [
-        0.464844,
-        0.899658,
-        0.543945,
-        0.933865
+        0.455,
+        0.948,
+        0.5,
+        0.975
       ],
       "label": "Stool x",
       "group": "tube",
-      "pad": 0.004
+      "pad": 0.002
     },
     {
       "field_id": "tube_pap",
       "field_type": "handwriting_line",
       "bbox": [
-        0.549805,
-        0.899658,
-        0.628906,
-        0.933865
+        0.535,
+        0.948,
+        0.58,
+        0.975
       ],
       "label": "pap x",
       "group": "tube",
-      "pad": 0.004
+      "pad": 0.002
     },
     {
       "field_id": "tube_ubt",
       "field_type": "handwriting_line",
       "bbox": [
-        0.634766,
-        0.899658,
-        0.713867,
-        0.933865
+        0.615,
+        0.948,
+        0.66,
+        0.975
       ],
       "label": "UBT x",
       "group": "tube",
-      "pad": 0.004
+      "pad": 0.002
     },
     {
       "field_id": "office_other",
       "field_type": "handwriting_box",
       "bbox": [
-        0.039062,
-        0.938426,
-        0.549805,
-        0.995439
+        0.039,
+        0.982,
+        0.55,
+        0.998
       ],
       "label": "Other",
       "group": "office",
-      "pad": 0.004
+      "pad": 0.001
     },
     {
       "field_id": "received_at",
       "field_type": "handwriting_box",
       "bbox": [
-        0.579102,
-        0.938426,
-        0.979492,
-        0.995439
+        0.579,
+        0.982,
+        0.979,
+        0.998
       ],
       "label": "Sample received Date/Time",
       "group": "office",
-      "pad": 0.004
+      "pad": 0.001
     }
   ],
   "source": {

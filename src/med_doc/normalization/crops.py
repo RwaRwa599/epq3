@@ -224,3 +224,28 @@ def recrop_pixels(
         blur_score=blur,
         glare_index=glare,
     )
+
+
+def dump_handwriting_crops(
+    canvas: np.ndarray,
+    template: TemplateSpec,
+    out_dir,
+) -> list:
+    """Write one PNG per handwriting field. For visual QA; not a clinic photo dump."""
+    from pathlib import Path
+
+    dest = Path(out_dir)
+    dest.mkdir(parents=True, exist_ok=True)
+    _, hw = extract_crops(canvas, template)
+    order = template.handwriting_order or list(hw)
+    paths = []
+    for fid in order:
+        crop = hw.get(fid)
+        if crop is None:
+            continue
+        path = dest / f"{fid}.png"
+        img = crop.raw_image
+        bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR) if img.ndim == 3 else img
+        cv2.imwrite(str(path), bgr)
+        paths.append(path)
+    return paths

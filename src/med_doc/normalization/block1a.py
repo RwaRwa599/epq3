@@ -11,6 +11,7 @@ import numpy as np
 from PIL import Image
 
 from med_doc.normalization.align import fine_align, snap_overlay
+from med_doc.normalization.gates import alignment_gate, batch_template_conflict, template_pick_meta
 from med_doc.normalization.inputs import collect_image_inputs
 from med_doc.normalization.warp import warp_to_canonical
 from med_doc.paths import DEFAULT_TEMPLATE, V1_TEMPLATE
@@ -33,25 +34,70 @@ class Block1aPage:
     extra: dict = field(default_factory=dict)
 
 
-def pick_revision(
-    image: Image.Image | np.ndarray | str | Path,
-    explicit: TemplateSpec | str | Path | None,
-) -> TemplateSpec:
-    if isinstance(explicit, TemplateSpec):
-        return explicit
-    if explicit is not None:
-        return load_template(explicit)
+def _snap_score(meta: dict) -> float:
+    return float(meta.get("n_snapped", 0) or 0) + 0.5 * float(meta.get("n_offset_hits", 0) or 0)
+
+
+def score_revisions(image: Image.Image | np.ndarray | str | Path) -> dict:
+    """v0 vs v1 snap scores. Callers must log this — picker misses look like 1b bugs."""
     v0 = load_template(DEFAULT_TEMPLATE)
+    out: dict = {
+        "score_v0": 0.0,
+        "score_v1": 0.0,
+        "n_checkbox_v0": len(v0.checkbox_fields()),
+        "n_checkbox_v1": 0,
+        "picked": v0.template_id,
+        "explicit": False,
+    }
     if not V1_TEMPLATE.exists():
-        return v0
+        return template_pick_meta(out)
     v1 = load_template(V1_TEMPLATE)
+    out["n_checkbox_v1"] = len(v1.checkbox_fields())
     canvas0, _ = warp_to_canonical(image, dest_size=(v0.width, v0.height))
     canvas1, _ = warp_to_canonical(image, dest_size=(v1.width, v1.height))
     _, s0_meta = snap_overlay(canvas0, v0)
     _, s1_meta = snap_overlay(canvas1, v1)
-    score0 = s0_meta.get("n_snapped", 0) + 0.5 * s0_meta.get("n_offset_hits", 0)
-    score1 = s1_meta.get("n_snapped", 0) + 0.5 * s1_meta.get("n_offset_hits", 0)
-    return v1 if score1 >= score0 else v0
+    out["score_v0"] = _snap_score(s0_meta)
+    out["score_v1"] = _snap_score(s1_meta)
+    out["n_snapped_v0"] = int(s0_meta.get("n_snapped", 0) or 0)
+    out["n_snapped_v1"] = int(s1_meta.get("n_snapped", 0) or 0)
+    picked = v1 if out["score_v1"] >= out["score_v0"] else v0
+    out["picked"] = picked.template_id
+    return template_pick_meta(out)
+
+
+def pick_revision(
+    image: Image.Image | np.ndarray | str | Path,
+    explicit: TemplateSpec | str | Path | None,
+) -> TemplateSpec:
+    spec, _meta = pick_revision_with_meta(image, explicit)
+    return spec
+
+
+def pick_revision_with_meta(
+    image: Image.Image | np.ndarray | str | Path,
+    explicit: TemplateSpec | str | Path | None,
+) -> tuple[TemplateSpec, dict]:
+    if isinstance(explicit, TemplateSpec):
+        return explicit, {
+            "picked": explicit.template_id,
+            "explicit": True,
+            "n_checkbox": len(explicit.checkbox_fields()),
+            "ambiguous": False,
+            "note": f"explicit {explicit.template_id}",
+        }
+    if explicit is not None:
+        spec = load_template(explicit)
+        return spec, {
+            "picked": spec.template_id,
+            "explicit": True,
+            "n_checkbox": len(spec.checkbox_fields()),
+            "ambiguous": False,
+            "note": f"explicit {spec.template_id}",
+        }
+    meta = score_revisions(image)
+    spec = load_template(V1_TEMPLATE if "v1" in str(meta.get("picked")) else DEFAULT_TEMPLATE)
+    return spec, meta
 
 
 def run_block1a(
@@ -66,10 +112,20 @@ def run_block1a(
         else:
             document_id = "page"
 
-    spec = pick_revision(image, template)
+    spec, pick_meta = pick_revision_with_meta(image, template)
     dest = (spec.width, spec.height)
     canvas, warp_meta = warp_to_canonical(image, dest_size=dest)
     aligned, align_meta, col_shifts = fine_align(canvas, spec)
+    page_gate = alignment_gate(float(align_meta.get("confidence") or 0.0))
+    extra = {
+        "warp": warp_meta,
+        "align": align_meta,
+        "template_pick": pick_meta,
+        "page_gate": page_gate,
+        "needs_review": not bool(page_gate["ok"]),
+        "n_checkbox": len(spec.checkbox_fields()),
+        "template_id": spec.template_id,
+    }
     return Block1aPage(
         canvas=aligned,
         template=spec,
@@ -79,7 +135,7 @@ def run_block1a(
         document_id=document_id,
         warp_method=str(warp_meta.get("method", "none")),
         orientation_degrees=int(warp_meta.get("orientation_degrees", 0)),
-        extra={"warp": warp_meta, "align": align_meta},
+        extra=extra,
     )
 
 
@@ -105,16 +161,23 @@ def save_block1a_page(page: Block1aPage, doc_dir: str | Path) -> dict:
     else:
         bgr = rgb
     cv2.imwrite(str(doc_path / "canonical.png"), bgr)
+    conf = float(page.align_meta.get("confidence") or 0.0)
+    gate = alignment_gate(conf)
     meta = {
         "doc_id": page.document_id,
         "block": "block1a",
         "template_id": page.template.template_id,
+        "n_checkbox": len(page.template.checkbox_fields()),
         "canvas_size": [int(page.canvas.shape[1]), int(page.canvas.shape[0])],
         "warp_method": page.warp_method,
         "orientation_degrees": page.orientation_degrees,
         "col_shifts": {str(k): float(v) for k, v in page.col_shifts.items()},
         "warp": _jsonable(page.warp_meta),
         "align": _jsonable(page.align_meta),
+        "template_pick": _jsonable(page.extra.get("template_pick") or {}),
+        "page_gate": gate,
+        "needs_review": not bool(gate["ok"]),
+        "alignment_confidence": round(conf, 3),
         "canonical_path": "canonical.png",
     }
     (doc_path / "block1a.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
@@ -152,17 +215,29 @@ def run_block1a_batch(
             page = run_block1a(item, template=template, document_id=doc_id)
             meta = save_block1a_page(page, target_dir / "docs" / doc_id)
             pages[doc_id] = page
-            documents.append({"status": "success", **meta})
+            status = "success" if not meta.get("needs_review") else "needs_review"
+            documents.append({"status": status, **meta})
         except Exception as exc:
             print(f"  [!] Error processing '{doc_id}': {exc}")
             documents.append({"doc_id": doc_id, "status": "error", "error": str(exc)})
 
+    conflict = batch_template_conflict(documents)
+    if conflict["conflict"]:
+        print(f"  [!] template_id conflict in batch: {conflict['template_ids']}")
+        for row in documents:
+            if row.get("status") == "error":
+                continue
+            row["template_selection_conflict"] = True
+            if row.get("status") == "success":
+                row["status"] = "needs_review"
+                row["needs_review"] = True
     manifest = {
         "version": "1.0",
         "block": "block1a",
         "stage": "warp_align",
         "total_documents": len(items),
         "successful_documents": sum(1 for d in documents if d.get("status") == "success"),
+        "template_selection": conflict,
         "documents": documents,
     }
     (target_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")

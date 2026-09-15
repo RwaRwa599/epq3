@@ -12,6 +12,7 @@ Full accuracy tables and “why this dump failed → next commit”: [`docs/bloc
 | `d8c1a68` | Slash + profile HiTL | User order-5 still expanded profiles | Stale Colab → BOOTSTRAP_V6 |
 | `9af79a9` slash-v2 | order-7 IMG_7598 | **P=0 R=0** (only ALP FP; 7 gold missed) | Bound Y-shift one row |
 | `80233a4` | order-8 | **R=0**, empty order | 1b on labels; 1c skipped ink-in-ring |
-| `786156f` + **Block 5 gate** | order-9 / order-10 | order-9 **P=0.20 R≈0.29**; order-10 **19–37 ticks/sheet** | Rematch trusted wrong windows; `registration_failure_suspected` + diagnostic confidence until overlays show warp vs row vs box |
+| `786156f` + **Block 5 gate** | order-9 / order-10 | order-9 **P=0.20 R≈0.29**; order-10 **19–37 ticks/sheet** | Rematch trusted wrong windows |
+| `block1` B1.8 | handwriting 1c + align gate | Phase 1: tubes no longer on NT-proBNP; `<0.6` align → `needs_review`; skip not silent-ok | Phase 2 ECC / neighbour fill; Block 5 date hallucination |
 
 Verbal (synthetic): tubes **1.00 / 1.00**, dates **1.00 / 0.50**, others **1.00 / 1.00** (clean / photoreal).

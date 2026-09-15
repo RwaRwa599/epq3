@@ -12,6 +12,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
+from med_doc.normalization.gates import batch_template_conflict
 from med_doc.normalization.inputs import collect_image_inputs
 from med_doc.normalization.pipeline import normalize_document
 from med_doc.schemas import NormalizedDocumentResult, TemplateSpec
@@ -125,6 +126,10 @@ def save_normalized_document(
             "bbox": crop.canonical_bbox,
             "quality_score": round(crop.quality_score, 3),
             "crop_path": crop_rel_path,
+            "crop_ok": bool(crop.crop_ok),
+            "crop_needs_hitl": bool(crop.crop_needs_hitl),
+            "crop_validate_status": crop.crop_validate_status,
+            "crop_validate_attempts": int(crop.crop_validate_attempts),
         }
 
     for sid, crop in result.section_crops.items():
@@ -148,6 +153,9 @@ def save_normalized_document(
         "template_id": result.extra.get("template_id", "v1"),
         "canvas_size": [int(result.canonical_canvas.shape[1]), int(result.canonical_canvas.shape[0])],
         "alignment_confidence": round(result.alignment_confidence, 3),
+        "needs_review": bool(result.extra.get("needs_review")),
+        "page_gate": result.extra.get("page_gate") or {},
+        "template_pick": result.extra.get("template_pick") or {},
         "warp_method": result.warp_method,
         "orientation_degrees": result.orientation_degrees,
         "num_checkboxes": len(result.checkbox_crops),
@@ -198,10 +206,16 @@ def normalize_batch(
             doc_out_dir = target_dir / "docs" / doc_id
             doc_meta = save_normalized_document(res, doc_out_dir, save_crops=save_crops)
             
+            needs_review = bool(res.extra.get("needs_review"))
+            status = "needs_review" if needs_review else "success"
+            pick = res.extra.get("template_pick") or {}
             manifest_docs.append({
                 "doc_id": doc_id,
-                "status": "success",
+                "status": status,
+                "needs_review": needs_review,
                 "template_id": doc_meta["template_id"],
+                "n_checkbox": doc_meta.get("num_checkboxes"),
+                "template_pick": pick if isinstance(pick, dict) else {},
                 "canvas_size": doc_meta["canvas_size"],
                 "alignment_confidence": doc_meta["alignment_confidence"],
                 "num_checkboxes": doc_meta["num_checkboxes"],
@@ -223,8 +237,22 @@ def normalize_batch(
         "block": "block1",
         "total_documents": len(input_items),
         "successful_documents": sum(1 for d in manifest_docs if d.get("status") == "success"),
+        "template_selection": batch_template_conflict(manifest_docs),
         "documents": manifest_docs,
     }
+    conflict = manifest["template_selection"]
+    if conflict.get("conflict"):
+        print(f"  [!] template_id conflict in batch: {conflict['template_ids']}")
+        for row in manifest_docs:
+            if row.get("status") == "error":
+                continue
+            row["template_selection_conflict"] = True
+            if row.get("status") == "success":
+                row["status"] = "needs_review"
+                row["needs_review"] = True
+        manifest["successful_documents"] = sum(
+            1 for d in manifest_docs if d.get("status") == "success"
+        )
 
     (target_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
 
