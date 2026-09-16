@@ -12,7 +12,7 @@ PubLayNet labels (this is the layout you set): **Text, Title, List, Table, Figur
 | `keep_types` | Boxes **kept**. Columns look like `Table` / `List`. **Do not keep `Text`** — the patient header is usually Text and `vertical_span` would pull it in. |
 | `drop_types` | Boxes **thrown away**: `Title`, `Figure`, `Text`. |
 | `combine` | `largest` = the biggest kept box (the column grid). Avoid `vertical_span` if a header Text box is kept. |
-| `template.top` / `.bottom` | Column band if LayoutParser finds nothing. Default **0.10–0.82** (v1 gutters). Header ~0–0.08 is cropped off. |
+| `template.top` / `.bottom` | Band if LayoutParser finds nothing. Default **0.08–0.82**: keeps **Clinical Information** (y≈0.081–0.099) plus the four columns. Name header ~0–0.08 is cropped off. |
 
 Green / red / orange on `--debug` overlays: **keep / drop / final crop**.
 
@@ -54,7 +54,7 @@ python -m med_doc.privacy /path/to/photos --out cropped/ \
 `layoutparser_then_template` falls back to the JSON band (`top`/`bottom`). Tune that instead:
 
 ```bash
-python -m med_doc.privacy /path/to/photos --out cropped/ --top 0.10 --bottom 0.82 --debug
+python -m med_doc.privacy /path/to/photos --out cropped/ --top 0.08 --bottom 0.82 --debug
 ```
 
 That needs **no** LayoutParser install.

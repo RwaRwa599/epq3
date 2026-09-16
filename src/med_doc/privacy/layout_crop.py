@@ -1,7 +1,8 @@
 """Crop PHI strips off lab photos (geometry crop, not redaction).
 
-Default backend is the canonical template band (drop header + office footer).
-Optional LayoutParser: keep PubLayNet types (Table/Text/List), drop Title.
+Default backend is the canonical template band (drop name header + office
+footer; keep Clinical Information + the four test columns).
+Optional LayoutParser: keep PubLayNet types (Table/List), drop Title/Text.
 """
 
 from __future__ import annotations
@@ -28,10 +29,11 @@ PUBLAYNET_LABELS = {0: "Text", 1: "Title", 2: "List", 3: "Table", 4: "Figure"}
 class TemplateBand(BaseModel):
     """Keep this fraction of the page. 0–1 relative to image width/height.
 
-    v1 columns run y≈0.10–0.82 (gutters + first checkbox). Header bar is ~0–0.08.
+    v1: Clinical Information y≈0.081–0.099, columns y≈0.10–0.82.
+    Name header bar is ~0–0.08 (cropped). Office/tubes footer y≥0.82 (cropped).
     """
 
-    top: float = Field(ge=0.0, le=1.0, default=0.10)
+    top: float = Field(ge=0.0, le=1.0, default=0.08)
     bottom: float = Field(ge=0.0, le=1.0, default=0.82)
     left: float = Field(ge=0.0, le=1.0, default=0.0)
     right: float = Field(ge=0.0, le=1.0, default=1.0)

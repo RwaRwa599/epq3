@@ -23,23 +23,26 @@ def test_default_config_loads():
     assert cfg.backend == "template"
     assert "Table" in cfg.keep_types
     assert "Title" in cfg.drop_types
-    assert cfg.template.top == 0.10
+    assert cfg.template.top == 0.08
     assert cfg.template.bottom == 0.82
 
 
-def test_template_crop_drops_header_and_footer():
-    h, w = 100, 80
+def test_template_crop_keeps_clinical_info_drops_name_header():
+    h, w = 1000, 80
     img = np.zeros((h, w, 3), dtype=np.uint8)
-    img[:10] = (0, 0, 255)
-    img[82:] = (0, 255, 0)
-    img[10:82] = (255, 0, 0)
+    img[:80] = (0, 0, 255)  # name header ~0–0.08
+    img[80:99] = (0, 255, 255)  # clinical_info starts just under the header bar
+    img[100:820] = (255, 0, 0)  # columns
+    img[820:] = (0, 255, 0)  # footer
     crop, meta = crop_array(img, CropConfig())
     assert meta["backend_used"] == "template"
     y1, y2 = meta["bbox_xyxy"][1], meta["bbox_xyxy"][3]
-    assert y1 == 10
-    assert y2 == 82
-    assert crop.shape[0] == 72
-    assert (crop[0, 0] == (255, 0, 0)).all()
+    assert y1 == 80
+    assert y2 == 820
+    assert (crop[0, 0] == (0, 255, 255)).all()
+    assert (crop[15, 0] == (0, 255, 255)).all()
+    assert (crop[40, 0] == (255, 0, 0)).all()
+    assert (crop[-1, 0] == (255, 0, 0)).all()
 
 
 def test_layoutparser_keep_types_vertical_span():
