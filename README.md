@@ -60,12 +60,12 @@ python -m med_doc.privacy /Users/renaw/Downloads/labform_pages \
 
 Do not use `/Applications/Xcode.app/.../python3` for this — that pip is too old and has no `med_doc`. If `python3 --version` is 3.9, install Homebrew Python 3.12 and use that `python3`.
 
-**No package install:** download one script and run it with Pillow only:
+**No package install:** download one script. Default cut is **10.5 cm** off the top; it then checks that “Clinical Information” and a column header are still in the PNG and pulls the cut up if not.
 
 ```bash
 curl -L -o /tmp/crop_labform_pages.py \
   https://raw.githubusercontent.com/RwaRwa599/epq3/block1/scripts/crop_labform_pages.py
-python3 -m pip install pillow
+python3 -m pip install pillow numpy opencv-python-headless
 python3 /tmp/crop_labform_pages.py /Users/renaw/Downloads/labform_pages \
   --out /Users/renaw/Downloads/labform_cropped --debug
 ```

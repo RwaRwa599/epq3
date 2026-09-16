@@ -118,5 +118,61 @@ def test_standalone_crop_script(tmp_path):
         [sys.executable, str(script), str(src), "--out", str(out), "--debug"],
     )
     cropped = Image.open(out / "page.png")
-    assert cropped.size == (100, 184)  # y 0.08–1.0 of 200
+    assert cropped.size[0] == 100
+    assert cropped.size[1] < 200
+    assert cropped.size[1] == 200 - int(round(200 * (10.5 / 29.7)))
     assert (out / "debug" / "page_boxes.png").is_file()
+    assert (out / "crop_eval.json").is_file()
+
+
+def _form_page(h: int = 1200, w: int = 800, *, info_y: int, header_y: int):
+    import cv2
+    import numpy as np
+
+    img = np.full((h, w, 3), 245, dtype=np.uint8)
+    cv2.putText(img, "Patient Name PHI", (40, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.1, (20, 20, 20), 2)
+    cv2.putText(img, "Clinical Information", (30, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.72, (20, 20, 20), 1)
+    cv2.rectangle(img, (20, header_y - 22), (w - 20, header_y + 8), (35, 35, 35), -1)
+    cv2.putText(img, "HAEMATOLOGY", (36, header_y), cv2.FONT_HERSHEY_SIMPLEX, 0.72, (240, 240, 240), 1)
+    return img
+
+
+def test_ten_cm_crop_does_not_cut_clinical_info_or_column_headers(tmp_path):
+    import importlib.util
+    import sys
+
+    from med_doc.paths import ROOT
+    from PIL import Image
+
+    spec = importlib.util.spec_from_file_location(
+        "crop_labform_pages", ROOT / "scripts" / "crop_labform_pages.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    import sys
+
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+
+    h, w = 1200, 800
+    proposed = mod.top_px_from_cm(h, 10.5, dpi=None)
+    assert 400 < proposed < 450  # 10.5/29.7 of A4
+    bgr = _form_page(h, w, info_y=180, header_y=250)
+    rgb = bgr
+    im = Image.fromarray(rgb)
+    plan = mod.plan_crop(im, top_cm=10.5)
+    assert plan["adjusted"] is True
+    assert plan["top_px"] < proposed
+    assert plan["top_px"] <= 180
+    crop = im.crop((0, plan["top_px"], w, h))
+    ev = mod.evaluate_crop(crop)
+    assert ev["clinical_information"] is True, ev
+    assert ev["column_headers"] is True, ev
+    assert ev["ok"] is True
+
+    safe = _form_page(h, w, info_y=520, header_y=600)
+    plan_ok = mod.plan_crop(Image.fromarray(safe), top_cm=10.5)
+    assert plan_ok["top_px"] == proposed
+    crop_ok = Image.fromarray(safe).crop((0, plan_ok["top_px"], w, h))
+    ev_ok = mod.evaluate_crop(crop_ok)
+    assert ev_ok["ok"] is True, ev_ok
