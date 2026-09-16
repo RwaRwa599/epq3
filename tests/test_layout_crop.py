@@ -121,7 +121,7 @@ def test_standalone_crop_script(tmp_path):
     assert cropped.size[0] == 100
     assert cropped.size[1] < 200
     assert cropped.size[1] == 200 - int(round(200 * (10.5 / 29.7)))
-    assert (out / "debug" / "page_boxes.png").is_file()
+    assert (out / "debug" / "page_GUIDE_fullpage.png").is_file()
     assert (out / "crop_eval.json").is_file()
 
 

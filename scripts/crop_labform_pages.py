@@ -201,6 +201,21 @@ def plan_crop(
     }
 
 
+def _draw_cut_guide(im: Image.Image, y0: int) -> Image.Image:
+    """Full page with the discarded top washed red so it cannot look like the crop."""
+    vis = im.copy().convert("RGBA")
+    w, h = vis.size
+    veil = Image.new("RGBA", (w, max(1, y0)), (220, 40, 40, 140))
+    vis.paste(veil, (0, 0), veil)
+    draw = ImageDraw.Draw(vis)
+    draw.line((0, y0, w, y0), fill=(255, 128, 0, 255), width=8)
+    draw.rectangle((0, y0, w - 1, h - 1), outline=(255, 128, 0, 255), width=6)
+    caption = f"REMOVED {y0}px  |  KEEP below  |  crop is the other PNG, not this guide"
+    draw.rectangle((8, 8, min(w - 8, 8 + 7 * len(caption)), 36), fill=(0, 0, 0, 180))
+    draw.text((14, 14), caption, fill=(255, 255, 255, 255))
+    return vis.convert("RGB")
+
+
 def crop_one(
     path: Path,
     out_dir: Path,
@@ -215,22 +230,31 @@ def crop_one(
     w, h = im.size
     y0 = int(plan["top_px"])
     cropped = im.crop((0, y0, w, h))
+    if cropped.size[1] == h:
+        raise RuntimeError(f"crop did not change height ({w}x{h}); top_px={y0}")
     dest = out_dir / f"{path.stem}.png"
     cropped.save(dest)
     if debug:
-        vis = im.copy()
-        draw = ImageDraw.Draw(vis)
-        draw.rectangle((0, y0, w - 1, h - 1), outline=(255, 128, 0), width=6)
         (out_dir / "debug").mkdir(parents=True, exist_ok=True)
-        vis.save(out_dir / "debug" / f"{path.stem}_boxes.png")
-    row = {"doc_id": path.stem, "path": dest.name, **plan}
+        _draw_cut_guide(im, y0).save(out_dir / "debug" / f"{path.stem}_GUIDE_fullpage.png")
+    row = {
+        "doc_id": path.stem,
+        "path": dest.name,
+        "input_size": [w, h],
+        "output_size": [cropped.size[0], cropped.size[1]],
+        **plan,
+    }
     status = "ok" if plan["eval"]["ok"] else "eval_failed"
+    used_dpi = image_dpi(im, dpi)
     print(
-        f"{status} {dest.name}  cut {y0}px ({top_cm}cm"
+        f"{status} {dest}  {w}x{h} → {cropped.size[0]}x{cropped.size[1]}  "
+        f"removed top {y0}px ({top_cm}cm"
+        f"{f' @{used_dpi:.0f}dpi' if used_dpi else ' as A4 fraction'}"
         f"{', pulled up' if plan['adjusted'] else ''})  "
         f"clinical={plan['eval']['clinical_information']} "
         f"headers={plan['eval']['column_headers']}"
     )
+    print(f"  open the cropped file, not debug/: {dest}")
     return row
 
 
