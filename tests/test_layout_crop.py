@@ -24,25 +24,25 @@ def test_default_config_loads():
     assert "Table" in cfg.keep_types
     assert "Title" in cfg.drop_types
     assert cfg.template.top == 0.08
-    assert cfg.template.bottom == 0.82
+    assert cfg.template.bottom == 1.0
 
 
-def test_template_crop_keeps_clinical_info_drops_name_header():
+def test_template_crop_keeps_clinical_info_and_footer():
     h, w = 1000, 80
     img = np.zeros((h, w, 3), dtype=np.uint8)
     img[:80] = (0, 0, 255)  # name header ~0–0.08
-    img[80:99] = (0, 255, 255)  # clinical_info starts just under the header bar
+    img[80:99] = (0, 255, 255)  # clinical_info
     img[100:820] = (255, 0, 0)  # columns
-    img[820:] = (0, 255, 0)  # footer
+    img[820:] = (0, 255, 0)  # tubes / office — keep
     crop, meta = crop_array(img, CropConfig())
     assert meta["backend_used"] == "template"
     y1, y2 = meta["bbox_xyxy"][1], meta["bbox_xyxy"][3]
     assert y1 == 80
-    assert y2 == 820
+    assert y2 == 1000
     assert (crop[0, 0] == (0, 255, 255)).all()
     assert (crop[15, 0] == (0, 255, 255)).all()
     assert (crop[40, 0] == (255, 0, 0)).all()
-    assert (crop[-1, 0] == (255, 0, 0)).all()
+    assert (crop[-1, 0] == (0, 255, 0)).all()
 
 
 def test_layoutparser_keep_types_vertical_span():
@@ -118,5 +118,5 @@ def test_standalone_crop_script(tmp_path):
         [sys.executable, str(script), str(src), "--out", str(out), "--debug"],
     )
     cropped = Image.open(out / "page.png")
-    assert cropped.size == (100, 148)  # y 0.08–0.82 of 200
+    assert cropped.size == (100, 184)  # y 0.08–1.0 of 200
     assert (out / "debug" / "page_boxes.png").is_file()

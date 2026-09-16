@@ -20,9 +20,9 @@
     "enforce_cpu": true
   },
   "template": {
-    "comment": "Clinical Information strip + four test columns (v1: clinical_info y=0.081–0.099, gutters 0.10–0.82). Name header bar (y<0.08) cropped off. Tubes and office footer (y≥0.90) cropped off.",
+    "comment": "Drop only the name header (page top through just above Clinical Information, ~1cm above column headers). Keep clinical_info, columns, tubes, and office footer to the bottom of the page.",
     "top": 0.08,
-    "bottom": 0.82,
+    "bottom": 1.0,
     "left": 0.0,
     "right": 1.0
   }

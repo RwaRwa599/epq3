@@ -20,9 +20,9 @@
     "enforce_cpu": true
   },
   "template": {
-    "comment": "Fallback: Clinical Information strip + columns. Name header (y<0.08) off. Tubes/office (y>0.82) off. Text is dropped so a Title/header block is not merged into the crop.",
+    "comment": "Fallback: drop name header only (y<0.08). Keep Clinical Information through the page bottom (tubes/office stay). Text is dropped so a Title/header block is not merged into the crop.",
     "top": 0.08,
-    "bottom": 0.82,
+    "bottom": 1.0,
     "left": 0.0,
     "right": 1.0
   }

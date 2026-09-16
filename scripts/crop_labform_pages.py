@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Crop lab-form scans to Clinical Information + the four test columns.
+"""Crop the name-header strip off lab-form scans; keep the rest of the page.
 
 No med_doc / LayoutParser install. One file. Needs Pillow:
 
     python3 -m pip install pillow
     python3 crop_labform_pages.py /path/to/pages --out /path/to/cropped --debug
 
-Default band (v1): y 0.08–0.82, full width. Name header off; tubes/office footer off.
+Default band (v1): y 0.08–1.0. Drops page top through the start of Clinical
+Information (~1cm above column headers). Keeps tubes / office at the bottom.
 """
 
 from __future__ import annotations
@@ -59,7 +60,7 @@ def main() -> int:
     p.add_argument("inputs", type=Path, help="Folder of PNG/JPG pages, or one image")
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--top", type=float, default=0.08)
-    p.add_argument("--bottom", type=float, default=0.82)
+    p.add_argument("--bottom", type=float, default=1.0)
     p.add_argument("--left", type=float, default=0.0)
     p.add_argument("--right", type=float, default=1.0)
     p.add_argument("--debug", action="store_true")

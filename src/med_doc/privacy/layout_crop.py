@@ -1,7 +1,8 @@
-"""Crop PHI strips off lab photos (geometry crop, not redaction).
+"""Crop the name-header strip off lab photos (geometry crop, not redaction).
 
-Default backend is the canonical template band (drop name header + office
-footer; keep Clinical Information + the four test columns).
+Default template band: drop y 0–0.08 (page top through the start of Clinical
+Information, ~1cm above the column headers). Keep everything below that,
+including tubes and office footer.
 Optional LayoutParser: keep PubLayNet types (Table/List), drop Title/Text.
 """
 
@@ -29,12 +30,13 @@ PUBLAYNET_LABELS = {0: "Text", 1: "Title", 2: "List", 3: "Table", 4: "Figure"}
 class TemplateBand(BaseModel):
     """Keep this fraction of the page. 0–1 relative to image width/height.
 
-    v1: Clinical Information y≈0.081–0.099, columns y≈0.10–0.82.
-    Name header bar is ~0–0.08 (cropped). Office/tubes footer y≥0.82 (cropped).
+    v1: drop the name header (y 0–0.08). Clinical Information starts at
+    y≈0.081 (~1cm above column headers at y≈0.10). Keep through y=1.0
+    (tubes / office footer stay).
     """
 
     top: float = Field(ge=0.0, le=1.0, default=0.08)
-    bottom: float = Field(ge=0.0, le=1.0, default=0.82)
+    bottom: float = Field(ge=0.0, le=1.0, default=1.0)
     left: float = Field(ge=0.0, le=1.0, default=0.0)
     right: float = Field(ge=0.0, le=1.0, default=1.0)
 

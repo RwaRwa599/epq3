@@ -82,7 +82,7 @@ python -m med_doc.privacy photos/ --out cropped/ \
 from med_doc.privacy import crop_batch, load_crop_config
 
 cfg = load_crop_config()
-cfg.template.top, cfg.template.bottom = 0.08, 0.82  # clinical_info + columns; name header cropped off
+cfg.template.top, cfg.template.bottom = 0.08, 1.0  # drop name header only; keep footer
 crop_batch("photos/", "cropped/", config=cfg)
 ```
 
