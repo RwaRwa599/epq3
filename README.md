@@ -60,6 +60,16 @@ python -m med_doc.privacy /Users/renaw/Downloads/labform_pages \
 
 Do not use `/Applications/Xcode.app/.../python3` for this — that pip is too old and has no `med_doc`. If `python3 --version` is 3.9, install Homebrew Python 3.12 and use that `python3`.
 
+**No package install:** download one script and run it with Pillow only:
+
+```bash
+curl -L -o /tmp/crop_labform_pages.py \
+  https://raw.githubusercontent.com/RwaRwa599/epq3/block1/scripts/crop_labform_pages.py
+python3 -m pip install pillow
+python3 /tmp/crop_labform_pages.py /Users/renaw/Downloads/labform_pages \
+  --out /Users/renaw/Downloads/labform_cropped --debug
+```
+
 Config: [`configs/layout_crop.json`](configs/layout_crop.json) (template band) or [`configs/layout_crop.layoutparser.json`](configs/layout_crop.layoutparser.json) (`keep_types` / `drop_types`). How-to: [`docs/blocks/layout-crop.md`](docs/blocks/layout-crop.md).
 
 ```bash

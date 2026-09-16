@@ -100,3 +100,23 @@ def test_crop_batch_writes_pngs(tmp_path):
     )
     assert (tmp_path / "dbg" / "debug" / "a_boxes.png").is_file()
     assert dbg["manifest"]["documents"][0]["debug_path"] == "debug/a_boxes.png"
+
+
+def test_standalone_crop_script(tmp_path):
+    import subprocess
+    import sys
+
+    from med_doc.paths import ROOT
+    from PIL import Image
+
+    src = tmp_path / "in"
+    src.mkdir()
+    Image.new("RGB", (100, 200), (10, 20, 30)).save(src / "page.png")
+    out = tmp_path / "out"
+    script = ROOT / "scripts" / "crop_labform_pages.py"
+    subprocess.check_call(
+        [sys.executable, str(script), str(src), "--out", str(out), "--debug"],
+    )
+    cropped = Image.open(out / "page.png")
+    assert cropped.size == (100, 148)  # y 0.08–0.82 of 200
+    assert (out / "debug" / "page_boxes.png").is_file()
