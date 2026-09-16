@@ -18,9 +18,20 @@ Green / red / orange on `--debug` overlays: **keep / drop / final crop**.
 
 ## 1. Install (once, local)
 
+The live cropper is on branch **`block1`**. This repo also has a **`block1/` directory**, so `git checkout block1` fails as ambiguous. Use `git switch -C block1 origin/block1`. Then a venv (not Xcode’s Python 3.9 / pip 21):
+
 ```bash
-pip install -e ".[layoutparser]"
-pip install paddlepaddle
+python3 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+python -m pip install --upgrade pip
+python -m pip install -e .
+```
+
+LayoutParser is optional (template band needs none of this):
+
+```bash
+python -m pip install -e ".[layoutparser]"
+python -m pip install paddlepaddle
 ```
 
 Detectron2 is optional. The preset uses LayoutParser’s **Paddle** PubLayNet model (`lp://PubLayNet/ppyolov2_r50vd_dcn_365e`).

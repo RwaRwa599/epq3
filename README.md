@@ -43,6 +43,23 @@ The `block1/`, `block2/`, `block3/` trees are older standalone snapshots (their 
 
 ### Crop header/footer off a batch (before Blocks 1–5)
 
+The repo has a **`block1/` folder** (old Colab snapshot) and a **`block1` branch**. `git checkout block1` is ambiguous; use `git switch`:
+
+```bash
+cd /Users/renaw/epq3
+git fetch origin
+git switch -C block1 origin/block1
+python3 --version   # need 3.10+
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e .
+python -m med_doc.privacy /Users/renaw/Downloads/labform_pages \
+  --out /Users/renaw/Downloads/labform_cropped --debug
+```
+
+Do not use `/Applications/Xcode.app/.../python3` for this — that pip is too old and has no `med_doc`. If `python3 --version` is 3.9, install Homebrew Python 3.12 and use that `python3`.
+
 Config: [`configs/layout_crop.json`](configs/layout_crop.json) (template band) or [`configs/layout_crop.layoutparser.json`](configs/layout_crop.layoutparser.json) (`keep_types` / `drop_types`). How-to: [`docs/blocks/layout-crop.md`](docs/blocks/layout-crop.md).
 
 ```bash
