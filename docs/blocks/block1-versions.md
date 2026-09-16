@@ -1,6 +1,6 @@
 # Block 1 — version history and architecture
 
-**Current generation: B1.9** (ECC + decoupled page gate). Public API has always been `normalize_document()`; callers never pick 1a/1b/1c.
+**Current generation: B1.11** (header-row authoring audit). Public API has always been `normalize_document()`; callers never pick 1a/1b/1c.
 
 Live code: `src/med_doc/normalization/` on branch `block1`. Contract notes: [`docs/engineering-brief.md`](../engineering-brief.md).
 
@@ -234,7 +234,7 @@ flowchart LR
 
 ---
 
-## B1.10 — square gate + glyph-proof snap (2026-09-16) — **current**
+## B1.10 — square gate + glyph-proof snap (2026-09-16)
 
 **Intent:** v1 is the right template, but overlay windows sat on labels. `has_hollow_ring` accepted letter counters so 1c almost never rematched; `snap_overlay` could median-shift toward those loops.
 
@@ -250,6 +250,29 @@ flowchart LR
   snap[filter detections 12-26 px]
   c[1c rematch when the window is a glyph]
   square --> snap --> c
+```
+
+---
+
+## B1.11 — header-row authoring audit (2026-09-16) — **current**
+
+**Intent:** Some windows sat on section bars / the next printed name because JSON Y after a header was off by one row. 1c `window_ok` is working as designed on those crops (they are not blank). Handwriting drafts were charset soup because v1 residual used the v0 blank.
+
+**Architecture**
+
+- `template_layout.audit_header_transitions` checks the first checkbox after each main/sub bar.
+- Label-neighbor NCC (independent of 1c): the strip right of a bbox must match the field's printed name (`HBV DNA` for `hbv_dna`). Runs on gitignored `canonical.png` when present; synthetic one-row shift is in CI.
+- v1 renal: Urea shares the Na/K/Cl/CO2 row; extra gap after Diabetes removed; liver→molecular shifted to keep packing.
+- `blank_canvas` never resizes the v0 PNG onto a v1 page. **ECC** uses `render_blank_form(..., labels=False)` (squares only). **HTR residual** uses `labels=True` (names, bars, write-in rules) so printed ink subtracts away.
+
+```mermaid
+flowchart LR
+  json[v1 JSON]
+  hdr[header-gap audit]
+  lab[label strip NCC]
+  blank[v1 blank residual]
+  json --> hdr --> lab
+  json --> blank
 ```
 
 ---

@@ -114,6 +114,38 @@ def test_fuse_empty_others_no_hitl():
     assert fused.source == "empty"
 
 
+def test_fuse_charset_soup_is_not_a_catalogue_hit():
+    kg = KnowledgeGraph.load(DEFAULT_KG)
+    soup = "D 0\nKA K LV  T K A 0\nN Y 7 X I 7  1  LZ J44ALE / 0"
+    fused = fuse_handwriting(
+        "others",
+        soup,
+        0.4,
+        "charset",
+        kg=kg,
+        ticked_ids=["profile_lipid"],
+    )
+    assert fused.canonical_id is None
+    assert fused.source == "garbage"
+    assert fused.needs_hitl is True
+
+
+def test_overlay_does_not_paint_charset_soup():
+    from med_doc.htr.schemas import HandwritingPrediction
+    from med_doc.htr.viz import handwriting_overlay_caption
+
+    soup = HandwritingPrediction(
+        field_id="others",
+        raw_text="N H N I N Z T K A",
+        canonical_value="N H N I N Z T K A",
+        source="charset",
+        needs_hitl=True,
+    )
+    shown, _color = handwriting_overlay_caption(soup)
+    assert "N H N" not in shown
+    assert shown.startswith("others")
+
+
 def test_printed_corner_is_not_a_tick():
     """Clinic FP: crop is the L of a printed box, not a handwritten slash."""
     img = np.full((32, 32, 3), 245, dtype=np.uint8)

@@ -1,6 +1,6 @@
 # Block 3 — version history and architecture
 
-**Current generation: B3.7** (field-typed verbal HTR + residual marks). Ingests a Block 1 ZIP; does not run Block 2 `assume()` or invent tube priors.
+**Current generation: B3.9** (v1 blank residual + charset-soup gate). Ingests a Block 1 ZIP; does not run Block 2 `assume()` or invent tube priors.
 
 Live code: `src/med_doc/htr/` on branch `block1`. Standalone `block3/` Colab tree is **B3.2-era** (Paddle + density fallback, fused ZIP runner remnants).
 
@@ -198,7 +198,7 @@ Dates under JPEG/shadow still drop; that field needs a stronger constrained deco
 
 ---
 
-## B3.8 — Crop gold + logistic refit; Paddle off ticks (2026-09-12) — **current**
+## B3.8 — Crop gold + logistic refit; Paddle off ticks (2026-09-12)
 
 **Ticks (`tick_policy=slash-v2`):** `mark_backend="geometry"` (default). A tick is committed as a **clean slash** or a **dense handwritten check**. Sparse V-geometry (printed corners) is HiTL. Logistic-only scores are not LIS ticks. `body_check_plan_*` ticks are always HiTL. Named `profile_*` ticks (lipid/renal/thyroid) may auto-commit when the crop is a real box. Column Y-shifts at the search bound (±one row of labels) are ignored — that was order-7 ALP. Tube OCR counts above 4 are dropped. Paddle is opt-in. TrOCR is verbal-only. Block 1 `is_marked_candidate` is not a tick.
 
@@ -209,6 +209,12 @@ Dates under JPEG/shadow still drop; that field needs a stronger constrained deco
 **CNN:** `htr/crop_cnn.py` exists but is not wired; use only if logreg plateaus on labeled clinic empties.
 
 **Clinic dumps (not in git as images):** order-2 ~21 FP missed CA125; order-3 ~55 ticks; slash-v2 order-7 **0 TP / 7 FN / 1 FP (ALP)**; bound-lag order-8 **empty** (recall 0); rematch order-9 precision **0.20** recall **~0.29**; order-10 **19–37 ticks/sheet**. Narrative: [`clinic-eval-chain.md`](./clinic-eval-chain.md).
+
+---
+
+## B3.9 — v1 blank residual + charset-soup gate (2026-09-16) — **current**
+
+**Verbal:** `blank_canvas` for `lab_request_v1_canonical` must not be the v0 PNG (wrong height and rows). Residual against a **labeled** v1 blank so printed "Sample received" / "OTHERS" does not look like handwriting. Charset output that is mostly 1-letter tokens (`source=garbage`) is HiTL, is **not** painted on `annotated_canvas.png`, and does not become a Block 4 write-in. Clinic cursive still needs TrOCR when the charset fallback cannot read it; the overlay then shows `others?` instead of soup.
 
 ---
 

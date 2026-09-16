@@ -143,6 +143,29 @@ def test_false_positive_hitl_tick_does_not_add_tubes():
     assert "cbc" in pred.hitl_fields
 
 
+def test_others_charset_soup_does_not_enter_lis():
+    kg = KnowledgeGraph.load(DEFAULT_KG)
+    soup = "D 0 KA K LV T K A 0 N Y 7 X"
+    hyp = _hyp(
+        ticks=["profile_lipid"],
+        others=HandwritingPrediction(
+            field_id="others",
+            raw_text=soup,
+            canonical_value=soup,
+            confidence=0.4,
+            source="charset",
+            needs_hitl=True,
+            hypotheses=[{"value": soup, "score": 0.4, "source": "charset"}],
+        ),
+    )
+    pred = rescore_hypotheses(hyp, kg)
+    others = pred.handwriting_fields["others"]
+    assert others.canonical_id is None
+    assert others.source == "garbage"
+    assert "triglycerides" not in pred.ticked_test_ids
+    assert others.needs_hitl is True
+
+
 def test_others_triglyc_with_lipid_profile():
     kg = KnowledgeGraph.load(DEFAULT_KG)
     hyp = _hyp(

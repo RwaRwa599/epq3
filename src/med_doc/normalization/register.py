@@ -174,7 +174,7 @@ def ecc_refine(
 
     meta: dict[str, Any] = {"applied": False, "cc": 0.0, "method": "ecc_euclidean"}
     h, w = canvas.shape[:2]
-    blank = render_blank_form(template)
+    blank = render_blank_form(template, labels=False)
     if blank.shape[0] != h or blank.shape[1] != w:
         blank = cv2.resize(blank, (w, h), interpolation=cv2.INTER_AREA)
     scale = min(1.0, float(max_side) / float(max(h, w)))

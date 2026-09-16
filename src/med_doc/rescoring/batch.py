@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import json
 import shutil
 import tempfile
 from pathlib import Path
 from typing import Any
 
-from med_doc.htr.ingest import cleanup_temp, unzip_or_dir
+import cv2
+
+from med_doc.htr.ingest import cleanup_temp, load_rgb, unzip_or_dir
 from med_doc.htr.schemas import BatchPredictionManifest, DocumentHypotheses
+from med_doc.htr.viz import draw_prediction_overlay
 from med_doc.kg.graph import KnowledgeGraph
 from med_doc.paths import DEFAULT_KG
 from med_doc.rescoring.engine import rescore_hypotheses
@@ -61,7 +65,7 @@ def process_from_block3(
             if not src.is_file():
                 continue
             rel = src.relative_to(doc_dir)
-            if rel.name == "prediction.json":
+            if rel.name in {"prediction.json", "annotated_canvas.png"}:
                 continue
             dest = doc_dir_out / rel
             dest.parent.mkdir(parents=True, exist_ok=True)
@@ -70,6 +74,16 @@ def process_from_block3(
         (doc_dir_out / "prediction.json").write_text(
             prediction.model_dump_json(indent=2), encoding="utf-8"
         )
+
+        canvas = load_rgb(doc_dir_out / "canonical.png")
+        meta_path = doc_dir_out / "metadata.json"
+        if canvas is not None and meta_path.is_file():
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            overlay = draw_prediction_overlay(canvas, prediction, meta.get("fields") or {})
+            cv2.imwrite(
+                str(doc_dir_out / "annotated_canvas.png"),
+                cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR),
+            )
 
         docs_out.append(
             {

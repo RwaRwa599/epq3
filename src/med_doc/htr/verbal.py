@@ -5,9 +5,10 @@ from __future__ import annotations
 import numpy as np
 
 from med_doc.htr.fusion import fuse_handwriting
-from med_doc.htr.recognizer import recognize_handwriting
+from med_doc.htr.recognizer import VerbalHypothesis, recognize_handwriting
 from med_doc.htr.schemas import HandwritingPrediction
 from med_doc.kg.graph import KnowledgeGraph
+from med_doc.template_layout import looks_like_htr_garbage
 
 HITL_TAU = 0.75
 
@@ -35,8 +36,11 @@ def recognize_verbal(
     a raw n-best draft. KG `assume()` is Block 4.
     """
     draft = recognize_handwriting(crop, field_id, backend=backend, blank=blank)
+    if looks_like_htr_garbage(draft.text):
+        alts = [(draft.text, draft.confidence)] + list(draft.alternatives)
+        draft = VerbalHypothesis(text="", confidence=0.2, source="garbage", alternatives=alts)
     empty = not (draft.text or "").strip()
-    engine_gap = draft.source in {"unavailable", "ink-present", "trocr-nodigit", "digit-reject"}
+    engine_gap = draft.source in {"unavailable", "ink-present", "trocr-nodigit", "digit-reject", "garbage"}
     needs_hitl = engine_gap or (not empty and draft.confidence < HITL_TAU)
     if empty and draft.source == "empty":
         needs_hitl = False

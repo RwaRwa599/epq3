@@ -9,6 +9,7 @@ from med_doc.htr.schemas import HandwritingPrediction
 from med_doc.kg.graph import KnowledgeGraph
 from med_doc.kg.schemas import RankedCandidate
 from med_doc.kg.textutil import token_similarity
+from med_doc.template_layout import looks_like_htr_garbage
 
 DEFAULT_TAU = 0.75
 
@@ -93,7 +94,7 @@ def fuse_handwriting(
     # Free-text clinical_info / office_other: keep raw, flag if ink but unreadable
     if field_id in {"clinical_info", "office_other"}:
         empty = not (draft_text or "").strip()
-        engine_gap = draft_source in {"unavailable", "ink-present", "trocr-nodigit"}
+        engine_gap = draft_source in {"unavailable", "ink-present", "trocr-nodigit", "garbage"}
         return HandwritingPrediction(
             field_id=field_id,
             raw_text=draft_text,
@@ -227,6 +228,10 @@ def _fuse_write_in(
     tau: float,
 ) -> HandwritingPrediction:
     candidates = _write_in_candidates(draft_text, extra_hypotheses)
+    if looks_like_htr_garbage(draft_text):
+        candidates = [c for c in candidates if not looks_like_htr_garbage(c)]
+        draft_source = "garbage"
+        draft_text = ""
     empty = not candidates
     if empty and draft_source == "empty":
         return HandwritingPrediction(
@@ -239,7 +244,7 @@ def _fuse_write_in(
             needs_hitl=False,
             hypotheses=hypotheses,
         )
-    if draft_source in {"unavailable", "ink-present", "trocr-nodigit"} and empty:
+    if draft_source in {"unavailable", "ink-present", "trocr-nodigit", "garbage"} and empty:
         return HandwritingPrediction(
             field_id=field_id,
             raw_text="",

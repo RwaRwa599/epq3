@@ -5,7 +5,8 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from med_doc.htr.schemas import DocumentPrediction
+from med_doc.htr.schemas import DocumentPrediction, HandwritingPrediction
+from med_doc.template_layout import looks_like_htr_garbage
 
 GREEN = (40, 180, 80)
 AMBER = (220, 160, 40)
@@ -26,6 +27,20 @@ def _label(vis: np.ndarray, bbox: list[int], text: str, color: tuple[int, int, i
         return
     y = max(12, y0 - 4)
     cv2.putText(vis, caption, (x0, y), cv2.FONT_HERSHEY_SIMPLEX, 0.38, color, 1, cv2.LINE_AA)
+
+
+def handwriting_overlay_caption(hw: HandwritingPrediction) -> tuple[str, tuple[int, int, int]]:
+    """Caption for Block 3/4 overlays. Charset soup is not painted as a read."""
+    fid = hw.field_id
+    text = (hw.canonical_value or hw.raw_text or "").strip()
+    soup = hw.source == "garbage" or looks_like_htr_garbage(text)
+    if hw.source in {"garbage", "unavailable", "ink-present"} or soup:
+        return f"{fid}?", RED if soup or hw.source == "garbage" else AMBER
+    if hw.needs_hitl:
+        return (text or fid)[:28], AMBER
+    if text:
+        return text[:28], BLUE
+    return fid, GRAY
 
 
 def draw_prediction_overlay(
@@ -59,9 +74,8 @@ def draw_prediction_overlay(
         bbox = meta.get("bbox")
         if not bbox:
             continue
-        color = AMBER if hw.needs_hitl else (BLUE if (hw.canonical_value or hw.raw_text) else GRAY)
+        shown, color = handwriting_overlay_caption(hw)
         _box(vis, bbox, color, 2)
-        shown = hw.canonical_value or hw.raw_text or fid
         _label(vis, bbox, shown, color)
 
     return vis
