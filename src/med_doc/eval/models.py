@@ -30,9 +30,11 @@ def models_in_use(*, verbal_backend: str = "lexicon", mark_backend: str = "geome
         "trocr_installed": trocr_available(),
         "trocr_used": verbal_backend in ("trocr", "auto") and trocr_available(),
         "crop_cnn": "not wired — use only if logreg plateaus on labeled clinic empties",
-        "llm": "Block 5 n-best rank stub only; never classifies ticks",
+        "llm": "Block 5 OllamaRanker (Instruct, n-best write-in/date only; default off)",
+        "vision_3c": "off unless vision_backend=ollama; VL models only; ticks never trusted without 3a",
         "right_model": (
             "Checkboxes: logistic on mark_features, not TrOCR/Paddle/LLM. "
+            "3c VLM is an independent n-best. Block 4 KG assume() ranks handwriting. "
             "Tubes/dates: glyph matcher. Fine-tune TrOCR only after ticks stabilize."
         ),
     }

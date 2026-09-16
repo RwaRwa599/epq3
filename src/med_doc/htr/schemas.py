@@ -32,6 +32,17 @@ class HandwritingPrediction(BaseModel):
     hypotheses: list[dict[str, Any]] = Field(default_factory=list)
 
 
+class VisionDraft(BaseModel):
+    """Block 3c: independent local-VLM draft. Never a committed LIS tick on its own."""
+
+    source: str = "off"
+    model: str = ""
+    ticked_field_ids: list[str] = Field(default_factory=list)
+    handwriting: dict[str, str] = Field(default_factory=dict)
+    needs_hitl: bool = True
+    notes: str = ""
+
+
 class DocumentPrediction(BaseModel):
     """Per-document Block 3 output for LIS / Block 4."""
 
@@ -63,6 +74,7 @@ class DocumentHypotheses(BaseModel):
     overall_confidence: float = Field(ge=0.0, le=1.0, default=1.0)
     hitl_fields: list[str] = Field(default_factory=list)
     crop_validate: dict[str, Any] = Field(default_factory=dict)
+    vision: VisionDraft = Field(default_factory=VisionDraft)
 
 
 class BatchPredictionManifest(BaseModel):

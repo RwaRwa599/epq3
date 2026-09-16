@@ -14,6 +14,7 @@ class SheetGold(BaseModel):
 
     doc_id: str
     ticked_field_ids: list[str] = Field(default_factory=list)
+    others: str = ""
     notes: str = ""
 
 

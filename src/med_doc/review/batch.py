@@ -14,7 +14,7 @@ from med_doc.paths import DEFAULT_KG
 from med_doc.rescoring.engine import rescore_hypotheses
 from med_doc.review.apply import commit_hypotheses
 from med_doc.review.lis import order_from_prediction
-from med_doc.review.llm import LlmRanker, attach_llm_suggestions
+from med_doc.review.llm import LlmRanker, OllamaRanker, attach_llm_suggestions, ollama_ranker_available
 from med_doc.review.queue import build_hitl_queue
 from med_doc.review.sanity import REGISTRATION_FAILURE
 from med_doc.htr.marks import TICK_POLICY
@@ -57,6 +57,8 @@ def process_from_block4(
     reviews: dict[str, list[ReviewPatch | dict[str, Any]]] | None = None,
     enable_llm: bool = False,
     llm: LlmRanker | None = None,
+    llm_backend: str = "off",
+    llm_model: str | None = None,
     output_mode: OutputMode = "dev",
 ) -> dict[str, Any]:
     """Ingest a Block 4 ZIP/folder, queue HiTL, apply patches, emit LIS JSON.
@@ -66,9 +68,16 @@ def process_from_block4(
 
     Leaves hypotheses.json and the original prediction.json unchanged on disk in
     the Block 4 input. LLM suggestions (if enabled) are attached to the queue
-    only — never auto-applied.
+    only — never auto-applied. ``llm_backend="ollama"`` uses a local Instruct
+    model on write-in/date n-best; it cannot add ticks.
     """
     kg = kg or KnowledgeGraph.load(DEFAULT_KG)
+    if llm is None and (enable_llm or llm_backend in {"ollama", "on", "instruct"}):
+        if ollama_ranker_available():
+            llm = OllamaRanker(model=llm_model)
+            enable_llm = True
+        elif llm_backend in {"ollama", "on", "instruct"}:
+            enable_llm = False
     base_in_dir, is_temp_in = unzip_or_dir(input_source)
     print(f"[Block 5] Ingested {input_source}")
 
@@ -93,6 +102,12 @@ def process_from_block4(
 
         print(f"  → reviewing '{hyp.doc_id}'...")
         queue = build_hitl_queue(pred, hyp, doc_dir=doc_dir)
+        if isinstance(llm, OllamaRanker):
+            labels = []
+            for fid in pred.ticked_test_ids:
+                meta = kg.get_item(fid)
+                labels.append(meta.label if meta else fid)
+            llm.set_ticked_context(pred.ticked_test_ids, labels)
         queue = attach_llm_suggestions(queue, ranker=llm, enabled=enable_llm, kg=kg)
         patches = _load_patches(reviews, hyp.doc_id)
         patched, committed = commit_hypotheses(hyp, patches, kg)

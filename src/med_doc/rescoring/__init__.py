@@ -1,7 +1,7 @@
 """Block 4: KG constraint / rescoring of Block 3 drafts."""
 
 from med_doc.rescoring.batch import process_from_block3
-from med_doc.rescoring.engine import rescore_hypotheses
+from med_doc.rescoring.engine import rank_vision_ticks, rescore_hypotheses
 from med_doc.rescoring.ticks import (
     split_nonverbal_ticks,
     trusted_tick_ids,
@@ -10,6 +10,7 @@ from med_doc.rescoring.ticks import (
 
 __all__ = [
     "process_from_block3",
+    "rank_vision_ticks",
     "rescore_hypotheses",
     "split_nonverbal_ticks",
     "trusted_tick_ids",

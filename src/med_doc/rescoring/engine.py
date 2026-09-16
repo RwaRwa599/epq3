@@ -2,16 +2,122 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from med_doc.htr.fusion import fuse_handwriting
 from med_doc.htr.marks import MAX_PLAUSIBLE_TUBE_COUNT
 from med_doc.htr.recognizer import extract_digits
 from med_doc.htr.schemas import DocumentHypotheses, DocumentPrediction, HandwritingPrediction
 from med_doc.kg.graph import KnowledgeGraph
+from med_doc.kg.textutil import normalize_text
 from med_doc.rescoring.ticks import split_nonverbal_ticks
 from med_doc.htr.quality import crop_quality
+from med_doc.template_layout import looks_like_htr_garbage
 
 _WRITE_IN_FIELDS = {"others"}
 _DATE_FIELDS = {"received_at", "date", "sample_received"}
+
+
+def _attach_vision_handwriting(hyp: DocumentHypotheses) -> dict[str, HandwritingPrediction]:
+    """Copy 3c strings into 3b n-best. Empty/garbage 3b can take vision as the draft."""
+    verbal = dict(hyp.verbal)
+    vision_hw = (hyp.vision.handwriting if hyp.vision and hyp.vision.source == "vision" else {}) or {}
+    for fid, text in vision_hw.items():
+        text = (text or "").strip()
+        if not text:
+            continue
+        extra = {"value": text, "score": 0.55, "source": "vision"}
+        draft = verbal.get(fid)
+        if draft is None:
+            verbal[fid] = HandwritingPrediction(
+                field_id=fid,
+                raw_text=text,
+                canonical_value=text,
+                confidence=0.55,
+                source="vision",
+                needs_hitl=True,
+                hypotheses=[extra],
+            )
+            continue
+        hyps = list(draft.hypotheses)
+        if extra not in hyps:
+            hyps.append(extra)
+        empty = not (draft.raw_text or "").strip() or looks_like_htr_garbage(draft.raw_text)
+        if empty:
+            verbal[fid] = draft.model_copy(
+                update={
+                    "raw_text": text,
+                    "canonical_value": text,
+                    "confidence": max(float(draft.confidence), 0.55),
+                    "source": "vision",
+                    "needs_hitl": True,
+                    "hypotheses": hyps,
+                }
+            )
+        else:
+            verbal[fid] = draft.model_copy(update={"hypotheses": hyps})
+    return verbal
+
+
+def _write_in_blob(verbal: dict[str, HandwritingPrediction]) -> str:
+    parts: list[str] = []
+    for fid in ("others", "clinical_info"):
+        field = verbal.get(fid)
+        if field is None:
+            continue
+        parts.append(field.raw_text or "")
+        parts.append(field.canonical_value or "")
+        for row in field.hypotheses or []:
+            if isinstance(row, dict):
+                parts.append(str(row.get("value") or ""))
+    return normalize_text(" ".join(parts))
+
+
+def rank_vision_ticks(
+    trusted: list[str],
+    vision_ids: list[str],
+    verbal: dict[str, HandwritingPrediction],
+    kg: KnowledgeGraph,
+) -> list[dict[str, Any]]:
+    """KG-score 3c-only ticks for HiTL order. Never union into ticked_test_ids."""
+    extra = [fid for fid in vision_ids if fid not in set(trusted)]
+    implied = kg.implied_tests(trusted)
+    blob = _write_in_blob(verbal)
+    trusted_tubes = set(kg.calculate_expected_tubes(trusted))
+    ranked: list[dict[str, Any]] = []
+    for fid in extra:
+        score = 0.0
+        reasons: list[str] = []
+        if fid in implied:
+            score += 0.40
+            reasons.append("implied_by_profile")
+        item = kg.get_item(fid)
+        labels = [fid]
+        if item is not None:
+            labels.extend([item.label, *(item.aliases or [])])
+        if blob and any(normalize_text(lab) and normalize_text(lab) in blob for lab in labels):
+            score += 0.35
+            reasons.append("mentioned_in_writein")
+        extra_tubes = set(kg.calculate_expected_tubes(list(trusted) + [fid])) - trusted_tubes
+        if not extra_tubes:
+            score += 0.20
+            reasons.append("tube_consistent")
+        ranked.append(
+            {
+                "field_id": fid,
+                "score": round(score, 3),
+                "reasons": reasons,
+            }
+        )
+    ranked.sort(key=lambda row: (-float(row["score"]), str(row["field_id"])))
+    return ranked
+
+
+def _vision_tick_disagreements(hyp: DocumentHypotheses, trusted: list[str]) -> list[str]:
+    """3c-only ticks stay HiTL. They never join trusted / implied / tubes."""
+    vision_ticks = list(hyp.vision.ticked_field_ids if hyp.vision and hyp.vision.source == "vision" else [])
+    trusted_set = set(trusted)
+    return [fid for fid in vision_ticks if fid not in trusted_set]
 
 
 def _fuse_field(
@@ -46,12 +152,16 @@ def rescore_hypotheses(
 ) -> DocumentPrediction:
     """Turn Block 3 drafts + frozen KG into DocumentPrediction (LIS + HiTL)."""
     trusted, uncertain = split_nonverbal_ticks(hyp.nonverbal)
+    verbal = _attach_vision_handwriting(hyp)
+    vision_only_raw = _vision_tick_disagreements(hyp, trusted)
+    vision_ranked = rank_vision_ticks(trusted, vision_only_raw, verbal, kg)
+    vision_only = [row["field_id"] for row in vision_ranked]
 
     fused_hw: dict[str, HandwritingPrediction] = {}
     write_in_ids: list[str] = []
 
     # Write-ins first so accepted catalogue ids can join the tube prior.
-    for fid, draft in hyp.verbal.items():
+    for fid, draft in verbal.items():
         if fid in _WRITE_IN_FIELDS or not (
             fid.startswith("tube_") or fid in _DATE_FIELDS or fid in {"clinical_info", "office_other"}
         ):
@@ -64,7 +174,7 @@ def rescore_hypotheses(
     expected = kg.calculate_expected_tubes(ticked)
     implied = sorted(kg.implied_tests(ticked))
 
-    for fid, draft in hyp.verbal.items():
+    for fid, draft in verbal.items():
         if fid in fused_hw:
             continue
         fused_hw[fid] = _fuse_field(
@@ -94,9 +204,15 @@ def rescore_hypotheses(
 
     discrepancies = list(report.discrepancies)
     warnings = list(report.warnings)
-    hitl = list(dict.fromkeys(list(hyp.hitl_fields) + uncertain))
+    hitl = list(dict.fromkeys(list(hyp.hitl_fields) + uncertain + vision_only))
     for note in implausible_tubes:
         warnings.append(f"Implausible tube count ignored: {note}")
+    for row in vision_ranked:
+        fid = str(row["field_id"])
+        reasons = ",".join(row.get("reasons") or []) or "unscored"
+        warnings.append(
+            f"Vision tick not confirmed by geometry: {fid} (kg_score={row['score']:.2f} {reasons})"
+        )
 
     for fid in uncertain:
         warnings.append(f"Uncertain tick excluded from tube prior: {fid}")
@@ -159,4 +275,4 @@ def rescore_hypotheses(
     )
 
 
-__all__ = ["rescore_hypotheses"]
+__all__ = ["rescore_hypotheses", "rank_vision_ticks"]

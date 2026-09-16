@@ -10,6 +10,8 @@ from med_doc.kg import KnowledgeGraph
 from med_doc.paths import DEFAULT_KG
 from med_doc.rescoring import rescore_hypotheses
 from med_doc.review import (
+    HitlItem,
+    OllamaRanker,
     ReviewPatch,
     ScriptedLlmRanker,
     apply_patches,
@@ -19,6 +21,7 @@ from med_doc.review import (
     order_from_prediction,
     process_from_block4,
 )
+from med_doc.review.llm import LlmRanker
 from test_block4 import _hyp, _others_hw
 
 
@@ -108,6 +111,35 @@ def test_llm_suggestion_kept_when_in_nbest_but_not_auto_applied():
         assert others_item.llm_suggestions[0]["value"] == "triglyc"
     # LLM must not mutate drafts
     assert hyp.verbal["others"].source != "llm"
+
+
+class _InstructStub(OllamaRanker):
+    def _complete(self, prompt: str) -> str:
+        if "kind=tick" in prompt:
+            return '{"value":"ca125"}'
+        return '{"value":"triglyc"}'
+
+
+def test_ollama_ranker_cannot_add_a_tick():
+    ranker = _InstructStub(model="qwen2.5:7b-instruct")
+    tick = HitlItem(field_id="ca125", kind="tick", nbest=["ca125"])
+    assert ranker.suggest(tick, nbest=["ca125"]) == []
+    write = HitlItem(field_id="others", kind="write_in", nbest=["zzzz", "triglyc"])
+    out = ranker.suggest(write, nbest=["zzzz", "triglyc"])
+    assert out and out[0]["value"] == "triglyc"
+    dropped = ranker.suggest(write, nbest=["zzzz"])
+    assert dropped == []
+
+    class TickHungry(LlmRanker):
+        def suggest(self, item, *, nbest, kg=None):
+            return [{"value": "ca125", "score": 1.0, "source": "llm"}]
+
+    kg = KnowledgeGraph.load(DEFAULT_KG)
+    hyp = _hyp(ticks=["alt"], uncertain=["cbc"], others=_others_hw("zzzz"))
+    pred = rescore_hypotheses(hyp, kg)
+    queue = build_hitl_queue(pred, hyp)
+    attached = attach_llm_suggestions(queue, ranker=TickHungry(), enabled=True, kg=kg)
+    assert all(not item.llm_suggestions for item in attached if item.kind == "tick")
 
 
 def test_apply_patches_does_not_mutate_original():

@@ -7,10 +7,10 @@ import zipfile
 from pathlib import Path
 
 from med_doc.htr.fusion import fuse_handwriting
-from med_doc.htr.schemas import DocumentHypotheses, HandwritingPrediction, MarkPrediction
+from med_doc.htr.schemas import DocumentHypotheses, HandwritingPrediction, MarkPrediction, VisionDraft
 from med_doc.kg import KnowledgeGraph
 from med_doc.paths import DEFAULT_KG
-from med_doc.rescoring import process_from_block3, rescore_hypotheses, trusted_tick_ids
+from med_doc.rescoring import process_from_block3, rank_vision_ticks, rescore_hypotheses, trusted_tick_ids
 
 GOLD10 = [
     "alt",
@@ -86,6 +86,7 @@ def _hyp(
     tubes: dict[str, str] | None = None,
     others: HandwritingPrediction | None = None,
     extra_marks: dict[str, MarkPrediction] | None = None,
+    vision: VisionDraft | None = None,
 ) -> DocumentHypotheses:
     nonverbal = {fid: _mark(fid, marked=True) for fid in ticks}
     for fid in uncertain or []:
@@ -110,6 +111,7 @@ def _hyp(
         implied_tests=[],
         overall_confidence=0.9,
         hitl_fields=[fid for fid, m in nonverbal.items() if m.needs_hitl],
+        vision=vision or VisionDraft(),
     )
 
 
@@ -280,3 +282,58 @@ def test_process_from_block3_writes_prediction_keeps_hypotheses(tmp_path: Path):
     with zipfile.ZipFile(zip_out) as zf:
         assert "docs/synthetic/prediction.json" in zf.namelist()
         assert "docs/synthetic/hypotheses.json" in zf.namelist()
+
+
+def test_vision_only_tick_is_hitl_not_lis():
+    kg = KnowledgeGraph.load(DEFAULT_KG)
+    hyp = _hyp(
+        ticks=["cbc"],
+        tubes={"tube_edta": "1"},
+        vision=VisionDraft(
+            source="vision",
+            ticked_field_ids=["cbc", "ca125"],
+            handwriting={},
+        ),
+    )
+    pred = rescore_hypotheses(hyp, kg)
+    assert "ca125" not in pred.ticked_test_ids
+    assert "ca125" in pred.hitl_fields
+    assert any("Vision tick" in w for w in pred.warnings)
+    ranked = rank_vision_ticks(["cbc"], ["ca125"], hyp.verbal, kg)
+    assert ranked[0]["field_id"] == "ca125"
+    assert "ca125" not in pred.implied_tests or "ca125" not in pred.ticked_test_ids
+
+
+def test_rank_vision_ticks_orders_hitl_never_unions_lis():
+    kg = KnowledgeGraph.load(DEFAULT_KG)
+    hyp = _hyp(
+        ticks=["profile_lipid"],
+        vision=VisionDraft(
+            source="vision",
+            ticked_field_ids=["profile_lipid", "triglycerides", "ca125"],
+            handwriting={},
+        ),
+    )
+    pred = rescore_hypotheses(hyp, kg)
+    assert "triglycerides" not in pred.ticked_test_ids
+    assert "ca125" not in pred.ticked_test_ids
+    assert pred.hitl_fields.index("triglycerides") < pred.hitl_fields.index("ca125")
+    assert any("kg_score=" in w and "triglycerides" in w for w in pred.warnings)
+
+
+def test_vision_others_fills_empty_charset_and_kg_ranks():
+    kg = KnowledgeGraph.load(DEFAULT_KG)
+    hyp = _hyp(
+        ticks=["profile_lipid"],
+        others=_empty_hw("others"),
+        vision=VisionDraft(
+            source="vision",
+            ticked_field_ids=["profile_lipid"],
+            handwriting={"others": "triglyc"},
+        ),
+    )
+    pred = rescore_hypotheses(hyp, kg)
+    others = pred.handwriting_fields["others"]
+    assert others.source == "vision+kg" or others.canonical_id == "triglycerides"
+    assert others.canonical_id == "triglycerides"
+    assert "triglycerides" in pred.ticked_test_ids

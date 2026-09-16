@@ -1,6 +1,6 @@
 # Block 3 — version history and architecture
 
-**Current generation: B3.9** (v1 blank residual + charset-soup gate). Ingests a Block 1 ZIP; does not run Block 2 `assume()` or invent tube priors.
+**Current generation: B3.10** (3a ticks / 3b HTR / optional 3c local VLM). Ingests a Block 1 ZIP; does not run Block 2 `assume()` or invent tube priors.
 
 Live code: `src/med_doc/htr/` on branch `block1`. Standalone `block3/` Colab tree is **B3.2-era** (Paddle + density fallback, fused ZIP runner remnants).
 
@@ -212,9 +212,37 @@ Dates under JPEG/shadow still drop; that field needs a stronger constrained deco
 
 ---
 
-## B3.9 — v1 blank residual + charset-soup gate (2026-09-16) — **current**
+## B3.9 — v1 blank residual + charset-soup gate (2026-09-16)
 
 **Verbal:** `blank_canvas` for `lab_request_v1_canonical` must not be the v0 PNG (wrong height and rows). Residual against a **labeled** v1 blank so printed "Sample received" / "OTHERS" does not look like handwriting. Charset output that is mostly 1-letter tokens (`source=garbage`) is HiTL, is **not** painted on `annotated_canvas.png`, and does not become a Block 4 write-in. Clinic cursive still needs TrOCR when the charset fallback cannot read it; the overlay then shows `others?` instead of soup.
+
+---
+
+## B3.10 — 3a / 3b / 3c (2026-09-16) — **current**
+
+**3a nonverbal** = geometry ticks. **3b verbal** = glyphs / optional TrOCR. **3c vision** = optional local Ollama VLM (`qwen2.5vl:7b`) that reads the page + handwriting crops and emits an **independent** JSON draft (`hypotheses.json` → `vision`). Catalogue ids only. Default `vision_backend=off` so CI and Colab stay offline.
+
+Block 4 ranks 3c handwriting through `kg.assume` (same as 3b n-best). A 3c tick that 3a did not confirm is HiTL, never `ticked_test_ids` / tubes / implied tests.
+
+```mermaid
+flowchart TB
+  b1[Block 1 crops]
+  a[3a geometry ticks]
+  b[3b glyph HTR]
+  c[3c local VLM draft]
+  hyp[hypotheses.json]
+  kg[Block 2 KG]
+  b4[Block 4 rank and commit]
+  b1 --> a --> hyp
+  b1 --> b --> hyp
+  b1 --> c --> hyp
+  hyp --> b4
+  kg --> b4
+```
+
+Enable: `process_from_block1(..., vision_backend="ollama", vision_model="qwen2.5vl:7b")` or `run_blocks_1_to_5(..., vision_backend="ollama", vision_model=...)`. `MED_DOC_VISION_MODEL` is the env fallback. Instruct models belong in Block 5 (`llm_backend="ollama"`), not 3c.
+
+3c input is the canonical page + handwriting crops, then a **capped disagreement pass** (3c tick not in 3a, or 3a tick 3c omitted; max 16 checkbox crops). The VLM is never asked to classify the whole grid.
 
 ---
 
@@ -222,7 +250,7 @@ Dates under JPEG/shadow still drop; that field needs a stronger constrained deco
 
 | Path | Contents |
 |---|---|
-| `docs/{id}/hypotheses.json` | Nonverbal + verbal drafts |
+| `docs/{id}/hypotheses.json` | 3a nonverbal + 3b verbal + 3c `vision` drafts |
 | `docs/{id}/prediction.json` | LIS-shaped prediction (no tube priors from false ticks) |
 | `docs/{id}/annotated_canvas.png` | Overlay |
 | `manifest.json` | Batch counts |

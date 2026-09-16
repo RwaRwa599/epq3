@@ -13,6 +13,7 @@ from med_doc.htr.schemas import (
     DocumentPrediction,
     HandwritingPrediction,
     MarkPrediction,
+    VisionDraft,
 )
 from med_doc.htr.verbal import (
     attach_kg_priors,
@@ -20,6 +21,7 @@ from med_doc.htr.verbal import (
     recognize_verbal,
     trocr_available,
 )
+from med_doc.htr.vision import ollama_available, run_vision_draft, disagreement_crop_ids
 
 __all__ = [
     "MarkPrediction",
@@ -36,6 +38,10 @@ __all__ = [
     "recognize_verbal",
     "recognize_fields",
     "trocr_available",
+    "ollama_available",
+    "run_vision_draft",
+    "disagreement_crop_ids",
+    "VisionDraft",
     "attach_kg_priors",
     "fuse_handwriting",
     "process_document",

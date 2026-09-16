@@ -20,7 +20,7 @@ flowchart LR
 
 1. **HiTL queue** — one item per `hitl_fields` entry (uncertain tick, missing/mismatched tube, weak write-in, unparsed date), with crop path and Block 3 n-best.
 2. **Review patches** — `confirm_tick` / `reject_tick` / `set_tube` / `set_text` / `accept_write_in` written to `review.json`. Patches edit **drafts**, then re-enter `rescore_hypotheses`. Original `hypotheses.json` stays auditable.
-3. **LLM assist (optional, default off)** — may rank write-in/date n-best only. A suggestion not already in n-best is dropped. Never auto-applied; never emits ticks or tube counts.
+3. **LLM assist (optional, default off)** — `OllamaRanker` (Instruct models such as `qwen2.5:7b-instruct`) may rank write-in/date n-best only, using 3b+3c strings plus ticked labels. A suggestion not already in n-best is dropped. Never auto-applied; never emits ticks or tube counts. Enable with `process_from_block4(..., llm_backend="ollama", llm_model=...)`.
 4. **LIS commit** — `order.json` from the committed prediction: ordered tests = ticked ∪ implied, tubes = **observed** (null stays null), `needs_review` if HiTL remains.
 5. **Registration sanity (independent of CV)** — if ≥40 ordered tests, or ticked ids are ≥40% of checkbox fields on a full sheet (`n_checkbox ≥ 80`), or ticks exist but every tube crop is empty / implausible, set `needs_review=True`, `registration_failure_suspected=True`. Do **not** use ticked/ordered (that is 100% whenever the lists match). 17 ticks on a 138-box sheet must not trip the gate.
 6. **`overall_confidence`** — from Block 1c retry/HITL rates and empty handwriting-crop rate (plus a tick-flood penalty). Do not triage on the old mean of mark/HTR p-values; those were ~flat for 0-tick vs 37-tick sheets.

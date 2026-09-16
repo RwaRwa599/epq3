@@ -23,6 +23,7 @@ flowchart LR
 4. **Dates / office_other** — grammar stays in Block 3; Block 4 flags unparsed `received_at` for HiTL. No catalogue match.
 5. **`validate_request`** — trusted ticks ∪ accepted write-in ids, plus **observed** tubes (not a copy of expected).
 6. **Output** — `docs/<id>/prediction.json`. `hypotheses.json` is copied unchanged.
+7. **3c vision n-best** — if `hypotheses.vision.source=="vision"`, handwriting strings join `assume()`; VLM-only ticks are warnings + HiTL, not trusted ticks. `rank_vision_ticks()` KG-scores those extras (mentioned in `others`/`clinical_info`, implied by a trusted profile, tube-consistent) and **orders the HiTL queue**. It never unions them into `ticked_test_ids`.
 
 ## What Block 4 does not do
 

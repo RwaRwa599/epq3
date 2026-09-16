@@ -24,8 +24,10 @@ from med_doc.htr.schemas import (
     DocumentPrediction,
     HandwritingPrediction,
     MarkPrediction,
+    VisionDraft,
 )
 from med_doc.htr.verbal import recognize_fields
+from med_doc.htr.vision import VisionClient, run_vision_draft
 from med_doc.htr.viz import draw_prediction_overlay
 from med_doc.kg.graph import KnowledgeGraph
 
@@ -89,6 +91,7 @@ def hypotheses_from_parts(
     *,
     implied: list[str] | None = None,
     crop_validate: dict | None = None,
+    vision: VisionDraft | None = None,
 ) -> DocumentHypotheses:
     from med_doc.htr.quality import diagnostic_confidence
 
@@ -102,6 +105,7 @@ def hypotheses_from_parts(
         implied_tests=list(implied or []),
         hitl_fields=hitl,
         crop_validate=dict(crop_validate or {}),
+        vision=vision or VisionDraft(),
     )
     return hyp.model_copy(update={"overall_confidence": diagnostic_confidence(hyp)})
 
@@ -153,8 +157,11 @@ def process_block1_document(
     backend: str = "auto",
     mode: Mode = "both",
     mark_backend: MarkBackend = "geometry",
+    vision_backend: str = "off",
+    vision_client: VisionClient | None = None,
+    vision_model: str | None = None,
 ) -> DocumentHypotheses:
-    """Nonverbal and/or verbal on one ingested Block 1 document."""
+    """3a nonverbal, 3b verbal, optional 3c local VLM. KG fusion is Block 4."""
     run_nv = mode in ("nonverbal", "both")
     run_vb = mode in ("verbal", "both")
 
@@ -199,7 +206,17 @@ def process_block1_document(
                 hw[fid] = pred.model_copy(update={"needs_hitl": True})
 
     crop_validate = dict((doc.metadata or {}).get("crop_validate") or {})
-    return hypotheses_from_parts(doc.doc_id, marks, hw, crop_validate=crop_validate)
+    enabled = vision_backend in {"ollama", "on", "vision"} or vision_client is not None
+    vision = run_vision_draft(
+        doc,
+        client=vision_client,
+        enabled=enabled,
+        model=vision_model,
+        geometry_ticks=_ticked_ids(marks) if marks else [],
+    )
+    return hypotheses_from_parts(
+        doc.doc_id, marks, hw, crop_validate=crop_validate, vision=vision
+    )
 
 
 def process_from_block1(
@@ -211,11 +228,16 @@ def process_from_block1(
     backend: str = "auto",
     mode: Mode = "both",
     mark_backend: MarkBackend = "geometry",
+    vision_backend: str = "off",
+    vision_client: VisionClient | None = None,
+    vision_model: str | None = None,
 ) -> dict[str, Any]:
-    """Ingest Block 1 ZIP/folder, run verbal/nonverbal, emit hypotheses.json + ZIP.
+    """Ingest Block 1 ZIP/folder, run 3a/3b and optional 3c, emit hypotheses.json + ZIP.
 
     Does not require Block 2's per-sheet batch. `kg` is accepted for API compatibility
     but is not applied here — Block 4 runs `assume()` / tube constraints on these drafts.
+    ``vision_backend="ollama"`` runs a local VL model if Ollama is up; default ``off``.
+    ``vision_model`` overrides ``MED_DOC_VISION_MODEL`` / ``qwen2.5vl:7b``.
     """
     _ = kg  # Block 4; do not auto-load or fuse in Block 3.
 
@@ -233,7 +255,14 @@ def process_from_block1(
     for doc in iter_block1_documents(base_in_dir):
         print(f"  → {mode} recognition for '{doc.doc_id}'...")
         hyp = process_block1_document(
-            doc, kg=None, backend=backend, mode=mode, mark_backend=mark_backend
+            doc,
+            kg=None,
+            backend=backend,
+            mode=mode,
+            mark_backend=mark_backend,
+            vision_backend=vision_backend,
+            vision_client=vision_client,
+            vision_model=vision_model,
         )
         prediction = prediction_from_hypotheses(hyp, kg=None)
 

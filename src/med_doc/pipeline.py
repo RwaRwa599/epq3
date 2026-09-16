@@ -26,6 +26,10 @@ def run_blocks_1_to_5(
     patch_missing_edta: bool = False,
     output_mode: OutputMode = "user",
     mark_backend: str = "geometry",
+    vision_backend: str = "off",
+    vision_model: str | None = None,
+    llm_backend: str = "off",
+    llm_model: str | None = None,
 ) -> dict[str, Any]:
     """Normalize many photos, then run Blocks 3–5 on the whole batch.
 
@@ -34,6 +38,8 @@ def run_blocks_1_to_5(
 
     ``output_mode="user"`` (default): only Block 5's ``order.json`` is kept.
     ``output_mode="dev"``: Block 1/3/4/5 ZIPs plus per-document debug trees.
+    ``vision_model`` is the 3c VL model (pixels). ``llm_model`` is the Block 5
+    Instruct ranker (n-best strings only). Both default off.
     """
     kg = kg or KnowledgeGraph.load(DEFAULT_KG)
     if output_dir is None:
@@ -60,6 +66,8 @@ def run_blocks_1_to_5(
         backend=backend,
         mode="both",
         mark_backend=mark_backend,  # type: ignore[arg-type]
+        vision_backend=vision_backend,
+        vision_model=vision_model,
     )
     print("[Pipeline] Block 4 — KG rescoring")
     b4 = process_from_block3(
@@ -87,6 +95,8 @@ def run_blocks_1_to_5(
         kg=kg,
         reviews=applied or None,
         output_mode=output_mode,
+        llm_backend=llm_backend,
+        llm_model=llm_model,
     )
 
     if user_mode:
