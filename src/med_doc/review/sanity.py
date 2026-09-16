@@ -21,6 +21,7 @@ def registration_failure_reasons(
     observed_tubes: dict[str, int | None],
     n_checkbox: int,
     all_tube_crops_empty: bool,
+    n_implausible_tubes: int = 0,
 ) -> list[str]:
     """Independent of CV fixes: stop a fully-populated wrong order looking authoritative."""
     n_ticked = len(ticked_test_ids)
@@ -45,7 +46,12 @@ def registration_failure_reasons(
             f">= {TICKED_OF_CATALOGUE:.0%}"
         )
     tube_obs = dict(observed_tubes or {})
-    if n_ticked > 0 and tube_obs and all(v is None for v in tube_obs.values()):
+    n_implausible = int(n_implausible_tubes or 0)
+    if n_ticked > 0 and n_implausible > 0:
+        details.append(
+            f"{REGISTRATION_FAILURE}: {n_implausible} implausible tube count(s) rejected"
+        )
+    elif n_ticked > 0 and tube_obs and all(v is None for v in tube_obs.values()):
         details.append(f"{REGISTRATION_FAILURE}: all tube crops empty")
     elif n_ticked > 0 and all_tube_crops_empty:
         details.append(f"{REGISTRATION_FAILURE}: all tube crops empty")

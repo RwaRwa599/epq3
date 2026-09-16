@@ -20,12 +20,14 @@ def order_from_prediction(
     others = pred.handwriting_fields.get("others")
     ordered = sorted(set(pred.ticked_test_ids) | set(pred.implied_tests))
     quality = crop_quality(hyp=hyp, pred=pred)
+    n_implausible = sum(1 for w in pred.warnings if "Implausible tube count" in w)
     reasons = registration_failure_reasons(
         ticked_test_ids=list(pred.ticked_test_ids),
         ordered_tests=ordered,
         observed_tubes=dict(pred.observed_tubes),
         n_checkbox=int(quality.get("n_checkbox") or len(pred.checkbox_marks) or 0),
         all_tube_crops_empty=bool(quality.get("all_tube_crops_empty")),
+        n_implausible_tubes=n_implausible,
     )
     failed = bool(reasons)
     needs_review = bool(pred.hitl_fields) or (not pred.is_valid) or failed

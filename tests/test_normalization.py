@@ -819,4 +819,23 @@ def test_fine_align_records_piecewise_meta():
     page = render_canonical_form(template)
     _aligned, meta, _shifts = fine_align(page, template)
     assert "piecewise" in meta
+    assert "ecc" in meta
     assert "confidence" in meta
+
+
+def test_ecc_refine_on_translated_blank():
+    from med_doc.normalization.register import ecc_refine
+
+    template = load_template()
+    page = render_canonical_form(template)
+    h, w = page.shape[:2]
+    shifted = cv2.warpAffine(
+        page,
+        np.array([[1.0, 0.0, 7.0], [0.0, 1.0, 4.0]], dtype=np.float32),
+        (w, h),
+        borderValue=(255, 255, 255),
+    )
+    aligned, meta = ecc_refine(shifted, template)
+    assert aligned.shape == page.shape
+    assert "cc" in meta
+    assert float(meta["cc"]) >= 0.0

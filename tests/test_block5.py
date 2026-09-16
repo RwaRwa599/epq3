@@ -173,6 +173,17 @@ def test_registration_gate_spares_small_valid_order():
     assert order.needs_review is False
 
 
+def test_registration_gate_implausible_rejected_tubes():
+    kg = KnowledgeGraph.load(DEFAULT_KG)
+    hyp = _hyp(ticks=["cbc"], tubes={"tube_edta": "11", "tube_cb": "9"})
+    pred = rescore_hypotheses(hyp, kg)
+    assert any("Implausible tube count" in w for w in pred.warnings)
+    order = order_from_prediction(pred, hyp)
+    assert order.registration_failure_suspected is True
+    assert order.needs_review is True
+    assert any("implausible tube count" in w.lower() for w in order.warnings)
+
+
 def test_overall_confidence_tracks_1c_and_empty_crops_not_mark_p():
     quiet = _hyp(ticks=["cbc"], tubes={"tube_edta": "1"})
     quiet = quiet.model_copy(

@@ -153,6 +153,97 @@ def _bilinear_flow(h: int, w: int, samples: np.ndarray, residuals: np.ndarray) -
     return dx, dy
 
 
+def _ecc_edges(gray: np.ndarray) -> np.ndarray:
+    work = flatten_gray(gray) if gray.ndim == 2 else flatten_gray(cv2.cvtColor(gray, cv2.COLOR_RGB2GRAY))
+    work = cv2.GaussianBlur(work, (5, 5), 0)
+    gx = cv2.Sobel(work, cv2.CV_32F, 1, 0, ksize=3)
+    gy = cv2.Sobel(work, cv2.CV_32F, 0, 1, ksize=3)
+    mag = cv2.magnitude(gx, gy)
+    p = float(np.percentile(mag, 98)) or 1.0
+    return np.clip(mag * (255.0 / p), 0, 255).astype(np.float32)
+
+
+def ecc_refine(
+    canvas: np.ndarray,
+    template: TemplateSpec,
+    *,
+    max_side: int = 800,
+) -> tuple[np.ndarray, dict[str, Any]]:
+    """Euclidean ECC of the page onto a rendered blank template (no PHI)."""
+    from med_doc.htr.blank import render_blank_form
+
+    meta: dict[str, Any] = {"applied": False, "cc": 0.0, "method": "ecc_euclidean"}
+    h, w = canvas.shape[:2]
+    blank = render_blank_form(template)
+    if blank.shape[0] != h or blank.shape[1] != w:
+        blank = cv2.resize(blank, (w, h), interpolation=cv2.INTER_AREA)
+    scale = min(1.0, float(max_side) / float(max(h, w)))
+    sw, sh = max(32, int(round(w * scale))), max(32, int(round(h * scale)))
+    page_e = _ecc_edges(canvas)
+    blank_e = _ecc_edges(blank)
+    if scale < 0.999:
+        page_s = cv2.resize(page_e, (sw, sh), interpolation=cv2.INTER_AREA)
+        blank_s = cv2.resize(blank_e, (sw, sh), interpolation=cv2.INTER_AREA)
+    else:
+        page_s, blank_s = page_e, blank_e
+    warp = np.eye(2, 3, dtype=np.float32)
+    criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 60, 1e-5)
+    try:
+        try:
+            cc, warp = cv2.findTransformECC(
+                blank_s, page_s, warp, cv2.MOTION_EUCLIDEAN, criteria, None, 5
+            )
+        except TypeError:
+            cc, warp = cv2.findTransformECC(
+                blank_s, page_s, warp, cv2.MOTION_EUCLIDEAN, criteria
+            )
+    except cv2.error:
+        meta["skipped"] = "ecc_failed"
+        return canvas, meta
+    meta["cc"] = round(float(cc), 4)
+    if scale < 0.999:
+        warp = warp.copy()
+        warp[0, 2] /= scale
+        warp[1, 2] /= scale
+    tx, ty = float(warp[0, 2]), float(warp[1, 2])
+    rot = abs(float(warp[0, 0]) - 1.0) + abs(float(warp[1, 1]) - 1.0)
+    if abs(tx) > 0.08 * w or abs(ty) > 0.08 * h or rot > 0.12:
+        meta["skipped"] = "magnitude"
+        return canvas, meta
+    if float(cc) < 0.35:
+        meta["skipped"] = "low_cc"
+        return canvas, meta
+    aligned = cv2.warpAffine(
+        canvas,
+        warp,
+        (w, h),
+        flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP,
+        borderValue=(255, 255, 255),
+    )
+    meta["applied"] = True
+    meta["warp"] = [float(v) for v in warp.ravel()]
+    return aligned, meta
+
+
+def neighbour_offset(
+    src: np.ndarray,
+    dst: np.ndarray,
+) -> tuple[np.ndarray | None, tuple[float, float]]:
+    """RANSAC partial-affine on confirmed neighbours; returns (matrix, median dy/dx)."""
+    src = np.asarray(src, dtype=np.float32).reshape(-1, 2)
+    dst = np.asarray(dst, dtype=np.float32).reshape(-1, 2)
+    if src.shape[0] < 2 or dst.shape[0] != src.shape[0]:
+        med = (0.0, 0.0)
+        if src.shape[0] == 1:
+            med = (float(dst[0, 0] - src[0, 0]), float(dst[0, 1] - src[0, 1]))
+        return None, med
+    m, inn = ransac_partial_affine(src, dst, thresh=12.0, min_inliers=max(2, src.shape[0] // 3))
+    if m is None:
+        med = np.median(dst - src, axis=0)
+        return None, (float(med[0]), float(med[1]))
+    return m, (float(m[0, 2]), float(m[1, 2]))
+
+
 def warp_piecewise(canvas: np.ndarray, dx: np.ndarray, dy: np.ndarray) -> np.ndarray:
     h, w = canvas.shape[:2]
     xs, ys = np.meshgrid(np.arange(w, dtype=np.float32), np.arange(h, dtype=np.float32))

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-# Clinic photos at 0.36–0.54 still emitted "success". Below this, do not trust crops.
+# Clinic photos at 0.36–0.54 still emitted "success". Below this, do not trust the page.
 MIN_ALIGNMENT_CONFIDENCE = 0.6
 TEMPLATE_SCORE_MARGIN = 2.0
+TEMPLATE_RELATIVE_MARGIN = 0.10
 
 
 def alignment_gate(confidence: float, *, threshold: float = MIN_ALIGNMENT_CONFIDENCE) -> dict[str, Any]:
@@ -26,13 +27,17 @@ def template_pick_meta(scores: dict[str, Any]) -> dict[str, Any]:
     s1 = float(scores.get("score_v1") or 0.0)
     picked = str(scores.get("picked") or "")
     margin = abs(s1 - s0)
-    ambiguous = margin < TEMPLATE_SCORE_MARGIN
+    peak = max(s0, s1, 1e-6)
+    relative = margin / peak
+    ambiguous = margin < TEMPLATE_SCORE_MARGIN or relative < TEMPLATE_RELATIVE_MARGIN
     return {
         **scores,
         "score_margin": round(margin, 3),
+        "relative_margin": round(relative, 4),
         "ambiguous": ambiguous,
         "note": (
-            f"picked {picked} (v0={s0:.1f} v1={s1:.1f}, margin={margin:.1f})"
+            f"picked {picked} (v0={s0:.1f} v1={s1:.1f}, margin={margin:.1f}, "
+            f"rel={relative:.1%})"
             + ("; scores close — verify template_id" if ambiguous else "")
         ),
     }

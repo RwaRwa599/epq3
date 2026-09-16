@@ -9,7 +9,7 @@ import numpy as np
 
 from med_doc.normalization.detect import detect_checkboxes_photo
 from med_doc.normalization.illumination import flatten_gray, ink_mask, paper_level, paper_map
-from med_doc.normalization.register import piecewise_register
+from med_doc.normalization.register import ecc_refine, piecewise_register
 from med_doc.schemas import FieldSpec, TemplateSpec
 
 
@@ -243,11 +243,27 @@ def fine_align(
 
     piecewise_meta: dict[str, Any] = {}
     affine = None
+    ecc_canvas, ecc_meta = ecc_refine(aligned, template)
+    if ecc_meta.get("applied"):
+        ecc_gray = cv2.cvtColor(ecc_canvas, cv2.COLOR_RGB2GRAY) if ecc_canvas.ndim == 3 else ecc_canvas
+        ecc_score = _checkbox_grid_score(ecc_gray, template)
+        ecc_meta["grid_score"] = round(float(ecc_score), 4)
+        cc = float(ecc_meta.get("cc") or 0.0)
+        better = ecc_score >= after + 0.01
+        strong = cc >= 0.55 and ecc_score + 1e-9 >= after - 0.01
+        if better or strong:
+            aligned = ecc_canvas
+            after = ecc_score
+            aligned_gray = ecc_gray
+            col_shifts = column_y_shifts(aligned_gray, template)
+        else:
+            ecc_meta["applied"] = False
+            ecc_meta["skipped"] = "grid_not_better"
     refined, piecewise_meta, affine = piecewise_register(aligned, template)
     refined_gray = cv2.cvtColor(refined, cv2.COLOR_RGB2GRAY) if refined.ndim == 3 else refined
     piecewise_score = _checkbox_grid_score(refined_gray, template)
     piecewise_meta["grid_score"] = round(float(piecewise_score), 4)
-    if piecewise_meta.get("applied") and piecewise_score >= after + 0.02:
+    if piecewise_meta.get("applied") and piecewise_score + 1e-9 >= after - 0.005:
         aligned = refined
         after = piecewise_score
         col_shifts = column_y_shifts(refined_gray, template)
@@ -256,9 +272,10 @@ def fine_align(
 
     ncc = float(np.mean(scores)) if scores else 0.5
     col_mag = float(np.mean([abs(v) for v in col_shifts.values()])) if col_shifts else 0.0
-    confidence = float(
-        np.clip(0.5 * max(after, ncc) + 0.5 * max(0.0, 1.0 - col_mag / 20.0), 0.0, 1.0)
-    )
+    ecc_cc = float(ecc_meta.get("cc") or 0.0) if ecc_meta.get("applied") else 0.0
+    grid_term = max(after, ncc, ecc_cc)
+    col_term = max(0.0, 1.0 - col_mag / 20.0)
+    confidence = float(np.clip(0.5 * grid_term + 0.5 * col_term, 0.0, 1.0))
     meta = {
         "tx": tx,
         "ty": ty,
@@ -266,6 +283,7 @@ def fine_align(
         "grid_score": after,
         "column_shifts": {str(k): v for k, v in col_shifts.items()},
         "confidence": confidence,
+        "ecc": ecc_meta,
         "piecewise": piecewise_meta,
         "affine": None if affine is None else [float(v) for v in affine.ravel()],
     }

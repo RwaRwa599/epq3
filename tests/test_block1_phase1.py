@@ -18,6 +18,7 @@ from med_doc.normalization.gates import (
     MIN_ALIGNMENT_CONFIDENCE,
     alignment_gate,
     batch_template_conflict,
+    template_pick_meta,
 )
 from med_doc.paths import V1_TEMPLATE
 from med_doc.schemas import FieldSpec, NormalizedDocumentResult, TemplateSpec
@@ -180,7 +181,7 @@ def test_block1c_large_cell_is_not_silent_ok():
     assert cea.crop_needs_hitl is True
 
 
-def test_block1c_page_align_gate_stops_without_success_tags():
+def test_block1c_page_align_gate_keeps_per_field_tags():
     canvas = np.full((80, 80, 3), 245, dtype=np.uint8)
     cv2.rectangle(canvas, (20, 20), (38, 38), (90, 90, 90), 2)
     spec = FieldSpec(field_id="cea", field_type="checkbox", bbox=[0.2, 0.2, 0.5, 0.5])
@@ -206,9 +207,46 @@ def test_block1c_page_align_gate_stops_without_success_tags():
     cea = gated.result.checkbox_crops["cea"]
     assert gated.result.extra["needs_review"] is True
     assert gated.result.extra["page_gate"]["ok"] is False
-    assert cea.crop_ok is False
-    assert cea.crop_validate_status == "page_align"
     assert gated.result.extra["crop_validate"]["page_align_fail"] is True
+    assert cea.crop_ok is True
+    assert cea.crop_needs_hitl is False
+    assert cea.crop_validate_status == "ok"
+
+
+def test_block1c_neighbour_fill_recovers_column_offset():
+    canvas = np.full((200, 80, 3), 245, dtype=np.uint8)
+    for y in (20, 80, 140):
+        cv2.rectangle(canvas, (20, y), (38, y + 18), (90, 90, 90), 2)
+    template = TemplateSpec(
+        template_id="t",
+        canvas_size=[80, 200],
+        fields=[
+            FieldSpec(field_id="a", field_type="checkbox", bbox=[0.25, 0.10, 0.48, 0.19]),
+            FieldSpec(field_id="b", field_type="checkbox", bbox=[0.25, 0.40, 0.48, 0.49]),
+            FieldSpec(field_id="c", field_type="checkbox", bbox=[0.25, 0.70, 0.48, 0.79]),
+        ],
+    )
+    crops = {
+        "a": recrop_pixels(canvas, "a", [18, 18, 42, 42]),
+        "b": recrop_pixels(canvas, "b", [18, 78, 42, 102]),
+        "c": recrop_pixels(canvas, "c", [50, 4, 74, 28]),
+    }
+    result = NormalizedDocumentResult(
+        document_id="t",
+        canonical_canvas=canvas,
+        alignment_confidence=0.8,
+        checkbox_crops=crops,
+        handwriting_crops={},
+    )
+    page = Block1aPage(
+        canvas=canvas, template=template, warp_meta={}, align_meta={}, col_shifts={}, document_id="t"
+    )
+    gated = run_block1c(page, Block1bLayout(result=result, sectioned=template), draw_debug=False)
+    c = gated.result.checkbox_crops["c"]
+    assert c.crop_ok is True
+    cy = 0.5 * (c.canonical_bbox[1] + c.canonical_bbox[3])
+    assert 130 <= cy <= 165
+    assert gated.result.extra["crop_validate"]["n_neighbour_fill"] >= 1
 
 
 def test_block1c_retry_does_not_mutate_template():
@@ -255,3 +293,12 @@ def test_batch_template_conflict_flags_mixed_ids():
         ]
     )
     assert same["conflict"] is False
+
+
+def test_template_pick_relative_margin_flags_coin_flip():
+    # IMG_7600: 2.5 pts on ~160 is 1.6%, not a confident pick.
+    close = template_pick_meta({"score_v0": 161.0, "score_v1": 158.5, "picked": "v0"})
+    assert close["ambiguous"] is True
+    assert close["relative_margin"] < 0.10
+    far = template_pick_meta({"score_v0": 10.0, "score_v1": 80.0, "picked": "v1"})
+    assert far["ambiguous"] is False

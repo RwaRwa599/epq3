@@ -19,7 +19,7 @@ from med_doc.normalization.block1b import Block1bLayout
 from med_doc.normalization.crops import recrop_pixels
 from med_doc.normalization.gates import MIN_ALIGNMENT_CONFIDENCE, alignment_gate
 from med_doc.normalization.illumination import Paper, paper_at, paper_level, paper_map
-from med_doc.normalization.register import predicted_center, ransac_partial_affine
+from med_doc.normalization.register import neighbour_offset, predicted_center, ransac_partial_affine
 from med_doc.normalization.sections import _hollow_score, _hollow_xs, _ink_ring_candidates
 from med_doc.normalization.viz import draw_overlay
 from med_doc.schemas import FieldCrop, TemplateSpec
@@ -345,33 +345,12 @@ def run_block1c(page: Block1aPage, layout: Block1bLayout, *, draw_debug: bool = 
     if page.extra.get("needs_review"):
         gate = {**gate, "ok": False, "reason": gate.get("reason") or "alignment_confidence"}
     extra["page_gate"] = gate
-    extra["needs_review"] = not bool(gate["ok"])
+    extra["needs_review"] = (not bool(gate["ok"])) or bool(
+        (extra.get("template_pick") or {}).get("ambiguous")
+    )
 
     crops = dict(result.checkbox_crops)
     hw = dict(result.handwriting_crops)
-
-    if not gate["ok"]:
-        for fid, crop in list(crops.items()):
-            crops[fid] = _tag(crop, ok=False, hitl=True, status="page_align", attempts=0)
-        for fid, crop in list(hw.items()):
-            hw[fid] = _tag(crop, ok=False, hitl=True, status="page_align", attempts=0)
-        extra["crop_validate"] = {
-            "n_ok": 0,
-            "n_retry": 0,
-            "n_hitl": len(crops),
-            "n_skip": 0,
-            "n_hw_ok": 0,
-            "n_hw_hitl": len(hw),
-            "page_align_fail": True,
-            "alignment_confidence": round(float(result.alignment_confidence), 4),
-            "threshold": MIN_ALIGNMENT_CONFIDENCE,
-        }
-        result.checkbox_crops = crops
-        result.handwriting_crops = hw
-        result.extra = extra
-        if draw_debug:
-            result.debug_overlay = draw_overlay(canvas, result, template)
-        return Block1cLayout(result=result, sectioned=template)
 
     n_hw_ok = n_hw_hitl = 0
     for fid, crop in list(hw.items()):
@@ -455,6 +434,57 @@ def run_block1c(page: Block1aPage, layout: Block1bLayout, *, draw_debug: bool = 
             crops[fid] = _tag(crop, ok=False, hitl=True, status="hitl", attempts=1)
             n_hitl += 1
 
+    cuts = None
+    xs = [expected[fid][0] / float(max(w, 1)) for fid in expected]
+    if len(xs) >= 4:
+        cuts = np.quantile(xs, [0.25, 0.5, 0.75])
+
+    def _col_of(xy: tuple[float, float]) -> int:
+        if cuts is None:
+            return 0
+        return int(np.searchsorted(cuts, xy[0] / float(max(w, 1))))
+
+    by_col: dict[int, list[str]] = {}
+    for fid in expected:
+        by_col.setdefault(_col_of(expected[fid]), []).append(fid)
+    n_neighbour = 0
+    for col, fids in by_col.items():
+        src: list[list[float]] = []
+        dst: list[list[float]] = []
+        unresolved: list[str] = []
+        for fid in fids:
+            crop = crops.get(fid)
+            if crop is None or fid not in expected:
+                continue
+            if crop.crop_ok:
+                src.append([expected[fid][0], expected[fid][1]])
+                dst.append([centers[fid][0], centers[fid][1]])
+            elif crop.crop_needs_hitl:
+                unresolved.append(fid)
+        if len(src) < 2 or not unresolved:
+            continue
+        m, _med = neighbour_offset(
+            np.asarray(src, dtype=np.float32),
+            np.asarray(dst, dtype=np.float32),
+        )
+        for fid in unresolved:
+            prior = predicted_center(m, expected[fid]) if m is not None else (
+                expected[fid][0] + _med[0],
+                expected[fid][1] + _med[1],
+            )
+            box = _bbox_from_xy(int(round(prior[0] - 9)), int(round(prior[1] - 9)), w, h)
+            probe = recrop_pixels(canvas, fid, box)
+            if looks_like_text_line(probe.raw_image) or not has_hollow_ring(probe.raw_image):
+                continue
+            if _too_close_to_other(_center(box), fid, centers):
+                continue
+            crops[fid] = _tag(probe, ok=True, hitl=False, status="retry", attempts=1)
+            centers[fid] = _center(box)
+            bbox_overrides[fid] = box
+            n_retry += 1
+            n_hitl = max(0, n_hitl - 1)
+            n_neighbour += 1
+
     extra["crop_validate"] = {
         "n_ok": n_ok,
         "n_retry": n_retry,
@@ -462,14 +492,19 @@ def run_block1c(page: Block1aPage, layout: Block1bLayout, *, draw_debug: bool = 
         "n_skip": n_skip,
         "n_hw_ok": n_hw_ok,
         "n_hw_hitl": n_hw_hitl,
+        "n_neighbour_fill": n_neighbour,
         "ransac_inliers": len(src_pts),
         "ransac": affine is not None,
-        "page_align_fail": False,
+        "page_align_fail": not bool(gate["ok"]),
         "template_persist": False,
         "n_bbox_overrides": len(bbox_overrides),
+        "alignment_confidence": round(float(result.alignment_confidence), 4),
+        "threshold": MIN_ALIGNMENT_CONFIDENCE,
     }
     extra["bbox_overrides"] = bbox_overrides
-    extra["needs_review"] = not bool(gate["ok"])
+    extra["needs_review"] = (not bool(gate["ok"])) or bool(
+        (extra.get("template_pick") or {}).get("ambiguous")
+    )
     result.checkbox_crops = crops
     result.handwriting_crops = hw
     result.extra = extra

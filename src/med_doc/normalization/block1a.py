@@ -117,12 +117,13 @@ def run_block1a(
     canvas, warp_meta = warp_to_canonical(image, dest_size=dest)
     aligned, align_meta, col_shifts = fine_align(canvas, spec)
     page_gate = alignment_gate(float(align_meta.get("confidence") or 0.0))
+    pick_ambiguous = bool((pick_meta or {}).get("ambiguous"))
     extra = {
         "warp": warp_meta,
         "align": align_meta,
         "template_pick": pick_meta,
         "page_gate": page_gate,
-        "needs_review": not bool(page_gate["ok"]),
+        "needs_review": (not bool(page_gate["ok"])) or pick_ambiguous,
         "n_checkbox": len(spec.checkbox_fields()),
         "template_id": spec.template_id,
     }
@@ -176,7 +177,7 @@ def save_block1a_page(page: Block1aPage, doc_dir: str | Path) -> dict:
         "align": _jsonable(page.align_meta),
         "template_pick": _jsonable(page.extra.get("template_pick") or {}),
         "page_gate": gate,
-        "needs_review": not bool(gate["ok"]),
+        "needs_review": (not bool(gate["ok"])) or bool((page.extra.get("template_pick") or {}).get("ambiguous")),
         "alignment_confidence": round(conf, 3),
         "canonical_path": "canonical.png",
     }

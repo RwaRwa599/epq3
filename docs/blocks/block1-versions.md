@@ -1,6 +1,6 @@
 # Block 1 — version history and architecture
 
-**Current generation: B1.8** (handwriting 1c + page alignment gate). Public API has always been `normalize_document()`; callers never pick 1a/1b/1c.
+**Current generation: B1.9** (ECC + decoupled page gate). Public API has always been `normalize_document()`; callers never pick 1a/1b/1c.
 
 Live code: `src/med_doc/normalization/` on branch `block1`. Contract notes: [`docs/engineering-brief.md`](../engineering-brief.md).
 
@@ -188,7 +188,7 @@ flowchart LR
 
 ---
 
-## B1.8 — handwriting 1c + page alignment gate (2026-09-15) — **current**
+## B1.8 — handwriting 1c + page alignment gate (2026-09-15)
 
 **Intent:** Phase 1 of the clinic dump post-mortem. 1c only gated checkboxes; tubes sat on NT-proBNP / Lipoprotein (a); pages at alignment 0.36 still said `success`; `skip` was `ok=True`; rematch wrote boxes into the shared template.
 
@@ -202,8 +202,6 @@ flowchart LR
 6. **Rematch** is per-document (`bbox_overrides` in extra); it does **not** persist into the template.
 7. **Template pick** scores (v0 vs v1, checkbox counts) are logged; a batch that resolves identical-looking sheets to different `template_id`s is flagged.
 
-Phase 2 (ECC, RANSAC neighbour fill, local thresholds) and Phase 3–4 (template-difference, TrOCR ink gate, date hallucination) are still later work.
-
 ```mermaid
 flowchart LR
   pick[pick_revision logged]
@@ -211,6 +209,27 @@ flowchart LR
   b[1b squares plus footer HW]
   c[1c checkbox and handwriting]
   pick --> a --> b --> c
+```
+
+---
+
+## B1.9 — ECC + decoupled page gate (2026-09-16) — **current**
+
+**Intent:** Clinic photos sit at alignment 0.36–0.54. The page gate must not erase per-field 1c/3 scores; registration has to actually move.
+
+**Architecture**
+
+- `fine_align` runs Euclidean **ECC** against `render_blank_form` (edge maps), then piecewise RANSAC residual. Keep a warp if grid score is not worse.
+- 1c **column neighbour fill**: RANSAC on confirmed boxes in a column, then recrop unresolved fields at the predicted center.
+- Document `needs_review` when alignment &lt; 0.6 or template pick relative margin &lt; 10%. Crops are still validated individually.
+- Block 5 `registration_failure_suspected` also fires when implausible tube counts were rejected, not only when every tube crop is empty.
+
+```mermaid
+flowchart LR
+  ecc[ECC onto blank template]
+  pw[Piecewise residual]
+  c[1c per-field plus neighbour fill]
+  ecc --> pw --> c
 ```
 
 ---
