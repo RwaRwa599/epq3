@@ -60,7 +60,7 @@ python -m med_doc.privacy /Users/renaw/Downloads/labform_pages \
 
 Do not use `/Applications/Xcode.app/.../python3` for this — that pip is too old and has no `med_doc`. If `python3 --version` is 3.9, install Homebrew Python 3.12 and use that `python3`.
 
-**No package install:** download one script. Default cut is **10.5 cm** off the top; it then checks that “Clinical Information” and a column header are still in the PNG and pulls the cut up if not.
+**No package install:** download one script. Default cut is the **top 10.5/29.5 of the page height** (ratio, same on every photo size). It then checks that “Clinical Information” and a column header are still in the PNG and pulls the cut up if not.
 
 ```bash
 curl -L -o /tmp/crop_labform_pages.py \

@@ -120,7 +120,7 @@ def test_standalone_crop_script(tmp_path):
     cropped = Image.open(out / "page.png")
     assert cropped.size[0] == 100
     assert cropped.size[1] < 200
-    assert cropped.size[1] == 200 - int(round(200 * (10.5 / 29.7)))
+    assert cropped.size[1] == 200 - int(round(200 * (10.5 / 29.5)))
     assert (out / "debug" / "page_GUIDE_fullpage.png").is_file()
     assert (out / "crop_eval.json").is_file()
 
@@ -156,7 +156,10 @@ def test_ten_cm_crop_does_not_cut_clinical_info_or_column_headers(tmp_path):
 
     h, w = 1200, 800
     proposed = mod.top_px_from_cm(h, 10.5, dpi=None)
-    assert 400 < proposed < 450  # 10.5/29.7 of A4
+    assert proposed == int(round(h * (10.5 / 29.5)))
+    small = mod.top_px_from_cm(600, 10.5, dpi=None)
+    large = mod.top_px_from_cm(2400, 10.5, dpi=None)
+    assert abs(small / 600 - large / 2400) < 0.002
     bgr = _form_page(h, w, info_y=180, header_y=250)
     rgb = bgr
     im = Image.fromarray(rgb)

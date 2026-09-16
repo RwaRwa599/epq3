@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Crop ~10.5 cm off the top of lab-form scans; keep the rest of the page.
+"""Crop the top of lab-form scans by **page-height ratio**, not DPI pixels.
 
-Then check that "Clinical Information" and a column header (e.g. HAEMATOLOGY)
-are still fully inside the crop. If 10.5 cm would cut those, the cut moves up.
+Default: page is 29.5 cm tall, drop 10.5 cm → keep the bottom 19/29.5.
+Works the same on small and large photos. Then check that
+"Clinical Information" and a column header are still in the crop; if not,
+the cut moves up.
 
     python3 -m pip install pillow numpy opencv-python-headless
     python3 crop_labform_pages.py /path/to/pages --out /path/to/cropped --debug
@@ -19,7 +21,7 @@ from PIL import Image, ImageDraw
 
 SUFFIXES = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
 CM_PER_INCH = 2.54
-A4_HEIGHT_CM = 29.7
+PAGE_HEIGHT_CM = 29.5
 DEFAULT_TOP_CM = 10.5
 
 CLINICAL_PHRASES = ("Clinical Information", "CLINICAL INFORMATION", "INFORMATION")
@@ -53,27 +55,28 @@ class TokenHit:
         return self.y + self.h
 
 
-def image_dpi(im: Image.Image, override: float | None) -> float | None:
-    if override and override > 1:
-        return float(override)
-    info = im.info.get("dpi")
-    if isinstance(info, tuple) and info[0]:
-        return float(info[1] or info[0])
-    if isinstance(info, (int, float)) and info:
-        return float(info)
-    return None
+def top_frac(top_cm: float, page_height_cm: float = PAGE_HEIGHT_CM) -> float:
+    if page_height_cm <= 0:
+        raise ValueError("page_height_cm must be positive")
+    return float(top_cm) / float(page_height_cm)
 
 
 def top_px_from_cm(
     height_px: int,
     top_cm: float,
     *,
-    dpi: float | None,
-    page_height_cm: float = A4_HEIGHT_CM,
+    dpi: float | None = None,
+    page_height_cm: float = PAGE_HEIGHT_CM,
 ) -> int:
+    """Cut line in pixels. Default is a ratio of image height (photo-size safe).
+
+    ``dpi`` is only used when the caller passes it explicitly. Embedded PNG
+    dpi is ignored — it made 827px cuts on every 200-dpi file regardless of
+    how tall the photo actually was.
+    """
     if dpi and dpi > 1:
         return int(round(top_cm / CM_PER_INCH * dpi))
-    return int(round(height_px * (top_cm / page_height_cm)))
+    return int(round(height_px * top_frac(top_cm, page_height_cm)))
 
 
 def _cv2():
@@ -168,11 +171,12 @@ def plan_crop(
     *,
     top_cm: float = DEFAULT_TOP_CM,
     dpi: float | None = None,
-    page_height_cm: float = A4_HEIGHT_CM,
+    page_height_cm: float = PAGE_HEIGHT_CM,
     pad: int = 8,
 ) -> dict:
     w, h = im.size
-    proposed = min(h - 1, max(0, top_px_from_cm(h, top_cm, dpi=image_dpi(im, dpi), page_height_cm=page_height_cm)))
+    frac = top_frac(top_cm, page_height_cm)
+    proposed = min(h - 1, max(0, top_px_from_cm(h, top_cm, dpi=dpi, page_height_cm=page_height_cm)))
     hits = locate_required(im)
     safe = safe_top_px(hits, pad=pad)
     y0 = proposed
@@ -187,6 +191,7 @@ def plan_crop(
     return {
         "proposed_top_px": proposed,
         "top_px": y0,
+        "top_frac": round(frac, 4),
         "adjusted": adjusted,
         "reason": reason,
         "safe_top_px": safe,
@@ -245,11 +250,11 @@ def crop_one(
         **plan,
     }
     status = "ok" if plan["eval"]["ok"] else "eval_failed"
-    used_dpi = image_dpi(im, dpi)
+    frac = plan.get("top_frac") or top_frac(top_cm, page_height_cm)
     print(
         f"{status} {dest}  {w}x{h} → {cropped.size[0]}x{cropped.size[1]}  "
-        f"removed top {y0}px ({top_cm}cm"
-        f"{f' @{used_dpi:.0f}dpi' if used_dpi else ' as A4 fraction'}"
+        f"removed top {y0}px = {frac:.1%} of height "
+        f"({top_cm}/{page_height_cm} cm"
         f"{', pulled up' if plan['adjusted'] else ''})  "
         f"clinical={plan['eval']['clinical_information']} "
         f"headers={plan['eval']['column_headers']}"
@@ -271,8 +276,14 @@ def main() -> int:
     p.add_argument("inputs", type=Path, help="Folder of PNG/JPG pages, or one image")
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--top-cm", type=float, default=DEFAULT_TOP_CM, dest="top_cm")
-    p.add_argument("--dpi", type=float, default=None, help="Raster DPI; default = PNG dpi or A4 fraction")
-    p.add_argument("--page-height-cm", type=float, default=A4_HEIGHT_CM, dest="page_height_cm")
+    p.add_argument(
+        "--page-height-cm",
+        type=float,
+        default=PAGE_HEIGHT_CM,
+        dest="page_height_cm",
+        help="Physical page height used only to form the ratio (default 29.5)",
+    )
+    p.add_argument("--dpi", type=float, default=None, help="Optional; ignore photo height and cut by DPI pixels")
     p.add_argument("--debug", action="store_true")
     args = p.parse_args()
     files = collect(args.inputs)
@@ -292,6 +303,8 @@ def main() -> int:
     ]
     manifest = {
         "top_cm": args.top_cm,
+        "page_height_cm": args.page_height_cm,
+        "top_frac": top_frac(args.top_cm, args.page_height_cm),
         "total": len(rows),
         "ok": sum(1 for r in rows if r["eval"]["ok"]),
         "documents": rows,
