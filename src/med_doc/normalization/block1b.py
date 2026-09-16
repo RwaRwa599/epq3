@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
-from med_doc.normalization.align import match_landmark, snap_overlay
+from med_doc.normalization.align import header_bar_dy, match_landmark, snap_overlay
 from med_doc.normalization.block1a import Block1aPage
 from med_doc.normalization.crops import (
     apply_column_shifts_to_template,
@@ -55,10 +55,15 @@ def snap_handwriting_fields(canvas: np.ndarray, template: TemplateSpec) -> tuple
                 footer_dy = float(dy)
                 meta["footer_ncc"] = round(float(ncc), 3)
         elif landmark.kind == "header_bar":
-            _dx, dy, ncc = match_landmark(gray, landmark.bbox, search_frac=0.06, mode="header_bar")
-            if ncc >= 0.15:
-                header_dy = float(dy)
-                meta["header_ncc"] = round(float(ncc), 3)
+            header_dy, header_meta = header_bar_dy(gray, template)
+            meta["header_ncc"] = round(float(header_meta.get("score") or 0.0), 3)
+            if float(header_meta.get("score") or 0.0) < 0.18:
+                _dx, dy, ncc = match_landmark(
+                    gray, landmark.bbox, search_frac=0.35, mode="header_bar"
+                )
+                if ncc >= 0.15:
+                    header_dy = float(dy)
+                    meta["header_ncc"] = round(float(ncc), 3)
     meta["footer_dy"] = round(footer_dy, 2)
     meta["header_dy"] = round(header_dy, 2)
     if abs(footer_dy) < 2 and abs(header_dy) < 2:

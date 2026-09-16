@@ -31,6 +31,173 @@ def _clamp_window(
     return x0, y0, x1, y1
 
 
+def detect_checkup_header_bar(gray: np.ndarray) -> dict[str, Any]:
+    """Find the full-width CHECK-UP / PROFILE black strip via row-wise darkness.
+
+    That bar is the grid origin. Patient-header content above it varies; searching
+    only near a fixed template y (a few percent of page height) misses the real
+    strip on submitted forms.
+    """
+    h, w = gray.shape
+    xa, xb = int(0.02 * w), max(int(0.02 * w) + 8, int(0.98 * w))
+    strip = gray[:, xa:xb]
+    if strip.size == 0:
+        return {"cy": 0.0, "y0": 0, "y1": 0, "score": 0.0, "width_frac": 0.0}
+    paper = float(np.percentile(strip, 90)) or 255.0
+    row_dark = (strip < paper * 0.50).mean(axis=1)
+    row_mean = strip.mean(axis=1)
+    y_lo, y_hi = int(0.004 * h), int(0.62 * h)
+    candidates: list[dict[str, Any]] = []
+    in_bar = False
+    y_start = 0
+    for y in range(y_lo, min(h, y_hi + 1)):
+        is_bar = bool(row_dark[y] > 0.40 and row_mean[y] < paper * 0.62)
+        if is_bar and not in_bar:
+            in_bar = True
+            y_start = y
+        elif not is_bar and in_bar:
+            in_bar = False
+            _collect_full_width_bar(
+                candidates, strip, row_dark, paper, xa, w, y_start, y
+            )
+    if in_bar:
+        _collect_full_width_bar(
+            candidates, strip, row_dark, paper, xa, w, y_start, min(h, y_hi)
+        )
+    if not candidates:
+        return {"cy": 0.0, "y0": 0, "y1": 0, "score": 0.0, "width_frac": 0.0}
+    best_score = max(float(c["score"]) for c in candidates)
+    # Darkest/widest bar; if several are close, the topmost is the profile banner.
+    close = [c for c in candidates if float(c["score"]) >= 0.72 * best_score]
+    picked = min(close, key=lambda c: float(c["cy"]))
+    return picked
+
+
+def _collect_full_width_bar(
+    out: list[dict[str, Any]],
+    strip: np.ndarray,
+    row_dark: np.ndarray,
+    paper: float,
+    x_abs0: int,
+    page_w: int,
+    y0: int,
+    y1: int,
+) -> None:
+    thickness = y1 - y0
+    if not (10 <= thickness <= 90):
+        return
+    band = strip[y0:y1]
+    if band.size == 0:
+        return
+    col_dark = (band < paper * 0.50).mean(axis=0)
+    hits = np.where(col_dark >= 0.40)[0]
+    if hits.size < 8:
+        return
+    width_frac = float(hits[-1] - hits[0] + 1) / float(max(page_w, 1))
+    if width_frac < 0.55:
+        return
+    dark = float(row_dark[y0:y1].mean())
+    score = dark * width_frac
+    if score < 0.18:
+        return
+    out.append(
+        {
+            "y0": int(y0),
+            "y1": int(y1),
+            "cy": float(0.5 * (y0 + y1)),
+            "x0": int(x_abs0 + hits[0]),
+            "x1": int(x_abs0 + hits[-1] + 1),
+            "score": float(score),
+            "width_frac": round(width_frac, 4),
+            "thickness": int(thickness),
+        }
+    )
+
+
+def _header_landmark(template: TemplateSpec):
+    for landmark in template.landmarks:
+        if landmark.kind == "header_bar" or landmark.id == "header_bar":
+            return landmark
+    return None
+
+
+def header_bar_dy(gray: np.ndarray, template: TemplateSpec) -> tuple[float, dict[str, Any]]:
+    """Pixel dy that takes the template header_bar center onto the detected strip."""
+    h = gray.shape[0]
+    landmark = _header_landmark(template)
+    expected_cy = 0.04 * h
+    if landmark is not None:
+        expected_cy = 0.5 * (landmark.bbox[1] + landmark.bbox[3]) * h
+    detected = detect_checkup_header_bar(gray)
+    meta = {
+        **detected,
+        "expected_cy": round(float(expected_cy), 2),
+        "dy": 0.0,
+        "applied": False,
+    }
+    if float(detected.get("score") or 0.0) < 0.18:
+        return 0.0, meta
+    dy = float(detected["cy"]) - float(expected_cy)
+    dy = float(np.clip(dy, -0.45 * h, 0.45 * h))
+    meta["dy"] = round(dy, 2)
+    return dy, meta
+
+
+def apply_y_shift_to_template(template: TemplateSpec, dy_px: float) -> TemplateSpec:
+    """Move every overlay box by dy_px so the grid stays glued to a detected header."""
+    if abs(dy_px) < 1.5:
+        return template
+    h = float(max(template.height, 1))
+    dy_rel = float(dy_px) / h
+
+    def nudge(bbox: list[float]) -> list[float]:
+        x0, y0, x1, y1 = (float(v) for v in bbox)
+        box_h = y1 - y0
+        y0 = min(max(0.0, y0 + dy_rel), 0.995)
+        y1 = min(1.0, max(y0 + 0.002, y0 + box_h))
+        return [x0, round(y0, 6), x1, round(y1, 6)]
+
+    fields = [f.model_copy(update={"bbox": nudge(f.bbox)}) for f in template.fields]
+    landmarks = [lm.model_copy(update={"bbox": nudge(lm.bbox)}) for lm in template.landmarks]
+    sections = [s.model_copy(update={"bbox": nudge(s.bbox)}) for s in template.sections]
+    return template.model_copy(update={"fields": fields, "landmarks": landmarks, "sections": sections})
+
+
+def apply_header_anchor(
+    canvas: np.ndarray,
+    template: TemplateSpec,
+) -> tuple[np.ndarray, dict[str, Any]]:
+    """Translate the canvas so the detected CHECK-UP bar sits on the template bar."""
+    gray = cv2.cvtColor(canvas, cv2.COLOR_RGB2GRAY) if canvas.ndim == 3 else canvas
+    h, w = gray.shape[:2]
+    dy, meta = header_bar_dy(gray, template)
+    meta = dict(meta)
+    min_dy = max(24.0, 0.025 * h)
+    if abs(dy) < min_dy:
+        meta["applied"] = False
+        meta["skipped"] = "dy_small"
+        return canvas, meta
+    matrix = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, -dy]], dtype=np.float32)
+    aligned = cv2.warpAffine(
+        canvas, matrix, (w, h), flags=cv2.INTER_CUBIC, borderValue=(255, 255, 255)
+    )
+    aligned_gray = cv2.cvtColor(aligned, cv2.COLOR_RGB2GRAY) if aligned.ndim == 3 else aligned
+    before = _checkbox_grid_score(gray, template)
+    after = _checkbox_grid_score(aligned_gray, template)
+    meta["grid_before"] = round(before, 4)
+    meta["grid_after"] = round(after, 4)
+    # Extra patient header: before is ~0, after jumps. Mild desk photos: don't
+    # let a slightly tilted banner yank a grid that was already registered.
+    large = abs(dy) >= 0.08 * h
+    if after + 1e-9 >= before - 0.01 or (large and after >= before + 0.08):
+        meta["applied"] = True
+        meta["method"] = "header-bar-landmark"
+        return aligned, meta
+    meta["applied"] = False
+    meta["skipped"] = "grid_not_better"
+    return canvas, meta
+
+
 def match_landmark(
     gray: np.ndarray,
     bbox: list[float],
@@ -42,6 +209,8 @@ def match_landmark(
     The template is a synthetic edge pattern (not a crop of the page itself),
     so the match can actually move when the printed header/footer is offset.
     """
+    if mode == "header_bar":
+        search_frac = max(float(search_frac), 0.35)
     h, w = gray.shape
     x0, y0, x1, y1 = _clamp_window(*_rel_to_px(bbox, w, h), w, h)
     th, tw = max(4, y1 - y0), max(4, x1 - x0)
@@ -192,6 +361,7 @@ def fine_align(
     canvas: np.ndarray,
     template: TemplateSpec,
 ) -> tuple[np.ndarray, dict[str, Any], dict[int, float]]:
+    canvas, header_meta = apply_header_anchor(canvas, template)
     gray = cv2.cvtColor(canvas, cv2.COLOR_RGB2GRAY) if canvas.ndim == 3 else canvas
     h, w = gray.shape
     before = _checkbox_grid_score(gray, template)
@@ -224,6 +394,8 @@ def fine_align(
             tx = float(np.median([f - e for f, e in zip(found, expected_x)]))
 
     tx = float(np.clip(tx, -w * 0.04, w * 0.04))
+    # Residual landmark ty stays local. Grid origin is the header-bar landmark
+    # already applied above (variable patient-header height).
     ty = float(np.clip(ty, -h * 0.04, h * 0.04))
 
     matrix = np.array([[1.0, 0.0, -tx], [0.0, 1.0, -ty]], dtype=np.float32)
@@ -233,7 +405,8 @@ def fine_align(
     aligned_gray = cv2.cvtColor(aligned, cv2.COLOR_RGB2GRAY) if aligned.ndim == 3 else aligned
     col_shifts = column_y_shifts(aligned_gray, template)
     after = _checkbox_grid_score(aligned_gray, template)
-    # Only keep a shift that clearly improves checkbox registration.
+    # Only keep a residual shift that clearly improves checkbox registration.
+    # The header-bar canvas translation is already committed in `canvas`.
     if after < before + 0.05:
         aligned = canvas
         col_shifts = {}
@@ -276,9 +449,12 @@ def fine_align(
     grid_term = max(after, ncc, ecc_cc)
     col_term = max(0.0, 1.0 - col_mag / 20.0)
     confidence = float(np.clip(0.5 * grid_term + 0.5 * col_term, 0.0, 1.0))
+    header_ty = float(header_meta.get("dy") or 0.0) if header_meta.get("applied") else 0.0
     meta = {
         "tx": tx,
         "ty": ty,
+        "header_ty": header_ty,
+        "header_anchor": header_meta,
         "landmark_score": ncc,
         "grid_score": after,
         "column_shifts": {str(k): v for k, v in col_shifts.items()},
@@ -508,7 +684,7 @@ def _snap_overlay_sections(
     if len(gutters) < 4:
         return template, meta
     bounds = _column_bounds(gutters)
-    y_min, y_max = 0.12 * h, 0.92 * h
+    y_min, y_max = 0.0 * h, 0.92 * h
     col_ab: dict[int, tuple[float, float]] = {}
     columns_meta: list[dict[str, Any]] = []
     boxes = template.checkbox_fields()
@@ -559,6 +735,30 @@ def snap_overlay(
     ~40 px Y drift on dark clinic photos.
     """
     h, w = canvas.shape[:2]
+    gray0 = cv2.cvtColor(canvas, cv2.COLOR_RGB2GRAY) if canvas.ndim == 3 else canvas
+    header_dy, header_meta = header_bar_dy(gray0, template)
+    min_dy = max(24.0, 0.025 * h)
+    if abs(header_dy) >= min_dy:
+        shifted = apply_y_shift_to_template(template, header_dy)
+        score0 = _checkbox_grid_score(gray0, template)
+        score1 = _checkbox_grid_score(gray0, shifted)
+        header_meta = {
+            **header_meta,
+            "grid_before": round(score0, 4),
+            "grid_after": round(score1, 4),
+        }
+        if score1 + 1e-9 >= score0 - 0.01 or (
+            abs(header_dy) >= 0.08 * h and score1 >= score0 + 0.08
+        ):
+            template = shifted
+            header_meta["applied"] = True
+        else:
+            header_dy = 0.0
+            header_meta["applied"] = False
+            header_meta["skipped"] = "grid_not_better"
+    else:
+        header_dy = 0.0
+        header_meta = {**header_meta, "applied": False, "skipped": "dy_small"}
     detected = filter_checkbox_boxes(canvas, detect_checkboxes_photo(canvas))
     meta: dict[str, Any] = {
         "n_detected": len(detected),
@@ -566,6 +766,8 @@ def snap_overlay(
         "dx": 0.0,
         "dy": 0.0,
         "method": "frozen",
+        "header_anchor": header_meta,
+        "header_ty": round(float(header_dy), 2),
     }
     if len(detected) < 30:
         section, section_meta = _snap_overlay_sections(
@@ -573,6 +775,7 @@ def snap_overlay(
         )
         if section_meta.get("n_columns_fitted", 0):
             section_meta["n_detected"] = len(detected)
+            section_meta["header_anchor"] = header_meta
             return section, section_meta
         return template, meta
 
@@ -653,5 +856,6 @@ def snap_overlay(
         section_meta["n_detected"] = len(detected)
         section_meta["grid_score"] = round(section_score, 4)
         section_meta["ring_grid_score"] = round(ring_score, 4)
+        section_meta["header_anchor"] = header_meta
         return section, section_meta
     return rings, meta

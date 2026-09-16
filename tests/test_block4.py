@@ -134,6 +134,7 @@ def test_ten_gold_ticks_empty_tubes_do_not_invent_counts():
     assert pred.expected_tubes == expected
     assert pred.observed_tubes.get("CB") is None
     assert pred.observed_tubes.get("EDTA") is None
+    assert set(pred.observed_tubes) >= {"EDTA", "CB", "Fl", "Cit", "Urine", "Stool"}
     for field in pred.handwriting_fields.values():
         if field.field_id.startswith("tube_"):
             assert field.canonical_value is None

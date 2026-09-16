@@ -208,7 +208,9 @@ def rescore_hypotheses(
             draft, kg=kg, ticked_ids=ticked, expected_tubes=expected
         )
 
-    observed: dict[str, int | None] = {}
+    observed: dict[str, int | None] = {
+        name: None for name in kg.tube_field_to_tube.values()
+    }
     implausible_tubes: list[str] = []
     for fid, field in fused_hw.items():
         if not fid.startswith("tube_"):

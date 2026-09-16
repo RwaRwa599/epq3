@@ -7,7 +7,13 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from med_doc.normalization.align import fine_align, match_landmark
+from med_doc.normalization.align import (
+    apply_header_anchor,
+    detect_checkup_header_bar,
+    fine_align,
+    match_landmark,
+    snap_overlay,
+)
 from med_doc.normalization.crops import extract_crops, normalize_crop_rgb, quality_metrics
 from med_doc.normalization.pipeline import normalize_document
 from med_doc.normalization.warp import (
@@ -635,7 +641,54 @@ def test_landmark_ncc_runs():
     aligned, meta, shifts = fine_align(page, template)
     assert aligned.shape == page.shape
     assert "confidence" in meta
+    assert "header_anchor" in meta
     assert isinstance(shifts, dict)
+
+
+def _page_with_patient_header(page: np.ndarray, pad_frac: float = 0.18) -> tuple[np.ndarray, int]:
+    """Simulate extra patient-header content above CHECK-UP / PROFILE."""
+    h, w = page.shape[:2]
+    pad = int(round(pad_frac * h))
+    out = np.full_like(page, 255)
+    # Light ruled patient block (not a full-width black banner).
+    out[:pad] = 245
+    cv2.putText(out, "PATIENT / CLINIC HEADER", (40, pad // 2), cv2.FONT_HERSHEY_SIMPLEX, 1.1, (80, 80, 80), 2)
+    out[pad:] = page[: h - pad]
+    return out, pad
+
+
+def test_header_bar_is_grid_origin_not_page_top():
+    template = load_template()
+    page = render_canonical_form(template)
+    gray = cv2.cvtColor(page, cv2.COLOR_RGB2GRAY)
+    found = detect_checkup_header_bar(gray)
+    assert found["score"] >= 0.18
+    assert found["width_frac"] >= 0.55
+    h = gray.shape[0]
+    assert 0.01 * h < found["cy"] < 0.12 * h
+
+    shifted, pad = _page_with_patient_header(page, pad_frac=0.18)
+    shifted_gray = cv2.cvtColor(shifted, cv2.COLOR_RGB2GRAY)
+    moved = detect_checkup_header_bar(shifted_gray)
+    assert moved["score"] >= 0.18
+    assert moved["cy"] == pytest.approx(found["cy"] + pad, abs=12)
+
+    anchored, header_meta = apply_header_anchor(shifted, template)
+    assert header_meta["applied"] is True
+    assert header_meta["dy"] == pytest.approx(pad, abs=20)
+    anchored_gray = cv2.cvtColor(anchored, cv2.COLOR_RGB2GRAY)
+    recentered = detect_checkup_header_bar(anchored_gray)
+    assert recentered["cy"] == pytest.approx(found["cy"], abs=16)
+
+    _, frozen = snap_overlay(shifted, template)
+    # Without a header-relative origin this used to snap 0/138 (search is 64 px).
+    assert frozen.get("n_snapped", 0) >= 40
+    assert abs(float(frozen.get("header_ty") or 0.0)) >= pad * 0.6
+
+    aligned, align_meta, _shifts = fine_align(shifted, template)
+    assert align_meta.get("header_anchor", {}).get("applied") is True
+    _, after = snap_overlay(aligned, template)
+    assert after.get("n_snapped", 0) >= 40
 
 
 def test_detect_quad_on_desk_photo():

@@ -8,6 +8,8 @@ from typing import Any
 MIN_ALIGNMENT_CONFIDENCE = 0.6
 TEMPLATE_SCORE_MARGIN = 2.0
 TEMPLATE_RELATIVE_MARGIN = 0.10
+# Below this peak, a v0/v1 tie is "both templates failed", not a close call.
+TEMPLATE_MIN_PEAK_SCORE = 1.0
 
 
 def alignment_gate(confidence: float, *, threshold: float = MIN_ALIGNMENT_CONFIDENCE) -> dict[str, Any]:
@@ -27,20 +29,36 @@ def template_pick_meta(scores: dict[str, Any]) -> dict[str, Any]:
     s1 = float(scores.get("score_v1") or 0.0)
     picked = str(scores.get("picked") or "")
     margin = abs(s1 - s0)
-    peak = max(s0, s1, 1e-6)
-    relative = margin / peak
-    ambiguous = margin < TEMPLATE_SCORE_MARGIN or relative < TEMPLATE_RELATIVE_MARGIN
+    peak = max(s0, s1)
+    relative = margin / peak if peak > 0 else 0.0
+    both_failed = peak < TEMPLATE_MIN_PEAK_SCORE
+    # Tied at ~0 is total registration failure, not template ambiguity.
+    ambiguous = (not both_failed) and (
+        margin < TEMPLATE_SCORE_MARGIN or relative < TEMPLATE_RELATIVE_MARGIN
+    )
+    if both_failed:
+        extra_note = "; both templates failed (scores ~0) — registration, not a close pick"
+    elif ambiguous:
+        extra_note = "; scores close — verify template_id"
+    else:
+        extra_note = ""
     return {
         **scores,
         "score_margin": round(margin, 3),
         "relative_margin": round(relative, 4),
         "ambiguous": ambiguous,
+        "both_failed": both_failed,
         "note": (
             f"picked {picked} (v0={s0:.1f} v1={s1:.1f}, margin={margin:.1f}, "
             f"rel={relative:.1%})"
-            + ("; scores close — verify template_id" if ambiguous else "")
+            + extra_note
         ),
     }
+
+
+def template_pick_needs_review(pick: dict[str, Any] | None) -> bool:
+    pick = pick or {}
+    return bool(pick.get("ambiguous") or pick.get("both_failed"))
 
 
 def batch_template_conflict(documents: list[dict[str, Any]]) -> dict[str, Any]:

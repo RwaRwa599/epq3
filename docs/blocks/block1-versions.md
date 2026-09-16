@@ -277,6 +277,27 @@ flowchart LR
 
 ---
 
+## B1.12 — header-bar grid origin (2026-09-16)
+
+**Intent:** Real submitted forms put a variable-height patient header above the printed **CHECK-UP / PROFILE** bar. 1a still treated the page top as y=0 (`match_landmark` ±4–6% of height, `fine_align` clipped `ty` to ±4%), so labform1-03/04/05 snapped 0/138 with ~98% 1c retry while 01/02 (bar already near the template) looked fine.
+
+**Architecture**
+
+1. Detect the full-width black CHECK-UP / PROFILE strip with a page-wide row-wise darkness profile (not a local template window).
+2. Translate the canvas / overlay so that bar is the checkbox-grid origin. Residual landmark `ty` stays the old ±4% clip.
+3. `ambiguous` is only a high close v0/v1 tie. `score_v0 == score_v1 == 0` is `both_failed`, not a coin flip.
+4. Block 5 `registration_failure_suspected` watches `crop_retry_rate ≥ 40%` and treats `observed_tubes: {}` as all-empty.
+
+```mermaid
+flowchart LR
+  bar[Detect CHECK-UP bar]
+  origin[Grid origin = bar]
+  snap[1b snap]
+  bar --> origin --> snap
+```
+
+---
+
 ## What later Block 1 versions must not do
 
 - Tick classification (Block 3).

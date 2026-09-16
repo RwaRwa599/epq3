@@ -28,6 +28,7 @@ def order_from_prediction(
         n_checkbox=int(quality.get("n_checkbox") or len(pred.checkbox_marks) or 0),
         all_tube_crops_empty=bool(quality.get("all_tube_crops_empty")),
         n_implausible_tubes=n_implausible,
+        crop_retry_rate=float(quality.get("retry_rate") or 0.0),
     )
     failed = bool(reasons)
     needs_review = bool(pred.hitl_fields) or (not pred.is_valid) or failed

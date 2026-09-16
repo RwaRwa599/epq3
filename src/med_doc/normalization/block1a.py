@@ -11,7 +11,12 @@ import numpy as np
 from PIL import Image
 
 from med_doc.normalization.align import fine_align, snap_overlay
-from med_doc.normalization.gates import alignment_gate, batch_template_conflict, template_pick_meta
+from med_doc.normalization.gates import (
+    alignment_gate,
+    batch_template_conflict,
+    template_pick_meta,
+    template_pick_needs_review,
+)
 from med_doc.normalization.inputs import collect_image_inputs
 from med_doc.normalization.warp import warp_to_canonical
 from med_doc.paths import DEFAULT_TEMPLATE, V1_TEMPLATE
@@ -84,6 +89,7 @@ def pick_revision_with_meta(
             "explicit": True,
             "n_checkbox": len(explicit.checkbox_fields()),
             "ambiguous": False,
+            "both_failed": False,
             "note": f"explicit {explicit.template_id}",
         }
     if explicit is not None:
@@ -93,6 +99,7 @@ def pick_revision_with_meta(
             "explicit": True,
             "n_checkbox": len(spec.checkbox_fields()),
             "ambiguous": False,
+            "both_failed": False,
             "note": f"explicit {spec.template_id}",
         }
     meta = score_revisions(image)
@@ -117,13 +124,12 @@ def run_block1a(
     canvas, warp_meta = warp_to_canonical(image, dest_size=dest)
     aligned, align_meta, col_shifts = fine_align(canvas, spec)
     page_gate = alignment_gate(float(align_meta.get("confidence") or 0.0))
-    pick_ambiguous = bool((pick_meta or {}).get("ambiguous"))
     extra = {
         "warp": warp_meta,
         "align": align_meta,
         "template_pick": pick_meta,
         "page_gate": page_gate,
-        "needs_review": (not bool(page_gate["ok"])) or pick_ambiguous,
+        "needs_review": (not bool(page_gate["ok"])) or template_pick_needs_review(pick_meta),
         "n_checkbox": len(spec.checkbox_fields()),
         "template_id": spec.template_id,
     }
@@ -177,7 +183,8 @@ def save_block1a_page(page: Block1aPage, doc_dir: str | Path) -> dict:
         "align": _jsonable(page.align_meta),
         "template_pick": _jsonable(page.extra.get("template_pick") or {}),
         "page_gate": gate,
-        "needs_review": (not bool(gate["ok"])) or bool((page.extra.get("template_pick") or {}).get("ambiguous")),
+        "needs_review": (not bool(gate["ok"]))
+        or template_pick_needs_review(page.extra.get("template_pick")),
         "alignment_confidence": round(conf, 3),
         "canonical_path": "canonical.png",
     }

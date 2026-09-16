@@ -240,7 +240,29 @@ def test_registration_gate_spares_small_valid_order():
     assert order.needs_review is False
 
 
-def test_registration_gate_implausible_rejected_tubes():
+def test_registration_gate_high_retry_rate():
+    kg = KnowledgeGraph.load(DEFAULT_KG)
+    hyp = _hyp(ticks=[], tubes={})
+    hyp = hyp.model_copy(
+        update={"crop_validate": {"n_ok": 3, "n_retry": 130, "n_hitl": 5, "n_skip": 0}}
+    )
+    pred = rescore_hypotheses(hyp, kg)
+    order = order_from_prediction(pred, hyp)
+    assert order.crop_retry_rate >= 0.9
+    assert order.registration_failure_suspected is True
+    assert any("crop_retry_rate" in w for w in order.warnings)
+
+
+def test_registration_gate_empty_tube_dict_with_ticks():
+    kg = KnowledgeGraph.load(DEFAULT_KG)
+    hyp = _hyp(ticks=["cbc"])
+    pred = rescore_hypotheses(hyp, kg)
+    assert pred.observed_tubes
+    assert all(v is None for v in pred.observed_tubes.values())
+    # Bare {} used to skip this check; all-keys-null is the same signal.
+    order = order_from_prediction(pred.model_copy(update={"observed_tubes": {}}), hyp)
+    assert order.registration_failure_suspected is True
+    assert any("all tube crops empty" in w for w in order.warnings)
     kg = KnowledgeGraph.load(DEFAULT_KG)
     hyp = _hyp(ticks=["cbc"], tubes={"tube_edta": "11", "tube_cb": "9"})
     pred = rescore_hypotheses(hyp, kg)

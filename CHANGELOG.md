@@ -17,6 +17,6 @@ Full accuracy tables and “why this dump failed → next commit”: [`docs/bloc
 | `block1` B1.9 | ECC + decoupled page gate | Page `<0.6` still `needs_review` but 1c/3 keep per-field scores; relative template margin 10%; implausible tubes trip registration_failure | Clinic photos still need ECC/piecewise to lift 0.36–0.54 |
 | `block1` B1.11 | header-row template audit + v1 blank for HTR | Renal extra row / Urea≠Na row; others charset soup from v0 blank residual | Label-neighbor check on `canonical.png` when present |
 | `block1` B3.10 | 3c VL draft + Block 4 KG rank + Instruct n-best | default off; VLM ticks HiTL-only; disagreement crops capped | Cloud VLMs; auto-union ticks from co-occurrence |
-| `block1` B4 combo | small Instruct placeholder for combinations | flags ≥threshold → 3a re-pass + HiTL; never LIS by itself | Real Block 2 co-occurrence tables |
+| `block1` B1.12 | CHECK-UP bar is grid origin | labform extra patient header no longer uses a fixed page-top y | Per-field template-row bugs (batchsample7) still second-order |
 
 Verbal (synthetic): tubes **1.00 / 1.00**, dates **1.00 / 0.50**, others **1.00 / 1.00** (clean / photoreal).

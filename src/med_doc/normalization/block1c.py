@@ -17,7 +17,11 @@ import numpy as np
 from med_doc.normalization.block1a import Block1aPage
 from med_doc.normalization.block1b import Block1bLayout
 from med_doc.normalization.crops import recrop_pixels
-from med_doc.normalization.gates import MIN_ALIGNMENT_CONFIDENCE, alignment_gate
+from med_doc.normalization.gates import (
+    MIN_ALIGNMENT_CONFIDENCE,
+    alignment_gate,
+    template_pick_needs_review,
+)
 from med_doc.normalization.detect import looks_like_printed_square, refine_square_bbox
 from med_doc.normalization.illumination import Paper, paper_at, paper_level, paper_map
 from med_doc.normalization.register import neighbour_offset, predicted_center, ransac_partial_affine
@@ -319,8 +323,8 @@ def run_block1c(page: Block1aPage, layout: Block1bLayout, *, draw_debug: bool = 
     if page.extra.get("needs_review"):
         gate = {**gate, "ok": False, "reason": gate.get("reason") or "alignment_confidence"}
     extra["page_gate"] = gate
-    extra["needs_review"] = (not bool(gate["ok"])) or bool(
-        (extra.get("template_pick") or {}).get("ambiguous")
+    extra["needs_review"] = (not bool(gate["ok"])) or template_pick_needs_review(
+        extra.get("template_pick")
     )
 
     crops = dict(result.checkbox_crops)
@@ -482,8 +486,8 @@ def run_block1c(page: Block1aPage, layout: Block1bLayout, *, draw_debug: bool = 
         "threshold": MIN_ALIGNMENT_CONFIDENCE,
     }
     extra["bbox_overrides"] = bbox_overrides
-    extra["needs_review"] = (not bool(gate["ok"])) or bool(
-        (extra.get("template_pick") or {}).get("ambiguous")
+    extra["needs_review"] = (not bool(gate["ok"])) or template_pick_needs_review(
+        extra.get("template_pick")
     )
     result.checkbox_crops = crops
     result.handwriting_crops = hw

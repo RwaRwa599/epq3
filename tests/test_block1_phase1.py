@@ -299,9 +299,18 @@ def test_template_pick_relative_margin_flags_coin_flip():
     # IMG_7600: 2.5 pts on ~160 is 1.6%, not a confident pick.
     close = template_pick_meta({"score_v0": 161.0, "score_v1": 158.5, "picked": "v0"})
     assert close["ambiguous"] is True
+    assert close["both_failed"] is False
     assert close["relative_margin"] < 0.10
     far = template_pick_meta({"score_v0": 10.0, "score_v1": 80.0, "picked": "v1"})
     assert far["ambiguous"] is False
+    assert far["both_failed"] is False
+
+
+def test_template_pick_zero_tie_is_registration_failure_not_ambiguous():
+    tied = template_pick_meta({"score_v0": 0.0, "score_v1": 0.0, "picked": "v0"})
+    assert tied["ambiguous"] is False
+    assert tied["both_failed"] is True
+    assert "both templates failed" in tied["note"]
 
 
 def _square_crop(size: int = 24, *, slash: bool = False) -> np.ndarray:
