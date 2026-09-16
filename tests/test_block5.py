@@ -162,6 +162,9 @@ def test_registration_gate_flood_and_empty_tubes():
     assert any("registration_failure_suspected" in w for w in order.warnings)
     assert order.review_reasons == ["registration_failure_suspected"]
     assert order.is_valid is False
+    assert order.ordered_tests == []
+    assert order.ticked_test_ids == []
+    assert any("withheld" in w for w in order.warnings)
 
 
 def test_registration_gate_spares_small_valid_order():
@@ -182,6 +185,8 @@ def test_registration_gate_implausible_rejected_tubes():
     assert order.registration_failure_suspected is True
     assert order.needs_review is True
     assert any("implausible tube count" in w.lower() for w in order.warnings)
+    assert order.ordered_tests == []
+    assert order.ticked_test_ids == []
 
 
 def test_overall_confidence_tracks_1c_and_empty_crops_not_mark_p():

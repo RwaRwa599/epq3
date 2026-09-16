@@ -35,16 +35,30 @@ def order_from_prediction(
     for line in reasons:
         if line not in warnings:
             warnings.append(line)
+
+    ticked = list(pred.ticked_test_ids)
+    implied = list(pred.implied_tests)
+    others_id = others.canonical_id if others else None
+    others_raw = (others.raw_text or None) if others else None
+    if failed:
+        n_withheld = len(ordered)
+        warnings.append(
+            f"{REGISTRATION_FAILURE}: withheld {n_withheld} draft test(s) from LIS order"
+        )
+        ordered, ticked, implied = [], [], []
+        others_id = None
+        received = None
+
     return LabOrder(
         doc_id=pred.doc_id,
         ordered_tests=ordered,
-        ticked_test_ids=list(pred.ticked_test_ids),
-        implied_tests=list(pred.implied_tests),
+        ticked_test_ids=ticked,
+        implied_tests=implied,
         observed_tubes=dict(pred.observed_tubes),
         expected_tubes=dict(pred.expected_tubes),
         received_at=received,
-        others_raw=(others.raw_text or None) if others else None,
-        others_canonical_id=others.canonical_id if others else None,
+        others_raw=others_raw,
+        others_canonical_id=others_id,
         needs_review=needs_review,
         is_valid=False if failed else pred.is_valid,
         discrepancies=list(pred.discrepancies),
