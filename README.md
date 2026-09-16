@@ -20,10 +20,13 @@ Do not add agent-memory files (`memory/`, `agent-skills/`, `AGENTS.md`, protocol
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Run_in_Colab.ipynb)
 
+**Tick-only / combination critic (new):** [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Tick_Pipeline_Colab.ipynb) — `htr_mode=nonverbal`, Block 4 `combo_backend=kg` (or ollama). First cell must print **`BOOTSTRAP_V7`**.
+
 Colab does **not** download `src/` when you open a notebook from GitHub. Open **`Run_in_Colab.ipynb`** on branch **`block1`**. **Runtime → Disconnect and delete runtime**, then **Run all**. The first cell must print **`BOOTSTRAP_V6`** and **`tick_policy: slash-v2`**. Cell 8 sets **`OUTPUT_MODE = "dev"`** so you get `block1.zip` / `block3.zip` with `overlay.png` and `annotated_canvas.png` (user mode is only `order.json`). If `order.json` has no `tick_policy` field, Colab is still on stale code.
 
 | Notebook | Colab |
 |---|---|
+| Tick pipeline (3a + combo critic) | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Tick_Pipeline_Colab.ipynb) |
 | Blocks 1–5 (use this) | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Run_in_Colab.ipynb) |
 | Same pipeline (older name) | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Pipeline_Blocks_1_to_5.ipynb) |
 | Block 1 | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/notebooks/Block_1_Document_Normalization.ipynb) |
