@@ -10,6 +10,13 @@ from med_doc.htr.recognizer import extract_digits
 from med_doc.htr.schemas import DocumentHypotheses, DocumentPrediction, HandwritingPrediction
 from med_doc.kg.graph import KnowledgeGraph
 from med_doc.kg.textutil import normalize_text
+from med_doc.rescoring.combinations import (
+    CombinationCritic,
+    DEFAULT_THRESHOLD,
+    CombinationFlag,
+    rerun_3a_on_flags,
+    select_flags,
+)
 from med_doc.rescoring.ticks import split_nonverbal_ticks
 from med_doc.htr.quality import crop_quality
 from med_doc.template_layout import looks_like_htr_garbage
@@ -149,8 +156,28 @@ def _parse_observed_count(field: HandwritingPrediction) -> int | None:
 def rescore_hypotheses(
     hyp: DocumentHypotheses,
     kg: KnowledgeGraph,
+    *,
+    critic: CombinationCritic | None = None,
+    combo_threshold: float = DEFAULT_THRESHOLD,
+    checkbox_crops: dict | None = None,
 ) -> DocumentPrediction:
-    """Turn Block 3 drafts + frozen KG into DocumentPrediction (LIS + HiTL)."""
+    """Turn Block 3 drafts + frozen KG into DocumentPrediction (LIS + HiTL).
+
+    Optional combination critic (small LLM placeholder or scripted flags) ranks
+    missing-likely / odd-member ids by semantic confidence. Above ``combo_threshold``
+    those crops are re-run through 3a and queued for review. The critic never
+    unions a tick into ``ticked_test_ids`` by itself.
+    """
+    allowed = set(kg.catalogue) | set(hyp.nonverbal)
+    trusted0, _uncertain0 = split_nonverbal_ticks(hyp.nonverbal)
+    raw_flags: list[CombinationFlag] = []
+    if critic is not None:
+        raw_flags = critic.flag(list(trusted0), allowed=allowed, kg=kg)
+    flags = select_flags(raw_flags, threshold=combo_threshold)
+    if flags:
+        nonverbal = rerun_3a_on_flags(hyp, flags, checkbox_crops)
+        hyp = hyp.model_copy(update={"nonverbal": nonverbal})
+
     trusted, uncertain = split_nonverbal_ticks(hyp.nonverbal)
     verbal = _attach_vision_handwriting(hyp)
     vision_only_raw = _vision_tick_disagreements(hyp, trusted)
@@ -204,7 +231,22 @@ def rescore_hypotheses(
 
     discrepancies = list(report.discrepancies)
     warnings = list(report.warnings)
-    hitl = list(dict.fromkeys(list(hyp.hitl_fields) + uncertain + vision_only))
+    combo_hitl: list[str] = []
+    for flag in flags:
+        pred = hyp.nonverbal.get(flag.field_id)
+        committed = (
+            flag.kind == "missing_likely"
+            and pred is not None
+            and pred.is_marked
+            and not pred.needs_hitl
+        )
+        warnings.append(
+            f"Combination {flag.kind}: {flag.field_id} "
+            f"(confidence={flag.confidence:.2f} {flag.reason})"
+        )
+        if not committed:
+            combo_hitl.append(flag.field_id)
+    hitl = list(dict.fromkeys(list(hyp.hitl_fields) + uncertain + vision_only + combo_hitl))
     for note in implausible_tubes:
         warnings.append(f"Implausible tube count ignored: {note}")
     for row in vision_ranked:

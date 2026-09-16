@@ -16,6 +16,7 @@ from med_doc.htr.viz import draw_prediction_overlay
 from med_doc.kg.graph import KnowledgeGraph
 from med_doc.paths import DEFAULT_KG
 from med_doc.rescoring.engine import rescore_hypotheses
+from med_doc.rescoring.combinations import CombinationCritic, make_critic
 
 
 def _iter_block3_docs(base_dir: Path) -> list[Path]:
@@ -35,13 +36,21 @@ def process_from_block3(
     output_dir: str | Path | None = None,
     output_zip: str | Path | None = None,
     kg: KnowledgeGraph | None = None,
+    combo_backend: str = "off",
+    combo_model: str | None = None,
+    combo_threshold: float | None = None,
+    critic: CombinationCritic | None = None,
 ) -> dict[str, Any]:
     """Ingest a Block 3 ZIP/folder, rescore with the frozen KG, write prediction.json.
 
     Leaves hypotheses.json unchanged so OCR drafts stay auditable.
     Does not read Block 1 ``detected_marks`` / dark_ratio as ticks.
+    ``combo_backend="ollama"`` uses a small Instruct model as a placeholder for
+    Block 2 co-occurrence tables (flags review only).
     """
     kg = kg or KnowledgeGraph.load(DEFAULT_KG)
+    if critic is None:
+        critic = make_critic(combo_backend, model=combo_model)
     base_in_dir, is_temp_in = unzip_or_dir(input_source)
     print(f"[Block 4] Ingested {input_source}")
 
@@ -57,7 +66,15 @@ def process_from_block3(
             (doc_dir / "hypotheses.json").read_text(encoding="utf-8")
         )
         print(f"  → rescoring '{hyp.doc_id}'...")
-        prediction = rescore_hypotheses(hyp, kg)
+        crops: dict = {}
+        cb_dir = doc_dir / "crops" / "checkboxes"
+        if cb_dir.is_dir():
+            for png in cb_dir.glob("*.png"):
+                crops[png.stem] = load_rgb(png)
+        kw: dict[str, Any] = {"critic": critic, "checkbox_crops": crops or None}
+        if combo_threshold is not None:
+            kw["combo_threshold"] = combo_threshold
+        prediction = rescore_hypotheses(hyp, kg, **kw)
 
         doc_dir_out = target_dir / "docs" / hyp.doc_id
         doc_dir_out.mkdir(parents=True, exist_ok=True)

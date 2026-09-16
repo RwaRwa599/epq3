@@ -24,12 +24,13 @@ flowchart LR
 5. **`validate_request`** — trusted ticks ∪ accepted write-in ids, plus **observed** tubes (not a copy of expected).
 6. **Output** — `docs/<id>/prediction.json`. `hypotheses.json` is copied unchanged.
 7. **3c vision n-best** — if `hypotheses.vision.source=="vision"`, handwriting strings join `assume()`; VLM-only ticks are warnings + HiTL, not trusted ticks. `rank_vision_ticks()` KG-scores those extras (mentioned in `others`/`clinical_info`, implied by a trusted profile, tube-consistent) and **orders the HiTL queue**. It never unions them into `ticked_test_ids`.
+8. **Combination critic (placeholder)** — Block 2 does not yet have co-occurrence tables. `combo_backend="ollama"` (small Instruct, e.g. `llama3.2:3b-instruct`) or a scripted critic scores **missing-likely** (A+B+C → look at D) and **odd-member** (X does not belong). **Confidence = correlation with the trusted set.** Flags with confidence ≥ `combo_threshold` (default 0.55) are ranked high-first, capped at 16, re-run through **3a on that crop only**, and queued for review. The LLM never writes `ticked_test_ids`. Profile `implied_tests` unpack is separate (panel components when the profile box is ticked).
 
 ## What Block 4 does not do
 
 - Does not call `assume()` from live Block 3 `recognize_fields`.
 - Does not ingest Block 1 `detected_marks.dark_ratio` as ticks (`src/med_doc/kg/batch.py` still does that on its own path).
-- Qwen/LLM rescoring, nurse-count overrides, and clinic PHI eval are Block 5 (`docs/blocks/block5-status.md`).
+- Qwen/LLM rescoring of **handwriting** n-best is Block 5. The Block 4 combination critic is a **small Instruct placeholder** for future KG co-occurrence tables; it only flags review.
 
 ## Tests
 

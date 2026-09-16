@@ -2,6 +2,12 @@
 
 from med_doc.rescoring.batch import process_from_block3
 from med_doc.rescoring.engine import rank_vision_ticks, rescore_hypotheses
+from med_doc.rescoring.combinations import (
+    CombinationFlag,
+    ScriptedCombinationCritic,
+    make_critic,
+    select_flags,
+)
 from med_doc.rescoring.ticks import (
     split_nonverbal_ticks,
     trusted_tick_ids,
@@ -12,6 +18,10 @@ __all__ = [
     "process_from_block3",
     "rank_vision_ticks",
     "rescore_hypotheses",
+    "select_flags",
+    "CombinationFlag",
+    "ScriptedCombinationCritic",
+    "make_critic",
     "split_nonverbal_ticks",
     "trusted_tick_ids",
     "uncertain_tick_ids",

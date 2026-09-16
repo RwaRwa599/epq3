@@ -10,7 +10,13 @@ from med_doc.htr.fusion import fuse_handwriting
 from med_doc.htr.schemas import DocumentHypotheses, HandwritingPrediction, MarkPrediction, VisionDraft
 from med_doc.kg import KnowledgeGraph
 from med_doc.paths import DEFAULT_KG
-from med_doc.rescoring import process_from_block3, rank_vision_ticks, rescore_hypotheses, trusted_tick_ids
+from med_doc.rescoring import (
+    process_from_block3,
+    rank_vision_ticks,
+    rescore_hypotheses,
+    trusted_tick_ids,
+)
+from med_doc.rescoring.combinations import CombinationFlag, ScriptedCombinationCritic, select_flags
 
 GOLD10 = [
     "alt",
@@ -337,3 +343,79 @@ def test_vision_others_fills_empty_charset_and_kg_ranks():
     assert others.source == "vision+kg" or others.canonical_id == "triglycerides"
     assert others.canonical_id == "triglycerides"
     assert "triglycerides" in pred.ticked_test_ids
+
+
+def test_select_flags_threshold_and_cap():
+    flags = [CombinationFlag(f"f{i}", "missing_likely", 0.9) for i in range(20)]
+    flags.append(CombinationFlag("low", "missing_likely", 0.1))
+    kept = select_flags(flags, threshold=0.55, cap=16)
+    assert len(kept) == 16
+    assert all(f.confidence >= 0.55 for f in kept)
+    assert "low" not in {f.field_id for f in kept}
+
+
+def test_low_confidence_combination_is_not_reviewed():
+    kg = KnowledgeGraph.load(DEFAULT_KG)
+    hyp = _hyp(ticks=["cbc"])
+    critic = ScriptedCombinationCritic(
+        [CombinationFlag("hdl", "missing_likely", 0.2, reason="weak")]
+    )
+    pred = rescore_hypotheses(hyp, kg, critic=critic, combo_threshold=0.55)
+    assert "hdl" not in pred.hitl_fields
+    assert "hdl" not in pred.ticked_test_ids
+
+
+def test_high_confidence_missing_likely_is_hitl_not_lis_without_3a():
+    kg = KnowledgeGraph.load(DEFAULT_KG)
+    hyp = _hyp(ticks=["profile_lipid"])
+    critic = ScriptedCombinationCritic(
+        [CombinationFlag("hdl", "missing_likely", 0.91, reason="correlates_with_lipid")]
+    )
+    pred = rescore_hypotheses(hyp, kg, critic=critic)
+    assert "hdl" in pred.hitl_fields
+    assert "hdl" not in pred.ticked_test_ids
+    assert any("Combination missing_likely: hdl" in w for w in pred.warnings)
+
+
+def test_second_3a_pass_can_commit_missing_likely_slash():
+    from test_block3_verbal_nonverbal import _ticked_checkbox
+
+    kg = KnowledgeGraph.load(DEFAULT_KG)
+    hyp = _hyp(ticks=["profile_lipid"])
+    critic = ScriptedCombinationCritic(
+        [CombinationFlag("triglycerides", "missing_likely", 0.9, reason="lipid_panel")]
+    )
+    pred = rescore_hypotheses(
+        hyp,
+        kg,
+        critic=critic,
+        checkbox_crops={"triglycerides": _ticked_checkbox(48)},
+    )
+    if "triglycerides" in pred.ticked_test_ids:
+        mark = pred.checkbox_marks["triglycerides"]
+        assert mark.is_marked
+        assert mark.source != "llm"
+    else:
+        assert "triglycerides" in pred.hitl_fields
+
+
+def test_odd_member_empty_crop_leaves_review_or_drops():
+    from test_block3_verbal_nonverbal import _empty_checkbox
+
+    kg = KnowledgeGraph.load(DEFAULT_KG)
+    hyp = _hyp(ticks=["cbc", "ca125"])
+    critic = ScriptedCombinationCritic(
+        [CombinationFlag("ca125", "odd_member", 0.88, reason="rare_with_cbc")]
+    )
+    pred = rescore_hypotheses(
+        hyp,
+        kg,
+        critic=critic,
+        checkbox_crops={"ca125": _empty_checkbox(48)},
+    )
+    assert any("odd_member" in w for w in pred.warnings)
+    mark = pred.checkbox_marks.get("ca125")
+    if mark is not None and not mark.is_marked:
+        assert "ca125" not in pred.ticked_test_ids
+    else:
+        assert "ca125" in pred.hitl_fields
