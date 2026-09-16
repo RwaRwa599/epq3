@@ -18,6 +18,7 @@ from med_doc.normalization.block1a import Block1aPage
 from med_doc.normalization.block1b import Block1bLayout
 from med_doc.normalization.crops import recrop_pixels
 from med_doc.normalization.gates import MIN_ALIGNMENT_CONFIDENCE, alignment_gate
+from med_doc.normalization.detect import looks_like_printed_square, refine_square_bbox
 from med_doc.normalization.illumination import Paper, paper_at, paper_level, paper_map
 from med_doc.normalization.register import neighbour_offset, predicted_center, ransac_partial_affine
 from med_doc.normalization.sections import _hollow_score, _hollow_xs, _ink_ring_candidates
@@ -57,38 +58,11 @@ def looks_like_text_line(crop: np.ndarray) -> bool:
 
 
 def has_hollow_ring(crop: np.ndarray) -> bool:
-    """Printed square: dark ring with paper or ink interior. Not a header bar."""
-    gray = _as_gray(crop)
-    if gray.size == 0 or min(gray.shape[:2]) < 8:
-        return False
-    h, w = gray.shape[:2]
-    if max(h, w) / float(min(h, w)) > 1.35:
-        return False
-    paper = paper_level(gray)
-    cy, cx = h // 2, w // 2
-    center = float(gray[max(0, cy - 2) : cy + 3, max(0, cx - 2) : cx + 3].mean())
-    dark = float((gray < paper * 0.55).mean())
-    if min(h, w) <= 24:
-        band = 2
-        border = np.concatenate(
-            [gray[:band].ravel(), gray[-band:].ravel(), gray[:, :band].ravel(), gray[:, -band:].ravel()]
-        )
-        interior = gray[band:-band, band:-band]
-        border_d = float((border < paper * 0.55).mean())
-        inn_d = float((interior < paper * 0.55).mean()) if interior.size else 0.0
-        hollow = center > paper * 0.82 and border_d >= 0.15 and inn_d <= 0.12
-        ink_in = border_d >= 0.15 and inn_d >= 0.08
-        if hollow or ink_in:
-            return True
-    ink = _ink_ring_candidates(gray, 0, h, 0, w, paper)
-    xs = _hollow_xs(gray, 0, h, 0, w, paper)
-    cx = w / 2.0
-    near = [hx for hx, hy, _ in ink if abs(hx + 8 - cx) <= 12]
-    near += [x for x in xs if abs(x + 8 - cx) <= 12]
-    if near:
-        return True
-    y = max(0, (h - 16) // 2)
-    return _hollow_score(gray, y, max(0, int(cx) - 16), min(w, int(cx) + 16), paper) >= 0.08
+    """Printed ~18 px square: four similar sides, paper or slash interior.
+
+    Letter counters (o, B, e) are not squares — 1c must rematch those windows.
+    """
+    return looks_like_printed_square(crop)
 
 
 def window_ok(crop: np.ndarray) -> bool:
@@ -418,10 +392,13 @@ def run_block1c(page: Block1aPage, layout: Block1bLayout, *, draw_debug: bool = 
             if _dark_header(gray, int(cand_c[0]), int(cand_c[1]), paper):
                 continue
             box = _bbox_from_xy(hx, hy, w, h)
-            probe = recrop_pixels(canvas, fid, box)
+            snapped = refine_square_bbox(gray, box)
+            if snapped is None:
+                continue
+            probe = recrop_pixels(canvas, fid, snapped)
             if looks_like_text_line(probe.raw_image) or not has_hollow_ring(probe.raw_image):
                 continue
-            chosen = box
+            chosen = snapped
             break
 
         if chosen is not None:
@@ -473,14 +450,17 @@ def run_block1c(page: Block1aPage, layout: Block1bLayout, *, draw_debug: bool = 
                 expected[fid][1] + _med[1],
             )
             box = _bbox_from_xy(int(round(prior[0] - 9)), int(round(prior[1] - 9)), w, h)
-            probe = recrop_pixels(canvas, fid, box)
+            snapped = refine_square_bbox(gray, box)
+            if snapped is None:
+                continue
+            probe = recrop_pixels(canvas, fid, snapped)
             if looks_like_text_line(probe.raw_image) or not has_hollow_ring(probe.raw_image):
                 continue
-            if _too_close_to_other(_center(box), fid, centers):
+            if _too_close_to_other(_center(snapped), fid, centers):
                 continue
             crops[fid] = _tag(probe, ok=True, hitl=False, status="retry", attempts=1)
-            centers[fid] = _center(box)
-            bbox_overrides[fid] = box
+            centers[fid] = _center(snapped)
+            bbox_overrides[fid] = snapped
             n_retry += 1
             n_hitl = max(0, n_hitl - 1)
             n_neighbour += 1

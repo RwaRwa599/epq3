@@ -302,3 +302,49 @@ def test_template_pick_relative_margin_flags_coin_flip():
     assert close["relative_margin"] < 0.10
     far = template_pick_meta({"score_v0": 10.0, "score_v1": 80.0, "picked": "v1"})
     assert far["ambiguous"] is False
+
+
+def _square_crop(size: int = 24, *, slash: bool = False) -> np.ndarray:
+    img = np.full((size, size, 3), 245, dtype=np.uint8)
+    cv2.rectangle(img, (1, 1), (size - 2, size - 2), (90, 90, 90), 2)
+    if slash:
+        for i in range(5, size - 5):
+            img[i, i] = 15
+            if i + 1 < size - 5:
+                img[i, i + 1] = 15
+    return img
+
+
+def _glyph_crop(text: str, size: int = 28) -> np.ndarray:
+    img = np.full((size, size, 3), 245, dtype=np.uint8)
+    cv2.putText(img, text, (1, size - 7), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (25, 25, 25), 1)
+    return img
+
+
+def test_has_hollow_ring_accepts_square_rejects_glyphs():
+    from med_doc.normalization.block1c import has_hollow_ring
+
+    assert has_hollow_ring(_square_crop()) is True
+    assert has_hollow_ring(_square_crop(slash=True)) is True
+    padded = np.full((36, 36, 3), 245, dtype=np.uint8)
+    padded[6:30, 6:30] = _square_crop(24)
+    assert has_hollow_ring(padded) is True
+    for text in ("Body", "HbA1c", "o", "B", "R"):
+        assert has_hollow_ring(_glyph_crop(text)) is False, text
+
+
+def test_snap_overlay_ignores_letter_loops_to_the_right():
+    from med_doc.normalization.align import snap_overlay
+
+    template = load_template(V1_TEMPLATE)
+    w, h = template.width, template.height
+    img = np.full((h, w, 3), 255, dtype=np.uint8)
+    for spec in template.checkbox_fields():
+        x0, y0, x1, y1 = template.pixel_bbox(spec, apply_pad=False)
+        cv2.rectangle(img, (x0, y0), (x1, y1), (140, 140, 140), 2)
+        cx = min(w - 10, x1 + 18)
+        cy = (y0 + y1) // 2
+        cv2.circle(img, (cx, cy), 16, (25, 25, 25), 2)
+        cv2.putText(img, "Bo", (min(w - 40, x1 + 30), y1), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (20, 20, 20), 1)
+    _snapped, meta = snap_overlay(img, template)
+    assert abs(float(meta.get("dx") or 0.0)) < 12.0

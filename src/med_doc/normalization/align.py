@@ -7,7 +7,7 @@ from typing import Any
 import cv2
 import numpy as np
 
-from med_doc.normalization.detect import detect_checkboxes_photo
+from med_doc.normalization.detect import detect_checkboxes_photo, filter_checkbox_boxes
 from med_doc.normalization.illumination import flatten_gray, ink_mask, paper_level, paper_map
 from med_doc.normalization.register import ecc_refine, piecewise_register
 from med_doc.schemas import FieldSpec, TemplateSpec
@@ -559,7 +559,7 @@ def snap_overlay(
     ~40 px Y drift on dark clinic photos.
     """
     h, w = canvas.shape[:2]
-    detected = detect_checkboxes_photo(canvas)
+    detected = filter_checkbox_boxes(canvas, detect_checkboxes_photo(canvas))
     meta: dict[str, Any] = {
         "n_detected": len(detected),
         "n_snapped": 0,

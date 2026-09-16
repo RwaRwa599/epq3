@@ -6,6 +6,112 @@ import cv2
 import numpy as np
 from PIL import Image
 
+from med_doc.normalization.illumination import paper_level
+
+# Printed clinic boxes are ~18–24 px. Letter counters from detect are often ≥30 px.
+CHECKBOX_SIDE_MIN = 12
+CHECKBOX_SIDE_MAX = 26
+
+
+def _as_gray(crop: np.ndarray) -> np.ndarray:
+    arr = np.asarray(crop)
+    if arr.ndim == 3:
+        return cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
+    return arr
+
+
+def _annulus_at(gray: np.ndarray) -> bool:
+    """True when this window itself is a four-sided printed square (empty or slash)."""
+    if gray.size == 0 or min(gray.shape[:2]) < 8:
+        return False
+    h, w = gray.shape[:2]
+    if max(h, w) / float(min(h, w)) > 1.25:
+        return False
+    paper = float(paper_level(gray))
+    # Synthetic blanks use ~150 gray rings; clinic ink is darker. paper*0.55
+    # missed the blanks and then 1a alignment collapsed.
+    cut = paper * 0.68
+    band = 2
+    if min(h, w) < band * 2 + 4:
+        return False
+    sides = [gray[:band], gray[-band:], gray[:, :band], gray[:, -band:]]
+    fracs = [float((side < cut).mean()) for side in sides]
+    if min(fracs) < 0.40:
+        return False
+    inset = max(band + 1, int(round(min(h, w) * 0.28)))
+    interior = gray[inset : h - inset, inset : w - inset]
+    if interior.size == 0:
+        return False
+    inn_d = float((interior < cut).mean())
+    cy, cx = h // 2, w // 2
+    center = float(gray[max(0, cy - 2) : cy + 3, max(0, cx - 2) : cx + 3].mean())
+    hollow = center > paper * 0.78 and inn_d <= 0.14
+    slash = 0.06 <= inn_d <= 0.42
+    return bool(hollow or slash)
+
+
+def looks_like_printed_square(crop: np.ndarray) -> bool:
+    """Four-sided ~18–24 px annulus (empty or ink-in-ring). Letter loops fail."""
+    gray = _as_gray(crop)
+    if gray.size == 0 or min(gray.shape[:2]) < 8:
+        return False
+    h, w = gray.shape[:2]
+    if max(h, w) / float(min(h, w)) > 1.45:
+        return False
+    if _annulus_at(gray):
+        return True
+    # Padded 1c crops: only the centered checkbox-sized window (no slide — that
+    # accepted counters inside HbA1c / Body).
+    for side in (24, 22, 20, 18, 16):
+        if side > h or side > w:
+            continue
+        y0 = max(0, (h - side) // 2)
+        x0 = max(0, (w - side) // 2)
+        if _annulus_at(gray[y0 : y0 + side, x0 : x0 + side]):
+            return True
+    return False
+
+
+def refine_square_bbox(gray: np.ndarray, box: list[int], *, search: int = 10) -> list[int] | None:
+    """Nudge a seed window onto a four-sided printed square, if one is nearby."""
+    work = _as_gray(gray)
+    h, w = work.shape[:2]
+    hx, hy = int(box[0]), int(box[1])
+    best: list[int] | None = None
+    best_d = 10**9
+    for side in (18, 20, 16, 22, 24):
+        for dy in range(-search, search + 1):
+            for dx in range(-search, search + 1):
+                xa, ya = hx + dx, hy + dy
+                if xa < 0 or ya < 0 or xa + side > w or ya + side > h:
+                    continue
+                if not _annulus_at(work[ya : ya + side, xa : xa + side]):
+                    continue
+                d = dx * dx + dy * dy
+                if d < best_d:
+                    best_d = d
+                    best = [xa, ya, xa + side, ya + side]
+    return best
+
+
+def filter_checkbox_boxes(image: np.ndarray, boxes: list[list[int]]) -> list[list[int]]:
+    """Drop letter-sized blobs (~30 px). Keep checkbox-sized detections (v0 ~17 px).
+
+    Do not require a four-sided annulus here: photo detect often returns the
+    bright interior of a ring, which fails a border test but is still the box.
+    """
+    kept: list[list[int]] = []
+    for b in boxes:
+        bw, bh = int(b[2] - b[0]), int(b[3] - b[1])
+        if bw < CHECKBOX_SIDE_MIN or bh < CHECKBOX_SIDE_MIN:
+            continue
+        if bw > CHECKBOX_SIDE_MAX or bh > CHECKBOX_SIDE_MAX:
+            continue
+        if max(bw, bh) / float(max(1, min(bw, bh))) > 1.25:
+            continue
+        kept.append(b)
+    return kept
+
 
 def _iou(a: list[int], b: list[int]) -> float:
     x0 = max(a[0], b[0])

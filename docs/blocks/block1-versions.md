@@ -213,7 +213,7 @@ flowchart LR
 
 ---
 
-## B1.9 — ECC + decoupled page gate (2026-09-16) — **current**
+## B1.9 — ECC + decoupled page gate (2026-09-16)
 
 **Intent:** Clinic photos sit at alignment 0.36–0.54. The page gate must not erase per-field 1c/3 scores; registration has to actually move.
 
@@ -230,6 +230,26 @@ flowchart LR
   pw[Piecewise residual]
   c[1c per-field plus neighbour fill]
   ecc --> pw --> c
+```
+
+---
+
+## B1.10 — square gate + glyph-proof snap (2026-09-16) — **current**
+
+**Intent:** v1 is the right template, but overlay windows sat on labels. `has_hollow_ring` accepted letter counters so 1c almost never rematched; `snap_overlay` could median-shift toward those loops.
+
+**Architecture**
+
+- Printed-square test: four similar ~18–24 px sides, paper or slash interior. Glyphs (`Body`, `o`, `B`) fail.
+- `snap_overlay` / piecewise detect keep only checkbox-sized squares, not 30 px letter loops. Do not bake a snap error into v1 JSON until a local `canonical.png` measure shows a constant JSON dx.
+- Block 5 registration uses catalogue ticks / n_checkbox, not ticked/ordered.
+
+```mermaid
+flowchart LR
+  square[four-sided square test]
+  snap[filter detections 12-26 px]
+  c[1c rematch when the window is a glyph]
+  square --> snap --> c
 ```
 
 ---

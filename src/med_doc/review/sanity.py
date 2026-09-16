@@ -5,9 +5,6 @@ from __future__ import annotations
 from med_doc.htr.quality import crop_quality, diagnostic_confidence
 
 REGISTRATION_FAILURE = "registration_failure_suspected"
-# 40–50% of ordered_tests (midpoint). Ignore tiny legitimate orders (CBC-only is 1/1).
-TICKED_OF_ORDERED = 0.45
-MIN_TICKS_FOR_RATIO = 8
 # order-10 inflated to 40–50+ ordered tests after profile expansion
 MAX_ORDERED_TESTS = 40
 # 40% of checkbox fields on the form (only when n_checkbox looks like a full sheet)
@@ -27,15 +24,6 @@ def registration_failure_reasons(
     n_ticked = len(ticked_test_ids)
     n_ordered = len(ordered_tests)
     details: list[str] = []
-    if (
-        n_ticked >= MIN_TICKS_FOR_RATIO
-        and n_ordered > 0
-        and (n_ticked / n_ordered) >= TICKED_OF_ORDERED
-    ):
-        details.append(
-            f"{REGISTRATION_FAILURE}: ticked {n_ticked} / ordered {n_ordered} "
-            f">= {TICKED_OF_ORDERED:.0%}"
-        )
     if n_ordered >= MAX_ORDERED_TESTS:
         details.append(
             f"{REGISTRATION_FAILURE}: {n_ordered} ordered tests (cap {MAX_ORDERED_TESTS})"

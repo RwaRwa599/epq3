@@ -152,19 +152,51 @@ def test_process_from_block4_writes_order_keeps_hypotheses(tmp_path: Path):
 
 def test_registration_gate_flood_and_empty_tubes():
     kg = KnowledgeGraph.load(DEFAULT_KG)
-    flood = [f"tick_{i}" for i in range(20)]
-    hyp = _hyp(ticks=["cbc", "alt", "hba1c"] + flood[:17])
-    # Pretend a full form so catalogue math is defined; 20 ticks / 20 ordered trips the ratio.
+    # Catalogue flood (not ticked/ordered — that ratio is tautological when they match).
+    flood = [f"tick_{i}" for i in range(55)]
+    hyp = _hyp(ticks=["cbc"] + flood, tubes={"tube_edta": "1"})
+    hyp = hyp.model_copy(
+        update={"crop_validate": {"n_ok": 120, "n_retry": 10, "n_hitl": 8, "n_skip": 0}}
+    )
     pred = rescore_hypotheses(hyp, kg)
     order = order_from_prediction(pred, hyp)
     assert order.registration_failure_suspected is True
     assert order.needs_review is True
     assert any("registration_failure_suspected" in w for w in order.warnings)
+    assert any("checkboxes" in w for w in order.warnings)
+    assert not any("/ ordered" in w for w in order.warnings)
     assert order.review_reasons == ["registration_failure_suspected"]
     assert order.is_valid is False
     assert order.ordered_tests == []
     assert order.ticked_test_ids == []
     assert any("withheld" in w for w in order.warnings)
+
+
+def test_registration_gate_spares_typical_tick_count():
+    kg = KnowledgeGraph.load(DEFAULT_KG)
+    ticks = [
+        "cbc",
+        "alt",
+        "hba1c",
+        "ana",
+        "ferritin",
+        "hs_crp",
+        "troponin_i",
+        "vitamin_b12",
+        "vitamin_d",
+        "creatinine",
+        "urea",
+        "tsh",
+        "cea",
+    ]
+    hyp = _hyp(ticks=ticks, tubes={"tube_edta": "1"})
+    hyp = hyp.model_copy(
+        update={"crop_validate": {"n_ok": 120, "n_retry": 10, "n_hitl": 8, "n_skip": 0}}
+    )
+    pred = rescore_hypotheses(hyp, kg)
+    order = order_from_prediction(pred, hyp)
+    assert order.registration_failure_suspected is False
+    assert not any("ticked" in w and "/ ordered" in w for w in order.warnings)
 
 
 def test_registration_gate_spares_small_valid_order():

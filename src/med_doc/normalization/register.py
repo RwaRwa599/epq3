@@ -7,7 +7,7 @@ from typing import Any
 import cv2
 import numpy as np
 
-from med_doc.normalization.detect import detect_checkboxes_photo
+from med_doc.normalization.detect import detect_checkboxes_photo, filter_checkbox_boxes
 from med_doc.normalization.illumination import flatten_gray
 from med_doc.schemas import TemplateSpec
 
@@ -267,7 +267,7 @@ def piecewise_register(
     """Local residual warp after global 1a align. Identity if too few inliers."""
     gray = cv2.cvtColor(canvas, cv2.COLOR_RGB2GRAY) if canvas.ndim == 3 else canvas
     flat = flatten_gray(gray)
-    detected = detect_checkboxes_photo(flat)
+    detected = filter_checkbox_boxes(flat, detect_checkboxes_photo(flat))
     expected, _ids = _expected_centers(template)
     src, dst = match_expected_to_detected(expected, detected, max_dist=64.0)
     meta: dict[str, Any] = {

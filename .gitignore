@@ -46,6 +46,9 @@ data/labels/mark_weights.json
 !data/labels/examples/**
 !data/labels/README.md
 
+# Clinic photos / local measure inputs (never commit PHI)
+data/samples/private/
+
 # Agent-memory must not be committed (repo policy)
 /memory/
 /agent-skills/
