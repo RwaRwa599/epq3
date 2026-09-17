@@ -3,6 +3,8 @@
 **Colab (live `src/med_doc` on branch `block1`):**  
 [https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Run_in_Colab.ipynb](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Run_in_Colab.ipynb)
 
+**if1 experimental:** [https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/prototype3.ipynb](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/prototype3.ipynb) (`BOOTSTRAP_V8`, default `PIPELINE="if1"`).
+
 Open that notebook, **Runtime → Disconnect and delete runtime**, then **Run all**. The first cell must print **`BOOTSTRAP_V6`** and **`tick_policy: slash-v2`**. It re-downloads `https://codeload.github.com/RwaRwa599/epq3/zip/refs/heads/block1`. If `order.json` has no `tick_policy`, the runtime is stale.
 
 Architecture generations: [block1-versions.md](./block1-versions.md), [block3-versions.md](./block3-versions.md). Machine-readable numbers: [data/clinic-eval-chain.json](./data/clinic-eval-chain.json).

@@ -20,12 +20,15 @@ Do not add agent-memory files (`memory/`, `agent-skills/`, `AGENTS.md`, protocol
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Run_in_Colab.ipynb)
 
-**Tick-only / combination critic (new):** [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Tick_Pipeline_Colab.ipynb) — `htr_mode=nonverbal`, Block 4 `combo_backend=kg` (or ollama). First cell must print **`BOOTSTRAP_V7`**.
+**if1 experimental (new):** [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/prototype3.ipynb) — `PIPELINE="if1"` (`run_if1`: bar+gutter warp, coverage high/low, Block 5 high-only). First cell must print **`BOOTSTRAP_V8`**. Set `PIPELINE = "live"` for unchanged Blocks 1–5.
+
+**Tick-only / combination critic:** [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Tick_Pipeline_Colab.ipynb) — `htr_mode=nonverbal`, Block 4 `combo_backend=kg` (or ollama). First cell must print **`BOOTSTRAP_V7`**.
 
 Colab does **not** download `src/` when you open a notebook from GitHub. Open **`Run_in_Colab.ipynb`** on branch **`block1`**. **Runtime → Disconnect and delete runtime**, then **Run all**. The first cell must print **`BOOTSTRAP_V6`** and **`tick_policy: slash-v2`**. Cell 8 sets **`OUTPUT_MODE = "dev"`** so you get `block1.zip` / `block3.zip` with `overlay.png` and `annotated_canvas.png` (user mode is only `order.json`). If `order.json` has no `tick_policy` field, Colab is still on stale code.
 
 | Notebook | Colab |
 |---|---|
+| if1 prototype3 (bar+gutter + high/low) | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/prototype3.ipynb) |
 | Tick pipeline (3a + combo critic) | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Tick_Pipeline_Colab.ipynb) |
 | Blocks 1–5 (use this) | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Run_in_Colab.ipynb) |
 | Same pipeline (older name) | [Open](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Pipeline_Blocks_1_to_5.ipynb) |

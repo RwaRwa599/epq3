@@ -12,6 +12,8 @@ NOTEBOOKS = [
     ROOT / "notebooks" / "Layout_Crop_Batch.ipynb",
 ]
 
+PROTOTYPE3 = ROOT / "prototype3.ipynb"
+
 
 def test_colab_notebooks_zipball_bootstrap_v6():
     for path in NOTEBOOKS:
@@ -28,6 +30,27 @@ def test_colab_notebooks_zipball_bootstrap_v6():
         assert "%pip install -q -e" not in text
         assert "pip install -e" not in text
         assert "git clone" not in text
+
+
+def test_prototype3_if1_zipball_bootstrap_v8():
+    assert PROTOTYPE3.exists(), PROTOTYPE3
+    text = PROTOTYPE3.read_text(encoding="utf-8")
+    assert "BOOTSTRAP_V8" in text
+    assert "slash-v2" in text
+    assert "PIPELINE" in text
+    assert "run_if1" in text
+    assert "ordered_tests_high" in text
+    assert "ordered_tests_low" in text
+    assert "combo_scores" in text or "combo e" in text
+    assert "codeload.github.com/RwaRwa599/epq3/zip/refs/heads/block1" in text
+    assert "if1block1.zip" in text
+    assert "PHI" in text or "phi" in text.lower()
+    assert "sys.path.insert" in text
+    assert "med_doc" in text
+    assert "%pip install -q -e" not in text
+    assert "pip install -e" not in text
+    assert "git clone" not in text
+    assert 'PIPELINE = "if1"' in text
 
 
 def test_colab_bootstrap_from_local_zip(tmp_path, monkeypatch):
