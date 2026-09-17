@@ -32,18 +32,19 @@ def test_colab_notebooks_zipball_bootstrap_v6():
         assert "git clone" not in text
 
 
-def test_prototype3_if1_zipball_bootstrap_v8():
+def test_prototype3_if1_zipball_bootstrap_v9():
     assert PROTOTYPE3.exists(), PROTOTYPE3
     text = PROTOTYPE3.read_text(encoding="utf-8")
-    assert "BOOTSTRAP_V8" in text
+    assert "BOOTSTRAP_V9" in text
     assert "slash-v2" in text
     assert "PIPELINE" in text
-    assert "run_if1" in text
+    assert "run_blocks_1_to_5" in text
+    assert "if1=True" in text or "if1=(PIPELINE" in text
     assert "ordered_tests_high" in text
     assert "ordered_tests_low" in text
-    assert "combo_scores" in text or "combo e" in text
     assert "codeload.github.com/RwaRwa599/epq3/zip/refs/heads/block1" in text
     assert "if1block1.zip" in text
+    assert "block5.zip" in text
     assert "PHI" in text or "phi" in text.lower()
     assert "sys.path.insert" in text
     assert "med_doc" in text

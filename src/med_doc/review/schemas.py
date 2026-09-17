@@ -74,6 +74,9 @@ class LabOrder(BaseModel):
     crop_retry_rate: float = Field(ge=0.0, le=1.0, default=0.0)
     crop_hitl_rate: float = Field(ge=0.0, le=1.0, default=0.0)
     empty_crop_rate: float = Field(ge=0.0, le=1.0, default=0.0)
+    initial_ticked_test_ids: list[str] = Field(default_factory=list)
+    ordered_tests_high: list[str] = Field(default_factory=list)
+    ordered_tests_low: list[str] = Field(default_factory=list)
 
 
 class OrderBundle(BaseModel):

@@ -1,6 +1,6 @@
 # if1 — experimental parallel pipeline
 
-Sibling to live Blocks 1–5. **Does not replace** `normalize_document()` / `run_blocks_1_to_5`. Package: `med_doc.if1`. Mix-and-match: if1block1 ZIP is a Block 1 crop tree; original `process_from_block1` can ingest it. Original Block 4 can ingest if1block3 hypotheses (`ticked_test_ids` aliases the 3a snapshot).
+Sibling to live Blocks 1–5 **as stages**, not a second runner. `run_blocks_1_to_5(..., if1=True)` uses if1block1 warp, stamps `initial_ticked_test_ids`, then if1block4 coverage high/low, then **original Block 5** (`order.json`). Default `if1=False` is unchanged. `run_if1()` is a thin wrapper around that flag. Mix-and-match: if1block1 ZIP is a Block 1 crop tree; original `process_from_block1` can ingest it. Original Block 4 can ingest if1block3 hypotheses (`ticked_test_ids` aliases the 3a snapshot).
 
 ```mermaid
 flowchart LR
@@ -50,7 +50,11 @@ Ticking the group id (printed profile box) sets \(s_g=1\). Thresholds \(\tau_{\m
 ## Public API
 
 ```python
-from med_doc.if1 import run_if1, normalize_document, process_from_if1block1, process_from_if1block3
+from med_doc.pipeline import run_blocks_1_to_5
+from med_doc.if1 import run_if1
+
+run_blocks_1_to_5("photos/", if1=True, output_mode="dev")  # prototype3
+run_if1("photos/")  # same runner, htr_mode=nonverbal
 ```
 
-Colab: [`prototype3.ipynb`](../../prototype3.ipynb) (`BOOTSTRAP_V8`, default `PIPELINE = "if1"`). Zipball of branch `block1`. Do not upload clinic PHI.
+Colab: [`prototype3.ipynb`](../../prototype3.ipynb) (`BOOTSTRAP_V9`, default `PIPELINE = "if1"` → `if1=True`). Zipball of branch `block1`. Do not upload clinic PHI.

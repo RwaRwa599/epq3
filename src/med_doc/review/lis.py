@@ -39,6 +39,9 @@ def order_from_prediction(
 
     ticked = list(pred.ticked_test_ids)
     implied = list(pred.implied_tests)
+    high = list(pred.ordered_tests_high)
+    low = list(pred.ordered_tests_low)
+    initial = list(pred.initial_ticked_test_ids)
     others_id = others.canonical_id if others else None
     others_raw = (others.raw_text or None) if others else None
     if failed:
@@ -46,7 +49,7 @@ def order_from_prediction(
         warnings.append(
             f"{REGISTRATION_FAILURE}: withheld {n_withheld} draft test(s) from LIS order"
         )
-        ordered, ticked, implied = [], [], []
+        ordered, ticked, implied, high, low = [], [], [], [], []
         others_id = None
         received = None
 
@@ -70,4 +73,7 @@ def order_from_prediction(
         crop_retry_rate=float(quality["retry_rate"]),
         crop_hitl_rate=float(quality["hitl_rate"]),
         empty_crop_rate=float(quality["empty_crop_rate"]),
+        initial_ticked_test_ids=initial,
+        ordered_tests_high=high,
+        ordered_tests_low=low,
     )

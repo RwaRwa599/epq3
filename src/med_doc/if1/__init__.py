@@ -1,4 +1,4 @@
-"""Experimental parallel pipeline (if1block1–4). Does not replace live Blocks 1–5."""
+"""Experimental if1block1–4. Live runner: ``run_blocks_1_to_5(..., if1=True)``."""
 
 from med_doc.if1.if1block1 import normalize_batch, normalize_document
 from med_doc.if1.if1block2 import estimate_groups_from_counts, load_groups, score

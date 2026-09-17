@@ -20,7 +20,7 @@ Do not add agent-memory files (`memory/`, `agent-skills/`, `AGENTS.md`, protocol
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Run_in_Colab.ipynb)
 
-**if1 experimental (new):** [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/prototype3.ipynb) — `PIPELINE="if1"` (`run_if1`: bar+gutter warp, coverage high/low, Block 5 high-only). First cell must print **`BOOTSTRAP_V8`**. Set `PIPELINE = "live"` for unchanged Blocks 1–5.
+**if1 experimental (new):** [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/prototype3.ipynb) — `run_blocks_1_to_5(..., if1=True)` (bar+gutter warp, coverage high/low, Block 5 `order.json`). First cell must print **`BOOTSTRAP_V9`**. Set `PIPELINE = "live"` for `if1=False`.
 
 **Tick-only / combination critic:** [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Tick_Pipeline_Colab.ipynb) — `htr_mode=nonverbal`, Block 4 `combo_backend=kg` (or ollama). First cell must print **`BOOTSTRAP_V7`**.
 
@@ -103,6 +103,8 @@ result = run_blocks_1_to_5(
 print(result["output_json"])  # pipeline_out/order.json
 # Developer dump (crops + per-block ZIPs):
 # run_blocks_1_to_5("photos/", output_dir="pipeline_out", output_mode="dev")
+# prototype3 / if1 warp + coverage tiers (same Block 5 order.json):
+# run_blocks_1_to_5("photos/", if1=True, output_mode="dev", htr_mode="nonverbal")
 ```
 
 Ticks are geometry + logistic (not TrOCR/Paddle). Crop gold + refit: [`data/labels/README.md`](data/labels/README.md). `python -m med_doc.eval models` prints the live stack.

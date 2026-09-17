@@ -22,7 +22,7 @@ This folder is the **GitHub-facing record** of Blocks 1–5: what shipped in eac
 - Block 4: `process_from_block3()` on that ZIP + frozen KG → `prediction.json`
 - Block 5: `process_from_block4()` → `review.json` + `order.json`
 
-Standalone Colab trees `block1/`, `block2/`, `block3/` are **older snapshots** for notebooks. They do not contain Block 1c or interior V/slash geometry. Prefer `src/med_doc` via [`notebooks/`](../../notebooks/README.md) and [`Run_in_Colab.ipynb`](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Run_in_Colab.ipynb) (zipball of branch `block1`; Colab does not fetch `src/` with the notebook alone). Experimental if1: [`prototype3.ipynb`](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/prototype3.ipynb) (`BOOTSTRAP_V8`).
+Standalone Colab trees `block1/`, `block2/`, `block3/` are **older snapshots** for notebooks. They do not contain Block 1c or interior V/slash geometry. Prefer `src/med_doc` via [`notebooks/`](../../notebooks/README.md) and [`Run_in_Colab.ipynb`](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/Run_in_Colab.ipynb) (zipball of branch `block1`; Colab does not fetch `src/` with the notebook alone). Experimental if1: [`prototype3.ipynb`](https://colab.research.google.com/github/RwaRwa599/epq3/blob/block1/prototype3.ipynb) (`BOOTSTRAP_V9`, `if1=True` on the live runner).
 
 **Why versions changed (clinic dumps order-2 → order-10):** [clinic-eval-chain.md](./clinic-eval-chain.md). Current `tick_policy` is `slash-v2`. order-9 precision **0.20** / recall **~0.29** on one labeled sheet; order-10 is **not** LIS-safe.
 

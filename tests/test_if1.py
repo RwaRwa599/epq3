@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import cv2
@@ -128,3 +129,39 @@ def test_if1block1_zip_feeds_original_block3(tmp_path: Path):
         vision_backend="off",
     )
     assert b3["manifest"]["total_documents"] == 1
+
+
+def test_run_if1_is_live_pipeline_flag(tmp_path: Path):
+    from med_doc.if1 import run_if1
+    from med_doc.paths import SYNTHETIC_DIR
+    from med_doc.pipeline import run_blocks_1_to_5
+
+    blank = SYNTHETIC_DIR / "lab_request_v0_blank.png"
+    img = tmp_path / "form.png"
+    import shutil
+
+    shutil.copy2(blank, img)
+    pipe = run_if1(img, output_dir=tmp_path / "if1", output_mode="user")
+    assert pipe["if1"] is True
+    assert "if1" in run_blocks_1_to_5.__code__.co_varnames
+    bundle = json.loads(Path(pipe["output_json"]).read_text(encoding="utf-8"))
+    assert bundle["block"] == "block5"
+    assert "ordered_tests_high" in bundle["orders"][0]
+
+
+def test_lab_order_copies_if1_tiers():
+    from med_doc.htr.schemas import DocumentPrediction
+    from med_doc.review.lis import order_from_prediction
+
+    pred = DocumentPrediction(
+        doc_id="x",
+        ticked_test_ids=["hdl"],
+        ordered_tests_high=["hdl"],
+        ordered_tests_low=["cea"],
+        initial_ticked_test_ids=["hdl", "cea"],
+        observed_tubes={"EDTA": 1, "SST": None, "NaF": None, "Citrate": None},
+    )
+    order = order_from_prediction(pred)
+    assert order.ordered_tests_high == ["hdl"]
+    assert order.ordered_tests_low == ["cea"]
+    assert order.initial_ticked_test_ids == ["hdl", "cea"]

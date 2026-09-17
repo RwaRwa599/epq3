@@ -13,11 +13,11 @@ import cv2
 from med_doc.htr.ingest import cleanup_temp, load_rgb, unzip_or_dir
 from med_doc.htr.schemas import BatchPredictionManifest, DocumentHypotheses
 from med_doc.htr.viz import draw_prediction_overlay
-from med_doc.if1 import if1block2
+from med_doc.if1.if1block2 import load_groups, score
 from med_doc.if1.scorer import flags_from_scores, split_tiers
 from med_doc.kg.graph import KnowledgeGraph
 from med_doc.paths import DEFAULT_KG
-from med_doc.rescoring.combinations import rerun_3a_on_flags
+from med_doc.rescoring.combinations import make_critic, rerun_3a_on_flags
 from med_doc.rescoring.engine import rescore_hypotheses
 from med_doc.rescoring.ticks import trusted_tick_ids
 
@@ -37,9 +37,12 @@ def process_from_if1block3(
     output_dir: str | Path | None = None,
     output_zip: str | Path | None = None,
     kg: KnowledgeGraph | None = None,
+    combo_backend: str = "off",
+    combo_model: str | None = None,
 ) -> dict[str, Any]:
     kg = kg or KnowledgeGraph.load(DEFAULT_KG)
-    groups = if1block2.load_groups(kg=kg)
+    groups = load_groups(kg=kg)
+    critic = make_critic(combo_backend, model=combo_model)
     base_in_dir, is_temp_in = unzip_or_dir(input_source)
     print(f"[if1block4] Ingested {input_source}")
 
@@ -55,7 +58,7 @@ def process_from_if1block3(
             (doc_dir / "hypotheses.json").read_text(encoding="utf-8")
         )
         initial = list(hyp.initial_ticked_test_ids or trusted_tick_ids(hyp.nonverbal))
-        scored = if1block2.score(initial, groups=groups, kg=kg)
+        scored = score(initial, groups=groups, kg=kg)
         flags = flags_from_scores(scored, initial)
         crops: dict = {}
         cb_dir = doc_dir / "crops" / "checkboxes"
@@ -70,7 +73,9 @@ def process_from_if1block3(
                 "initial_ticked_test_ids": list(initial),
             }
         )
-        prediction = rescore_hypotheses(hyp_scored, kg, checkbox_crops=crops or None)
+        prediction = rescore_hypotheses(
+            hyp_scored, kg, critic=critic, checkbox_crops=crops or None
+        )
         still = trusted_tick_ids(nonverbal)
         tiers = split_tiers(initial, scored, still_ticked=still)
         warnings = list(prediction.warnings)

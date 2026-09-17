@@ -190,3 +190,45 @@ def test_run_blocks_1_to_5_user_mode_one_json(tmp_path: Path):
     assert not (out / "b5").exists()
     leftover = {p.name for p in out.iterdir()}
     assert leftover == {"order.json"}
+
+
+def test_run_blocks_1_to_5_if1_writes_order_json(tmp_path: Path):
+    from med_doc.pipeline import run_blocks_1_to_5
+
+    blank = SYNTHETIC_DIR / "lab_request_v0_blank.png"
+    folder = tmp_path / "photos"
+    folder.mkdir()
+    import shutil
+
+    shutil.copy2(blank, folder / "form_a.png")
+    pipe = run_blocks_1_to_5(
+        folder,
+        output_dir=tmp_path / "out",
+        backend="lexicon",
+        output_mode="dev",
+        if1=True,
+        htr_mode="nonverbal",
+    )
+    assert pipe["if1"] is True
+    assert pipe["block1"] is pipe["if1block1"]
+    assert pipe["block1"]["manifest"]["block"] == "if1block1"
+    assert pipe["block4"]["manifest"]["block"] == "if1block4"
+    assert Path(pipe["output_json"]).is_file()
+    bundle = json.loads(Path(pipe["output_json"]).read_text(encoding="utf-8"))
+    assert bundle["total_documents"] == 1
+    order = bundle["orders"][0]
+    assert "ordered_tests_high" in order
+    assert "ordered_tests_low" in order
+    assert "initial_ticked_test_ids" in order
+    assert "ordered_tests" in order
+    out = tmp_path / "out"
+    for name in (
+        "block1.zip",
+        "block3.zip",
+        "block4.zip",
+        "block5.zip",
+        "if1block1.zip",
+        "if1block3.zip",
+        "if1block4.zip",
+    ):
+        assert (out / name).is_file(), name
