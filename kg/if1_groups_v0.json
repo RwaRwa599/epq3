@@ -1,0 +1,183 @@
+{
+  "version": "v0",
+  "source": "profile_bundles",
+  "note": "Frozen presets. Fitting w,pi from counts is a research placeholder (estimate_groups_from_counts).",
+  "groups": [
+    {
+      "id": "profile_anemia",
+      "members": {
+        "cbc": 1.0,
+        "ferritin": 1.0,
+        "folate": 1.0,
+        "vitamin_b12": 1.0,
+        "iron": 1.0,
+        "tibc": 1.0
+      },
+      "prior": 1.0,
+      "diagnosis": "Anemia Profile"
+    },
+    {
+      "id": "profile_antenatal",
+      "members": {
+        "cbc": 1.0,
+        "abo_rh": 1.0,
+        "hbsag": 1.0,
+        "hiv_combo": 1.0,
+        "rubella_igg": 1.0,
+        "syphilis_tp": 1.0,
+        "rpr": 1.0
+      },
+      "prior": 1.0,
+      "diagnosis": "Antenatal Profile"
+    },
+    {
+      "id": "profile_cardiovascular",
+      "members": {
+        "chol_total": 1.0,
+        "hdl": 1.0,
+        "ldl": 1.0,
+        "triglycerides": 1.0,
+        "hs_crp": 1.0,
+        "homocysteine": 1.0
+      },
+      "prior": 1.0,
+      "diagnosis": "Cardiovascular Profile"
+    },
+    {
+      "id": "profile_diabetes",
+      "members": {
+        "hba1c": 1.0,
+        "glucose_fasting": 1.0,
+        "glucose_random": 1.0
+      },
+      "prior": 1.0,
+      "diagnosis": "Diabetes Profile"
+    },
+    {
+      "id": "profile_hepatitis",
+      "members": {
+        "hav_ab_igg": 1.0,
+        "hav_ab_igm": 1.0,
+        "hbsag": 1.0,
+        "hbsab": 1.0,
+        "hbcab_total": 1.0,
+        "hcv_ab": 1.0
+      },
+      "prior": 1.0,
+      "diagnosis": "Hepatitis Profile"
+    },
+    {
+      "id": "profile_lipid",
+      "members": {
+        "chol_total": 1.0,
+        "hdl": 1.0,
+        "ldl": 1.0,
+        "triglycerides": 1.0
+      },
+      "prior": 1.0,
+      "diagnosis": "Lipid Profile"
+    },
+    {
+      "id": "profile_liver",
+      "members": {
+        "alp": 1.0,
+        "alt": 1.0,
+        "ast": 1.0,
+        "ggt": 1.0,
+        "bilirubin_total": 1.0,
+        "bilirubin_direct": 1.0,
+        "total_protein": 1.0,
+        "albumin": 1.0,
+        "globulin": 1.0,
+        "ag_ratio": 1.0
+      },
+      "prior": 1.0,
+      "diagnosis": "Liver Function Test"
+    },
+    {
+      "id": "profile_ogtt",
+      "members": {
+        "glucose_fasting": 1.0,
+        "glucose_random": 1.0
+      },
+      "prior": 1.0,
+      "diagnosis": "OGTT"
+    },
+    {
+      "id": "profile_renal_function",
+      "members": {
+        "creatinine": 1.0,
+        "urea": 1.0,
+        "na": 1.0,
+        "k": 1.0,
+        "cl": 1.0,
+        "co2": 1.0,
+        "egfr": 1.0
+      },
+      "prior": 1.0,
+      "diagnosis": "Renal Function Test"
+    },
+    {
+      "id": "profile_renal",
+      "members": {
+        "creatinine": 1.0,
+        "urea": 1.0,
+        "na": 1.0,
+        "k": 1.0,
+        "cl": 1.0,
+        "co2": 1.0,
+        "egfr": 1.0,
+        "uric_acid": 1.0
+      },
+      "prior": 1.0,
+      "diagnosis": "Renal Profile"
+    },
+    {
+      "id": "profile_std",
+      "members": {
+        "hiv_combo": 1.0,
+        "syphilis_tp": 1.0,
+        "rpr": 1.0,
+        "hbsag": 1.0,
+        "hcv_ab": 1.0
+      },
+      "prior": 1.0,
+      "diagnosis": "STD Profile"
+    },
+    {
+      "id": "profile_thyroid",
+      "members": {
+        "tsh": 1.0,
+        "ft3": 1.0,
+        "ft4": 1.0
+      },
+      "prior": 1.0,
+      "diagnosis": "Thyroid Function Test"
+    },
+    {
+      "id": "profile_tumour_marker_f",
+      "members": {
+        "ca125": 1.0,
+        "ca15_3": 1.0,
+        "cea": 1.0,
+        "he4": 1.0,
+        "roma": 1.0,
+        "afp": 1.0
+      },
+      "prior": 1.0,
+      "diagnosis": "Tumour Marker [F]"
+    },
+    {
+      "id": "profile_tumour_marker_m",
+      "members": {
+        "psa_total": 1.0,
+        "psa_free": 1.0,
+        "psa_ratio": 1.0,
+        "cea": 1.0,
+        "afp": 1.0
+      },
+      "prior": 1.0,
+      "diagnosis": "Tumour Marker [M]"
+    }
+  ]
+}

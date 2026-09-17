@@ -19,6 +19,8 @@ V1_TEMPLATE = TEMPLATES_DIR / "lab_request_v1_canonical.json"
 
 DEFAULT_KG = KG_DIR / "lab_request_v1_kg.json"
 V0_KG = KG_DIR / "lab_request_v0_kg.json"
+IF1_GROUPS = KG_DIR / "if1_groups_v0.json"
+IF1_LOCAL_OVERRIDES = KG_DIR / "if1_local_overrides.json"
 
 CANONICAL_SIZE = (2048, 1720)  # 2× the digital v0 blank (1024×860)
 V1_CANONICAL_SIZE = (2048, 1754)  # 2× clinic print v1 (1024×877)

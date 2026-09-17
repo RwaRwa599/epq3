@@ -59,6 +59,10 @@ class DocumentPrediction(BaseModel):
     overall_confidence: float = Field(ge=0.0, le=1.0, default=1.0)
     hitl_fields: list[str] = Field(default_factory=list)
     crop_validate: dict[str, Any] = Field(default_factory=dict)
+    initial_ticked_test_ids: list[str] = Field(default_factory=list)
+    ordered_tests_high: list[str] = Field(default_factory=list)
+    ordered_tests_low: list[str] = Field(default_factory=list)
+    combo_scores: dict[str, Any] = Field(default_factory=dict)
 
 
 class DocumentHypotheses(BaseModel):
@@ -75,6 +79,7 @@ class DocumentHypotheses(BaseModel):
     hitl_fields: list[str] = Field(default_factory=list)
     crop_validate: dict[str, Any] = Field(default_factory=dict)
     vision: VisionDraft = Field(default_factory=VisionDraft)
+    initial_ticked_test_ids: list[str] = Field(default_factory=list)
 
 
 class BatchPredictionManifest(BaseModel):

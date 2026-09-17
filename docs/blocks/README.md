@@ -7,7 +7,7 @@ This folder is the **GitHub-facing record** of Blocks 1–5: what shipped in eac
 | [block1-versions.md](./block1-versions.md) | Every Block 1 architecture generation + current data |
 | [block3-versions.md](./block3-versions.md) | Every Block 3 architecture generation + current data |
 | [block2-status.md](./block2-status.md) | Frozen Block 2 KG (no separate version train in this pass) |
-| [block4-status.md](./block4-status.md) | KG rescoring of Block 3 drafts (trusted ticks, tubes, write-ins) |
+| [if1-status.md](./if1-status.md) | Experimental if1block1–4 (bar+gutter warp + coverage scorer); live 1–5 untouched |
 | [layout-crop.md](./layout-crop.md) | Batch crop header/footer (template or LayoutParser); not redaction |
 | [clinic-eval-chain.md](./clinic-eval-chain.md) | Colab + why each version failed + accuracy (synthetic and clinic dumps) |
 | [data/clinic-eval-chain.json](./data/clinic-eval-chain.json) | Same chain, machine-readable |
