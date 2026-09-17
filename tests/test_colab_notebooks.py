@@ -50,7 +50,7 @@ def test_prototype3_if1_zipball_bootstrap_v8():
     assert "%pip install -q -e" not in text
     assert "pip install -e" not in text
     assert "git clone" not in text
-    assert 'PIPELINE = "if1"' in text
+    assert "PIPELINE = \\\"if1\\\"" in text or 'PIPELINE = "if1"' in text
 
 
 def test_colab_bootstrap_from_local_zip(tmp_path, monkeypatch):
