@@ -52,3 +52,5 @@ Ticking the group id (printed profile box) sets \(s_g=1\). Thresholds \(\tau_{\m
 ```python
 from med_doc.if1 import run_if1, normalize_document, process_from_if1block1, process_from_if1block3
 ```
+
+Colab: [`prototype3.ipynb`](../../prototype3.ipynb) (`BOOTSTRAP_V8`, default `PIPELINE = "if1"`). Zipball of branch `block1`. Do not upload clinic PHI.
